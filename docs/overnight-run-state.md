@@ -17,10 +17,10 @@ is not running and you should take over.
 > so a heartbeat running fast eventually reads as stale and invites a second session in on top of a
 > live one. **Run `date` before writing a timestamp here. Never estimate one.**
 
-- **Last updated:** 2026-09-03 23:54 IDT
+- **Last updated:** 2026-09-04 00:46 IDT
 - **Run started:** 2026-09-03 22:30 IDT
 - **Hard stops:** 06:00 no new work · 06:30 tree clean · 07:00 handoff written and pushed
-- **Status:** WAVE 1 COMPLETE · WAVE 2 COMPLETE · WAVE 3: 2 of 3 landed, verification still running
+- **Status:** WAVES 1–3 COMPLETE · verification done · two late lanes dispatched
 
 ## The resume mechanism
 
@@ -438,7 +438,7 @@ mechanical: make each assertion quote-agnostic without changing what it claims.
 
 | Lane | Agent | Scope | Status |
 |---|---|---|---|
-| Adversarial verification of every claim | `qa-reliability` | read-only | RUNNING |
+| Adversarial verification of every claim | `qa-reliability` | read-only | **DONE 00:04** |
 | T — repair the dead guards | `qa-reliability` | `tests/unit/**` | **COMMITTED 23:50** |
 | C3 — the Server Component boundary | `nextjs-architect` | `src/ui/`, `ui/inline-menu.tsx`, `profile/page.tsx` | **COMMITTED 23:52** |
 
@@ -495,3 +495,147 @@ and the three that moved are checked in their new home. The claim is unchanged.
 end of the document, so at scroll-top it is behind the floating nav; a 62 px scroll clears it. This
 change made the block 4 px shorter, so it is marginally better than before. Fixing it means touching
 the page's padding reserve, which nobody asked for.
+
+### Wave 3 verification — **4 of 5 claims CONFIRMED, 1 PARTIAL, no regressions, no twelfth failure.**
+Tested against commit `574b566`.
+
+**CONFIRMED:** the place card (three rows one shape, panel caps at 332 px and never `100dvh`, no
+`Done` anywhere, **TikTok and Google Maps explicit, labelled and legible on both hosts** — 72×44 and
+93×44, real hrefs, correct ink in both themes) · the profile popover · the share panel · the import
+false-picker. **§8 preserve: all seven pass**, with the two map expressions byte-identical and
+corroborated statically — no map or pin-layer file appears in tonight's diff at all.
+
+**The popover height claim was attacked properly and held.** The agent intercepted the profile server
+action and held it for **6 seconds** so the cold loading state genuinely painted, then sampled the
+geometry: **one box, `430/333`, from first paint to settled — zero movement.** That is the claim I
+most wanted independently checked, and it is now checked the hard way rather than by a fast open.
+
+### PARTIAL — claim 1, and this is the finding of the night
+
+**`b90caf5`'s `Been here` numbers were true when it landed and were quietly invalidated four commits
+later by `bd6f46a`**, which grew the control's outer box 44 → 48 px. Nobody re-measured across the
+two. The honest numbers at HEAD, and they replace what the commit message and this file said:
+
+| | at rest, HEAD |
+|---|---|
+| card column | 396–778 = **382 px** ✓ (the column claim stands) |
+| `Been here`, 390×844, a card with a creator line | button **742–790**, column clips at 778 → **30 of the 36 px pill painted** |
+| the same card, 390×812 | **13 of the 36 px pill** — the "~19 px" figure counted the target box, not the ink |
+| a shorter card (no creator line), either height | fully painted, clear |
+
+**"34 px clear of the nav" does not describe anything in the tree.** It described `b90caf5` alone.
+The switch removal is still a large real gain — the act went from *zero* pixels to most of one — but
+**the act is still cut at rest on taller cards, and badly cut on the shorter phone.**
+
+What is left costs the still, the tags, or the `half` stop itself, and each is a product decision
+rather than a layout one. **Owner's call — top of the morning list.**
+
+### The verifier's own disclosures, both to its credit
+
+- **It withdrew two REFUTED verdicts** after finding its own harness at fault — `element.click()`
+  does not focus, so Escape appeared not to close a panel; and a sort-menu row is not a `button`, so
+  sorting appeared broken. Both are recorded so nobody re-finds them.
+- **It declared a breach of its own grant**: to verify the collection toggle it moved
+  `Bread - Lehi 2` into `London 2026` and straight back out (15 → 16 → 15, restored and re-read).
+  Net zero, but outside what it was sanctioned to touch, and it said so rather than letting it be
+  found. Its scratch collection `zz qa3 scratch` was created, driven and deleted; the three real
+  collections' invite controls were opened and **cancelled**, never executed.
+
+**What it could not verify:** a real device (the 390×812 clipping is exactly what a phone's dynamic
+toolbar moves, in either direction); `Been here` across the whole library (two places sampled, and
+the band's position is content-dependent); a Hebrew note actually persisted and re-rendered.
+
+### Lane E group B — **shipped nothing, correctly.** Golden file 24/24 before and after (unchanged,
+because nothing changed). **Zero model calls, zero TikTok fetches, zero Google Places calls.**
+
+Two hard blockers, and the first one settles it on its own:
+
+1. **The change has to touch `/api/imports/probe/route.ts`** — one of the three uncommitted
+   owner-owned files that are off limits to every lane all night. That route builds the grounding
+   string itself and filters candidates a **second** time against caption-only, and *that* pass is
+   the binding one: an author line added anywhere else would be deleted there as
+   `evidence_not_in_caption`. Doing it only in `pipeline.ts` — the one file of the three in scope —
+   would have moved nothing in the product while reading like a shipped feature.
+2. **The agent cannot make a model call**: the API keys live only in `.env.local`, which the project
+   permissions deny. **It did not attempt a workaround**, which is the right answer. So the half of
+   the change only a model can answer — does this exact author-line format recover the venue, and
+   does it stay silent on the other five captions — was unmeasurable, and an unmeasurable change
+   does not ship.
+
+**It also chose correctly between the two candidate moves.** `addressHint`-as-retrieval-term cannot
+move 6.5 at all (zero candidates, so there is no hint to retrieve with) and cannot move 6.3 to
+anything a user sees, because the Google resolver retrieves on `text, city` only and folding the
+address into `query.text` also feeds the scorer — the right venue would come back and then score as
+`no_match`. Meanwhile it would change the query text and name score of the **two links that
+currently work**. Broad regression risk, no visible gain, against a documented measured decision.
+
+**The finding worth keeping, and it would have sunk the change silently.** The author line must carry
+**the bare handle only**. Measured on pure functions: with the handle alone the candidate is capped
+at `modelConfidence 0.5` and the card says *"Only mentioned as a tagged account."* Add the display
+name and `isTaggedAccountOnlyEvidence` flips false, the cap does not apply, and it arrives at **0.9
+with no note — indistinguishable from a venue the caption named.** That is exactly the
+uncertainty-into-certainty failure the owner forbids, and it is **invisible in the extraction
+output**; it only shows on the card.
+
+**Morning list:** the ready three-step diff is in the agent's report — the route seam, the pipeline
+mirror, then ~6 calls over the saved captions to measure. Feedback **6.3 is a different problem**:
+it needs address-based retrieval in the Google adapter, which is another owner and another night.
+
+---
+
+## Late lanes (after the owner's 00:40 message)
+
+### Lane G — committed (`9f5cfa3`), then corrected by the owner (`7fb1bed`).
+
+`At least 6 characters` sat in the password placeholder on **every** screen with a password on it,
+including sign-in — stating a rule for *choosing* a password at somebody typing one they have had
+for months. And a placeholder cannot hold a requirement: it leaves on the first keystroke. The rule
+moved to a persistent hint under the field on the two screens where a password is actually chosen,
+wired with `aria-describedby`, and suppressed while the server's own weak-password error is showing
+so the rule is never said twice in adjacent lines. **Validation untouched** — verified by submitting
+a short password and an empty one and reading what came back. No account was created:
+`auth.users` is the same four rows before and after.
+
+**The owner overruled the placeholder itself at 00:40.** The agent had replaced it with `••••••••`,
+reasoning that a placeholder is an example of the value the way `you@example.com` is in the field
+above it. The owner: *"this makes an empty field look like it already contains a password."* Correct
+— the analogy does not survive masking, because a row of bullets is exactly what a real entry
+renders as. It now reads `Enter your password`. **The owner also ruled: leave sign-up saying the
+same thing; do not change it to `Create a password`.** Both the reasoning and the ruling are written
+into `copy.ts` so nobody re-derives the mistake.
+
+Five test harnesses signed in by locating the old placeholder text and would all have gone red; they
+now locate the field by id.
+
+### Lane E1 — feedback 4.1: **diagnosed, and it is not what it looks like.** No source written, no
+rows written (counts identical before and after: 59 saved places, 60 source links, 55 sources, 64
+places).
+
+**The sources table is fine and the card is fine.** `saved_place_sources` is many-to-many by design
+and `save_place` accumulates (`on conflict do nothing`) — nothing in `src/` or in any migration ever
+deletes a source link. A **real, pre-existing** two-source row exists in the demo library from two
+genuine imports 58 seconds apart, and the agent read it back **through the anon key as the demo
+user over PostgREST**, not as `postgres`, so RLS was exercised rather than bypassed.
+
+**And the render half works — verified in a browser for the first time.** `/map?place=e4581ba9-…`
+shows `Saved from @karin_ziri`, then `Also saved from 1 more TikTok video` with the second creator's
+row linking to its video, on mobile **and** in the desktop popover. That closes the standing "commit
+`4bc04d0` is committed and unproven" item — it works, and nobody had ever looked.
+
+**What the owner actually hit is (c): two `places` rows for one venue**, each holding one TikTok. So
+from the venue's point of view only one TikTok is attached, and the multi-source card never got a
+chance to draw because the two saves were never the same save. About **14 saves that should be 6
+venues — 14% of the library — and every single one is `llm-guess`. Zero among `google-places`.**
+
+The deciding line is `resolve_place`'s step-2 guard: `name_key` **exact equality** AND within 75 m.
+It fails in both directions — `Tokii`/`Tokii` key identically but sit 85 m apart; `Kiaans`/`Kiaans
+Tooting` are 18 m apart but key differently. A tolerant radius cannot rescue it either: llm-guess
+coordinates drift a median **327 m** between two runs of the same caption, which is already measured
+and written up in `llm-guess-place-id.ts`.
+
+**Parked, and correctly: the fix is a migration** — either a tolerant name match or the `llm_guess` →
+Google upgrade that can **merge** two rows rather than relabel one. Both are `SECURITY DEFINER`
+changes plus a backfill over live rows, both need `security-privacy`, and the failure mode if done
+wrong is the *opposite* one — two real branches of a chain collapsing into one place — which is worse
+than the duplicate. **Owner decision. The agent looked for a small migration-free fix and reported
+honestly that none exists.**
