@@ -74,7 +74,6 @@
 import {
   createContext,
   useCallback,
-  useEffect,
   useRef,
   useContext,
   useId,
@@ -82,7 +81,6 @@ import {
   useState,
   type CSSProperties,
   type ReactNode,
-  type RefObject,
 } from 'react';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox';
 import { Menu } from '@base-ui/react/menu';
@@ -107,7 +105,13 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '@/components/ui/combobox';
-import { FILTER_KICKER } from './place-enrichment';
+import {
+  CLEAR_LABEL,
+  InlinePanel,
+  MENU_POPUP,
+  MENU_ROW,
+  MENU_ROW_PAINT,
+} from '@/components/ui/inline-menu';
 import {
   VISIT_FILTERS,
   VISIT_FILTER_GROUP_LABEL,
@@ -213,103 +217,10 @@ export const SORT_PAINT =
   'group-hover/trigger:border-brand group-hover/trigger:bg-primary/15 group-focus-visible/trigger:ring-3 group-focus-visible/trigger:ring-ring/50 ' +
   'motion-safe:transition-colors motion-safe:duration-press';
 
-/**
- * **The surface a menu paints on, and there is exactly one of it** — the desktop popup and the
- * phone's inline panel wear the same border, radius, padding and elevation, so the split is where
- * the list is drawn and not what it is.
- *
- * `--popover` rather than `--card`: both resolve to `#FFFFFF` / `#201F1C` today, but `--popover` is
- * the role that exists for this, and it is what lets a future menu ground move without moving every
- * card. Over a live map canvas the hairline border does more work than the shadow — and there is no
- * `backdrop-blur`, which is banned over the canvas, and no glow, which Charter §6 bans outright.
- */
-const PANEL_SURFACE =
-  'rounded-lg border border-border/60 bg-popover p-1 shadow-raised outline-none';
-
-/**
- * The floating half, on desktop. `w-max` — **the width is the content's**, not the row's and not
- * the panel's: a two-row menu stretched to a 500 px panel reads as a dialog that lost its content.
- *
- * `--available-height` and `--transform-origin` come from the positioner, so a menu near the bottom
- * of the viewport flips above its trigger and scrolls inside what is left. One scroll container,
- * always: nothing inside a popup carries its own `overflow-y`, because two stacked tracks means the
- * user cannot tell which one their thumb will grab.
- *
- * 16 px of radius, not 24: with 4 px of padding around 12 px rows the corners nest exactly
- * (16 − 4 = 12 = `--radius-sm`), where 24 around 16 did not. Motion is a fade and a 4 px rise over
- * `duration-enter` — no scale, because an overshoot on a menu is the single most goofy-reading
- * thing available.
- */
-const MENU_POPUP =
-  cn(
-    PANEL_SURFACE,
-    'z-50 max-h-[min(20rem,var(--available-height))] w-max min-w-40 max-w-[calc(100vw-2rem)] origin-(--transform-origin) overflow-y-auto overscroll-contain ' +
-      'data-open:animate-in data-open:fade-in-0 data-open:motion-safe:slide-in-from-top-1 data-closed:animate-out data-closed:fade-out-0 duration-enter',
-  );
-
-/**
- * **The inline half, on the phone.** Normal flow, full content width, no portal, no scrim, no fixed
- * positioning — it pushes the list down rather than covering it, which is the whole point of the
- * split.
- *
- * `order-last` with `w-full` is what puts it under **its own row** rather than under the whole
- * header: flex lays wrapped items out by `order` first, so the panel takes the line below the
- * triggers while `Clear` and the triggers after it stay where they were.
- *
- * **The cap is measured against the sheet's column, not the viewport.** `dvh` in here is a lie:
- * the column is `55dvh - 70px` at `half`, so the old `45dvh` cap claimed 96 % of it and the list's
- * scroll box measured 0 px. A flex line never shrinks, so nothing downstream could take it back.
- * The cap is now the smaller of two claims on the `--sheet-content-height` that `place-sheet.tsx`
- * publishes: two fifths of the column, or all of it bar 21rem. `dvh` survives as the fallback.
- *
- * No height animation, ever: layout thrash inside a scrolling sheet for no information.
- */
-const INLINE_PANEL =
-  cn(
-    PANEL_SURFACE,
-    'order-last mt-1.5 w-full overflow-y-auto overscroll-contain ' +
-      'max-h-[min(calc(var(--sheet-content-height,100dvh)*0.4),calc(var(--sheet-content-height,100dvh)-21rem))] ' +
-      'animate-in fade-in-0 motion-safe:slide-in-from-top-1 duration-enter',
-  );
-
-/**
- * **One row of a menu.** No fill, no border and no elevation at rest; the highlight is a full-width
- * ground, and what says "this one" is the indicator and a weight rather than a filled pill.
- *
- * **40 px of paint inside a 44 px target**, the same technique the triggers use. 12 px of radius,
- * which is the panel's 16 minus its 4 px of padding, so the corners nest. The indicator
- * column is always present (`keepMounted`) so the label sits at the same inline offset in every row
- * of every menu, and the count is in an end-aligned column that cannot jitter. Logical properties
- * throughout — both swap edges under RTL, and half this library is Hebrew.
- */
-const MENU_ROW = 'group/row flex min-h-11 cursor-pointer select-none items-center outline-none';
-/**
- * **The highlight is `bg-card-2`, and `bg-muted/60` was a real accessibility defect.** Base UI's
- * `data-highlighted` is the pointer hover *and* the keyboard-active row. `--muted` is `#FAF9F6`
- * light and `#201F1C` dark; the popup is painted `--card`, `#FFFFFF` / `#201F1C`. So the composite
- * was `#FCFBFA` on white — about 1 %, effectively invisible — and in dark it was **identical to the
- * ground**: a keyboard user arrowed through the menu with no visible position at all.
- *
- * `--card-2` is `#F3F1EB` / `#2A2825`, a real step on both, and it is the product's own documented
- * neutral hover (`facelift-plan.md` §3a, row "Icon button": *surface → `card-2`*). It also keeps
- * the count legible without a second ink — `globals.css:235-240` measures `--muted-foreground`
- * at 4.76 on `--card-2` in light and 5.81 in dark. Not `bg-accent`: `--accent` is `--mint-100`,
- * a 2 % step on white, which is the same defect wearing mint.
- */
-const MENU_ROW_PAINT =
-  'flex h-10 w-full items-center gap-2 rounded-sm px-2 text-xs font-medium text-foreground ' +
-  // `data-highlighted` is Base UI's, on the menu rows; `group-hover` is what the inline radio rows
-  // have instead, and both land on the same ground so one list cannot feel different from the other.
-  'group-data-highlighted/row:bg-card-2 group-hover/row:bg-card-2 ' +
-  'group-focus-visible/row:ring-3 group-focus-visible/row:ring-ring/50 ' +
-  'motion-safe:transition-colors motion-safe:duration-press';
-
 /** One header row: wraps, never scrolls, and carries no vertical gap of its own. */
 const HEADER_ROW = 'flex flex-wrap items-center gap-x-1.5';
 
-/** The word, never an `x` — defect D3's fix. A real control with a real accessible name rather than
- *  a decorative glyph carrying a dismissal's affordance with no dismissal behind it. */
-const CLEAR_LABEL = 'Clear';
+/** The accessible name of the row's own `Clear`, which clears every axis rather than one. */
 const CLEAR_ALL_ACCESSIBLE_NAME = 'Clear all filters';
 
 /** The row that says "no category is narrowing this", rather than the press-the-pressed-one rule the
@@ -718,92 +629,6 @@ export function MenuAxis({
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
-  );
-}
-
-/**
- * **The phone's panel: the same list, in normal flow, under its own row.**
- *
- * Not a modal. No portal, no scrim, nothing trapped — `Tab` leaves it normally and it stays open,
- * because it makes no modal claim. Escape closes it and returns to the trigger, which is not
- * optional: `product-review-2026-09-01-r5.md` G1 found the profile popover shipped without either,
- * and this must not be the second surface to do it.
- *
- * **The kicker is what says where the panel came from.** Full width under the row means the panel
- * cannot sit beneath the exact pill that was pressed, so the axis word is printed on its first line
- * and the pressed trigger stays painted open. That, together with the panel being under *its own*
- * row rather than under the whole header, is the answer to the earlier inline attempt's measured
- * failure — press `Category` at x97, options appear at x30 under two unrelated controls.
- */
-function InlinePanel({
-  id,
-  axis,
-  axisClear,
-  onEscape,
-  onOutsidePress,
-  triggerRef,
-  children,
-}: {
-  id: string;
-  axis: string;
-  axisClear: (() => void) | null;
-  onEscape: () => void;
-  /** Dismissal by a press elsewhere. Separate from `onEscape` because it must **not** move focus:
-   *  the press has already landed on whatever the user meant to touch. */
-  onOutsidePress: () => void;
-  /** So a press on the trigger is not counted as outside. Without it the trigger stops closing the
-   *  panel: the dismissal fires on `pointerdown` and the `click` that follows re-opens it. */
-  triggerRef: RefObject<HTMLButtonElement | null>;
-  children: ReactNode;
-}) {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // A press anywhere else closes it. The floating half gets this from Base UI's `Menu.Root`; the
-  // inline half is plain DOM with nothing watching.
-  //
-  // **`click`, not `pointerdown`.** Closing removes up to 310 px from the middle of the column, so
-  // a `pointerdown` dismissal moves the layout between finger-down and finger-up — a tap on `Sort`
-  // closed the panel, slid a place row under the finger and opened that place. `click` runs after
-  // the browser has decided what was pressed, and capture still beats that control's own handler.
-  useEffect(() => {
-    function onDocumentClick(event: MouseEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (panelRef.current?.contains(target) === true) return;
-      if (triggerRef.current?.contains(target) === true) return;
-      onOutsidePress();
-    }
-    document.addEventListener('click', onDocumentClick, true);
-    return () => document.removeEventListener('click', onDocumentClick, true);
-  }, [onOutsidePress, triggerRef]);
-
-  return (
-    <div
-      id={id}
-      ref={panelRef}
-      data-vaul-no-drag
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return;
-        event.stopPropagation();
-        onEscape();
-      }}
-      className={INLINE_PANEL}
-    >
-      <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-1.5">
-        <span className={FILTER_KICKER}>{axis}</span>
-        {axisClear !== null && (
-          <button
-            type="button"
-            data-vaul-no-drag
-            onClick={axisClear}
-            className="shrink-0 cursor-pointer rounded-sm text-xs font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            {CLEAR_LABEL}
-          </button>
-        )}
-      </div>
-      {children}
-    </div>
   );
 }
 

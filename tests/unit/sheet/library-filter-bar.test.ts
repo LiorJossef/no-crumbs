@@ -232,7 +232,10 @@ describe('LibraryFilterBar — Clear is a word, and only when there is something
  * with nothing but this test holding them together.
  */
 describe('the inline panel is measured against the sheet, not the viewport', () => {
-  const BAR = readFileSync('src/components/sheet/library-filter-bar.tsx', 'utf8');
+  // `INLINE_PANEL` moved to `ui/inline-menu.tsx` on 2026-09-03 so the collection's options menu
+  // could wear the same material; the cap moved with it and this is still the only thing holding
+  // it to the height `place-sheet.tsx` publishes.
+  const BAR = readFileSync('src/components/ui/inline-menu.tsx', 'utf8');
   const SHEET = readFileSync('src/components/sheet/place-sheet.tsx', 'utf8');
 
   it('caps the panel by the sheet column, with the list’s share reserved', () => {
