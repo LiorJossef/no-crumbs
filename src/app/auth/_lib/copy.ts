@@ -34,15 +34,19 @@ export const LINK_EXPIRED_NOTICE = 'That link has expired.';
  * What a password field shows before anything is typed, on every screen that has one.
  *
  * It used to read `At least 6 characters`, on `/sign-in` as well — where nobody is choosing a
- * password and the only thing the line could mean was a rule about one they already have. A
- * placeholder is an example of the value, the way `you@example.com` is in the field above it, and
- * the example of a password is what typing one looks like.
+ * password and the only thing the line could mean was a rule about one they already have.
+ *
+ * It then briefly read `••••••••`, on the theory that a placeholder is an example of the value the
+ * way `you@example.com` is in the field above it. **Owner, 2026-09-04: that reads as a field that
+ * already holds a password, not as an empty one waiting for it.** An email example works because an
+ * address is legible; a masked password is the one value whose example is indistinguishable from a
+ * real entry. So the placeholder says what to do instead.
  *
  * **The rule is unchanged and still stated**, in `PASSWORD_MIN_HINT`, on the two screens where a
  * password is actually being chosen. `minLength={6}` and the server's own `weak_password` check are
  * untouched by this file.
  */
-export const PASSWORD_PLACEHOLDER = '••••••••';
+export const PASSWORD_PLACEHOLDER = 'Enter your password';
 
 /**
  * The six-character minimum, said where a requirement belongs: under the field, on the screens that
