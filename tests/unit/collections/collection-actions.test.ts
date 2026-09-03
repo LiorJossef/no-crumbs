@@ -56,6 +56,7 @@ import type { MapPlace } from '@/components/map/map-surface';
 const SOURCE = readFileSync('src/components/collections/collection-content.tsx', 'utf8');
 const FILTER_BAR = readFileSync('src/components/sheet/library-filter-bar.tsx', 'utf8');
 const INLINE_MENU = readFileSync('src/components/ui/inline-menu.tsx', 'utf8');
+const MENU_MATERIAL = readFileSync('src/ui/menu-material.ts', 'utf8');
 
 function item(id: string, name: string, addedBy: string | null) {
   return {
@@ -285,8 +286,17 @@ describe('the sheet cannot swallow a press on these controls', () => {
  */
 describe('one menu material, one file', () => {
   it('is declared once and imported twice', () => {
-    for (const name of ['PANEL_SURFACE', 'MENU_POPUP', 'INLINE_PANEL', 'MENU_ROW_PAINT']) {
+    for (const name of ['MENU_POPUP', 'INLINE_PANEL']) {
       expect(INLINE_MENU).toContain(`export const ${name} =`);
+      expect(FILTER_BAR).not.toContain(`const ${name} =`);
+    }
+    // `PANEL_SURFACE`, `MENU_ROW` and `MENU_ROW_PAINT` moved one file further out on 2026-09-03,
+    // into the plain module `@/ui/menu-material`, because a Server Component reading a constant
+    // out of a `'use client'` file gets a client reference and `cn()` drops it. `inline-menu.tsx`
+    // re-exports them, so the filter bar's import is unchanged and still must not hold a copy.
+    for (const name of ['PANEL_SURFACE', 'MENU_ROW', 'MENU_ROW_PAINT']) {
+      expect(MENU_MATERIAL).toContain(`export const ${name} =`);
+      expect(INLINE_MENU).toContain(name);
       expect(FILTER_BAR).not.toContain(`const ${name} =`);
     }
     expect(INLINE_MENU).toContain('export function InlinePanel(');

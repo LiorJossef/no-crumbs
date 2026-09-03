@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Settings } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 
 import { createClient } from '@/app/_lib/supabase/server';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,10 @@ import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
 import { SECTION_LABEL } from '@/ui/place/section-label';
+// From `@/ui/menu-material`, never from `components/ui/inline-menu` — same trap as
+// `BOTTOM_NAV_HEIGHT_PX` above: that file is `'use client'`, so these strings would arrive
+// here as client references and `cn()` would drop them without a word.
+import { MENU_ROW, MENU_ROW_PAINT } from '@/ui/menu-material';
 import { PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 import { getProfilePlaces } from './_lib/get-profile-places';
@@ -282,28 +286,27 @@ export default async function ProfilePage() {
             JavaScript: the account menu is a popover, so with scripting off this row is the sole
             door to `/account`. It stays a real `<Link>` for exactly that reason.
 
-            A row rather than the full-width button it used to be — it is no longer one of three
-            exits stacked at the bottom, it is a destination.
+            **The same object as the account menu's row, drawn from the same two strings.** It was a
+            bordered `min-h-14` card with a leading `Settings` glyph, so one destination was two
+            different things depending on which surface you reached it from; `profile-menu.tsx`'s
+            `MenuLink` carries the argument for the borderless shape and for dropping the leading
+            glyph. The trailing chevron stays — it is the glyph that means *this goes somewhere*.
 
-            **It is NOT `MENU_ROW`, and that is a blocker rather than a choice** (measured
-            2026-09-03). The account menu's identical row now draws the product's one menu material;
-            this one cannot, because `MENU_ROW` is exported from `components/ui/inline-menu.tsx`,
-            which is `'use client'`, and this page is a Server Component — a non-component export of
-            a client module arrives here as a **client reference**, so `cn()` silently drops it and
-            the row rendered with no class at all but `PRESS_ROW`. It is the same trap
-            `BOTTOM_NAV_HEIGHT_PX` records at the top of this file. The fix is to move the two
-            constants into a plain module; that file was outside this pass's write scope. */}
-        <section className="mt-8">
-          <Link
-            href="/account"
-            className={cn(
-              'flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card px-4 hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-              PRESS_ROW,
-            )}
-          >
-            <Settings className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="min-w-0 flex-1 text-sm font-bold">Account settings</span>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            The hairline above it is the page's only one, and it is what stands in for the card's
+            border: this is the one control on a page of read-only figures, so it is separated from
+            them rather than boxed.
+
+            Landing this needed `MENU_ROW` to stop being an export of a client module — it arrived
+            here as a client reference and `cn()` dropped it, leaving the label and the chevron on
+            two lines with no styling at all. `@/ui/menu-material`'s header is the record. */}
+        <section className="mt-8 border-t border-border/60 pt-2">
+          <Link href="/account" className={cn(MENU_ROW, PRESS_ROW)}>
+            <span className={cn(MENU_ROW_PAINT, 'text-sm')}>
+              <span className="min-w-0 flex-1 truncate font-bold text-foreground">
+                Account settings
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            </span>
           </Link>
         </section>
       </div>
