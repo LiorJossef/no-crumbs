@@ -47,15 +47,17 @@
  *    confirmation collapses, because there is nothing left to confirm.
  *  - **`unreachable`** — nothing was sent or nothing came back, so nothing was written and the
  *    user's intent is untouched. Every control here keeps its exact state: the note and name
- *    editors stay open with the draft in the field, the category row stays open on the chip that
- *    was pressed, and the delete confirmation stays confirming, so one more press is the retry.
+ *    editors stay open with the draft in the field, the category panel stays open on the choice
+ *    that was pressed, and the delete confirmation stays confirming, so one more press is the retry.
  *    Tidying up after silence is what would turn a two-second signal drop into lost work.
  */
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { Pencil, Check } from 'lucide-react';
+import { useEffect, useId, useRef, useState, useTransition, type RefObject } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { InlinePanel, MENU_ROW, MENU_ROW_PAINT } from '@/components/ui/inline-menu';
+import { useDetailPanelOpen } from '@/ui/place/detail-panel-open';
 import {
   deleteSavedPlace,
   setSavedPlaceVisited,
@@ -78,7 +80,8 @@ import {
 import { SECTION_LABEL } from '@/ui/place/section-label';
 import { attemptWrite } from '@/ui/place/write-failure';
 import { cn } from '@/lib/utils';
-import { PRESS_BUTTON, PRESS_CHIP, PRESS_ROW, TINT_BEAT } from '@/lib/interaction';
+import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
+import { TRIGGER_PAINT, TRIGGER_TARGET } from '@/components/sheet/library-filter-bar';
 
 /** Shown once the note gets close enough to the limit that the number is useful rather than noise. */
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
@@ -92,11 +95,11 @@ const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
  * whole of the owner's "inconsistent action components" complaint
  * (`docs/ux-place-card-unification-2026-09-02.md` §4.2, which is the ruling this implements).
  *
- * The row is **label above value**: `SECTION_LABEL` at 11 px, the value at 14 px under it, and a
- * 12 px trailing glyph that names what pressing will do — a chevron replaces the pane (only
- * `Add to a collection` does that), a pencil opens the row in place. Empty is the *same row* with
- * a muted value (`Not set`, `Add a note`), never a different component, so filling a field never
- * swaps the thing you pressed.
+ * The row is **label, value, glyph**: `SECTION_LABEL` at 11 px where the value needs naming, the
+ * value at 14 px, and one 12 px trailing chevron. **Every row opens the same way** — the row stays
+ * exactly where it is, the chevron rotates, and what it needs appears in an `InlinePanel` directly
+ * underneath (`DisclosureChevron`). Empty is the *same row* with a muted value (`Not set`,
+ * `Add a note`), never a different component, so filling a field never swaps the thing you pressed.
  *
  * `min-h-12` is 48 px, above the 44 px touch floor, because these rows stack flush against each
  * other and a run of them has to read as a list. **No border, no fill, no radius at rest** — the
@@ -118,32 +121,64 @@ export const DETAIL_FIELD_OPEN = 'flex min-h-12 w-full flex-col justify-center g
 /** The value line inside a field row. Muted when it is an offer, foreground when it is a value. */
 export const DETAIL_FIELD_VALUE = 'text-sm leading-snug';
 
-/** The 11 px mint text control that closes an open field row (`Done`). `min-h-11` with a negative
- *  block margin: the touch target is 44 px, the paint is one small line. */
-export const DETAIL_FIELD_DONE =
-  '-my-2 inline-flex min-h-11 shrink-0 items-center rounded px-1 text-micro font-bold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50';
+/**
+ * **The one trailing glyph a field row draws, and the one thing it promises**: a panel opens
+ * directly underneath this row, and the row stays exactly where it is.
+ *
+ * It replaces two glyphs that each promised something that stopped being true. The pencil said
+ * *type here* on a row that offers a list of choices, and the collections row's `ChevronRight`
+ * said *this replaces the pane* — which, since the picker opens in place, nothing on this card
+ * does any more. Three rows that open the same way now say so with the same mark.
+ *
+ * Copied from the share panel's value trigger (`share-panel.tsx` l. 519–530), including the rule
+ * that matters: the rotation is driven by state, not by a `data-` attribute, so under
+ * `prefers-reduced-motion` the transition drops and the glyph still **ends rotated**. Losing the
+ * transition must never lose the state.
+ */
+export function DisclosureChevron({ open }: { open: boolean }) {
+  return (
+    <ChevronDown
+      aria-hidden
+      className={cn(
+        'size-3 shrink-0 text-muted-foreground motion-safe:transition-transform motion-safe:duration-cross',
+        open && 'rotate-180',
+      )}
+    />
+  );
+}
 
 /**
- * **The card's one primary action, and now the only thing wearing this shape** — `Been here`.
+ * Focus goes back to the row that opened the panel, never to `<body>`.
  *
- * Until 2026-09-03 `Open on TikTok`, `Google Maps` and `Been here` shared this string: same
- * height, same border, same radius, same `font-bold`. Three co-equal primaries is none, which is
- * the mechanism behind the owner's *"the card feels overwhelming"*
- * (`docs/ux-card-and-share-2026-09-03.md` §A1). The two links keep their words and their 44 px
- * target and step down to `DETAIL_OUT_LINK` below; the weight collects here.
- *
- * **Not mint, deliberately.** Mint means *create* on the `＋` and *this is narrowing your library*
- * on a pressed filter chip, and a third meaning would undo `ux-collection-actions-2026-09-03.md`
- * §4. A bordered, bold, 44 px pill on a card where nothing else is bordered is already the loudest
- * control on the surface — the promotion is by subtraction, not by paint.
- *
- * `min-h-11` is the touch floor and is not negotiable. `px-4` rather than the measured `px-3` that
- * stood while three of these had to share one 350 px band: with the other two out of the row there
- * is no width contest left to win, and the extra 8 px is what makes the one primary read as
- * substantial rather than merely bordered.
+ * `requestAnimationFrame` because the panel is unmounted in the same commit: focusing the row
+ * before React has removed the node it currently sits in is how focus lands on the document.
+ * `preventScroll` because the card is a scrolling column inside a drag sheet, and a focus-driven
+ * scroll there moves the whole card under the user's thumb.
  */
-export const DETAIL_ACTION_PILL =
-  'inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+function returnFocus(ref: RefObject<HTMLButtonElement | null>) {
+  requestAnimationFrame(() => ref.current?.focus({ preventScroll: true }));
+}
+
+/**
+ * **The card's one act, and it stopped being a bespoke pill on 2026-09-03** — `Been here`.
+ *
+ * It keeps everything that made it the primary: it is first in the band, it is the only bordered
+ * control on the card, and it is the one thing the product wants a returning user to come back and
+ * do. What it gave up is a shape that existed nowhere else. `DETAIL_ACTION_PILL` was `min-h-11
+ * rounded-full border px-4 text-sm font-bold` — 44 px of paint, bold, at body size — where the
+ * product's own pill is `TRIGGER_TARGET` + `TRIGGER_PAINT`: 32 px of paint inside a 44 px target,
+ * a hairline border, `text-xs font-medium`. Two objects wearing one silhouette, and this was the
+ * one nothing else in the product wore. A bordered bold slab on a card where nothing else is
+ * bordered is a generic outline button, which is the register Charter §6 bans.
+ *
+ * **On is `bg-accent text-brand`, which is exactly what `BeenBadge` already wears**
+ * (`visit-state.tsx` l. 45–58, adopted for this precise reason). The control that sets the state
+ * and the badge that reports it are now one object at two sizes.
+ *
+ * Still not mint and still not filled when off: the promotion is by subtraction. Mint means
+ * *create* on the `＋` and *this is narrowing your library* on a pressed filter chip, and a third
+ * meaning would undo `ux-collection-actions-2026-09-03.md` §4.
+ */
 
 /**
  * **A control that leaves the product, one step quieter than the primary** — `Open on TikTok` and
@@ -254,25 +289,39 @@ export function BeenToggle({
           // The matrix's press column, which this control did not have. It is the one action in
           // the detail view whose result is a colour change *on itself*, so without a press the
           // only confirmation a tap landed was the same thing that confirms the write succeeded —
-          // and the two are ~200ms apart. `PRESS_BUTTON` rather than `PRESS_ROW`: it is a button,
-          // full width or not. The bare `transition-colors` goes rather than gaining a prefix,
-          // because `PRESS_BEAT`'s `motion-safe:transition` already carries colour.
+          // and the two are ~200ms apart. `PRESS_CHIP` rather than `PRESS_BUTTON` now that the
+          // paint is a 32 px pill: the press scale belongs to the size of the thing pressed, and
+          // it is the same one every other trigger wearing this pill takes.
           //
-          // **The width is gone and the words are not.** This was `w-full rounded-lg`, then one
-          // of three identical pills; it is now the band's single primary, first in the row and
-          // the only bordered control on the card. `voice-and-vocabulary.md` §3 ratifies
-          // `Been here` / `Been`, so the size and the weight changed and the string did not — the
-          // complaint was never the wording.
-          DETAIL_ACTION_PILL,
-          PRESS_BUTTON,
+          // **The words did not change.** `voice-and-vocabulary.md` §3 ratifies `Been here` /
+          // `Been`; the size and the weight changed and the string did not, because the complaint
+          // was never the wording.
+          TRIGGER_TARGET,
+          PRESS_CHIP,
           pending && 'opacity-50',
-          visited
-            ? 'border-transparent bg-accent text-brand'
-            : 'border-input text-foreground hover:bg-muted',
         )}
       >
-        <Check className="size-4 shrink-0" aria-hidden />
-        {visited ? BEEN_STATE_LABEL : BEEN_ACTION_LABEL}
+        <span
+          className={cn(
+            TRIGGER_PAINT,
+            // **36 px of paint rather than the shared 32, and this is the one hand-tuned number
+            // here.** Measured at 390×844 in both themes: at `h-8` the OFF pill reads, but the ON
+            // state — `bg-accent` is a 2 % wash and the border goes transparent — came out paler
+            // and smaller than the two `text-sm` mint links beside it, so the card's one act was
+            // the quietest thing in its own band. One step of the graded retreat the spec
+            // pre-authorises (`h-8` → `h-9` → `h-10`); stopped at the first that reads. The border
+            // does not come back and no fill is added.
+            'h-9',
+            // `BeenBadge`'s own paint. The hover pair is restated because the resting pill's
+            // — a warmed border and a 5 % mint wash — is invisible on a filled ground, and
+            // `cn` keeps the later of two rules for one property.
+            visited &&
+              'border-transparent bg-accent text-brand group-hover/trigger:border-transparent group-hover/trigger:bg-accent',
+          )}
+        >
+          <Check className="size-3.5 shrink-0" aria-hidden />
+          {visited ? BEEN_STATE_LABEL : BEEN_ACTION_LABEL}
+        </span>
       </button>
       {error && (
         <p role="alert" className="text-xs font-medium text-destructive">
@@ -309,14 +358,20 @@ export function BeenToggle({
  * files a real café as a `restaurant`, which is Google's taxonomy rather than a disagreement about
  * the venue. The person who saved it has been there.
  *
- * ## Collapsed by default, one row when open
+ * ## A value trigger, and it commits on choose
  *
- * Three chips (four with `Automatic`), down from eight with the 2026-08-29 taxonomy. Even eight was
- * more visual weight than a control most people will touch once deserves, so this
- * follows `NoteEditor`'s idiom exactly: a label, the current value, and a small pencil. Opening it
- * shows the whole vocabulary at once rather than a select — the set is closed and short, and a
- * native select on a drag sheet fights the gesture layer the same way a dialog does
- * (`place-sheet.tsx`'s `useNonModalBackground`).
+ * The row shows the current value and opens a panel of choices under itself — the same trigger and
+ * the same menu material the share panel and the library's filter bar already use. Three choices,
+ * four with `Automatic`, down from eight with the 2026-08-29 taxonomy: the whole vocabulary at
+ * once rather than a select, because the set is closed and short and a native select on a drag
+ * sheet fights the gesture layer the same way a dialog does (`place-sheet.tsx`'s
+ * `useNonModalBackground`).
+ *
+ * **What went, on 2026-09-03: the grey filled chips and the 11 px mint `Done`.** Grey fill existed
+ * nowhere else on this card, and `Done` was the card's third answer to "how do I commit here" —
+ * at the smallest type on the surface, in the colour that already means *create*, and in the word
+ * the library header uses to leave multi-select. A choice commits itself, so there was nothing
+ * left for it to close.
  *
  * ## "Automatic" is an option, not an absence
  *
@@ -340,34 +395,40 @@ export function CategoryEditor({
 }: {
   savedPlaceId: string;
   /** The place's current category, `null` where nothing resolved one. A null is a legitimate
-   *  resting state, not an error: the row simply shows no chip as active. */
+   *  resting state, not an error: the row simply shows no row ticked. */
   category: ProductCategory | null;
   /** Whether `category` came from this user's override rather than the provider or the model.
    *  Decides only whether `Automatic` is offered — there is nothing to undo otherwise. */
   isOverridden: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  const raiseSheet = useDetailPanelOpen();
 
   function choose(next: ProductCategory | null) {
     setError(null);
     startTransition(async () => {
       const outcome = await attemptWrite(() => updateSavedPlaceCategory(savedPlaceId, next));
       if (outcome.kind === 'ok') {
-        setEditing(false);
+        // **Choosing is the commit, so choosing is also the close** — the ruling the library's
+        // filter bar already runs on (`library-filter-bar.tsx` l. 665, owner 2026-09-02). Focus
+        // goes back to the row, which now shows the value that was chosen.
+        setOpen(false);
+        returnFocus(triggerRef);
         return;
       }
-      // The row stays open on either failure. Closing it would hide the chips behind a second
-      // press of `Change` at the exact moment the user wants to press one again, and on an
-      // unreachable write it would also imply something settled when nothing was written.
+      // The panel stays open on either failure. Closing it would hide the choices behind a second
+      // press at the exact moment the user wants to press one again, and on an unreachable write it
+      // would imply something settled when nothing was written.
       setError(outcome.message);
     });
   }
 
-  // The value line. Open, the row replaces it with the chip group rather than stacking both:
-  // the active chip already says what the category is, and repeating it under the editor is the
-  // "panel" shape this row exists to avoid.
+  // The value line. It stays on the row while the panel is open: the row is the trigger and the
+  // panel is what it opened, so nothing about the row changes shape.
   //
   // **` · from the TikTok video` / ` · from the map listing` is gone** (2026-09-03, spec §R5). It
   // was the *fourth* statement on one card that this place came from a video — after the still,
@@ -385,110 +446,116 @@ export function CategoryEditor({
       PRODUCT_CATEGORY_LABEL[category]
     );
 
-  const errorLine = error ? (
-    <p role="alert" className="px-1 pt-1 text-micro font-medium text-destructive">
-      {error}
-    </p>
-  ) : null;
+  function toggleOpen() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setError(null);
+    // Before the panel, not after: at `peek` or `half` the column is too short to divide between
+    // a card and a menu, so the sheet is raised first. `undefined` on every host that does not
+    // provide the channel — the desktop popover, the panel, `/collections/[id]`.
+    raiseSheet?.();
+    setOpen(true);
+  }
 
-  // Resting: the field row, identical in shape to `Your note` and `Add to a collection` below it.
-  // The pencil is the promise that pressing opens this row where it stands rather than replacing
-  // the pane — the chevron on the collections row is the other half of that contract.
-  if (!editing) {
+  /** One row of the panel. `role="radio"` inside a `radiogroup`, so a screen reader says "2 of 4"
+   *  rather than announcing four unrelated controls. The paint is the house menu row — no fill
+   *  anywhere, the tick in the indicator column, which is what every other menu in the product
+   *  already looks like. */
+  function choiceRow(key: string, label: string, active: boolean, next: ProductCategory | null) {
     return (
-      <div className="flex flex-col">
-        <button
-          type="button"
-          data-vaul-no-drag
-          aria-expanded={false}
-          onClick={() => {
-            setError(null);
-            setEditing(true);
-          }}
-          className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
-        >
-          {/* **One line, label leading** (spec §A2, 2026-09-03). Stacking an 11 px label over a
-              14 px value, three rows running, is the grammar of a settings form, and the owner's
-              complaint about the card was exactly that it read like work. The label survives here
-              and nowhere else on the card: a bare `Café` row would be a word with no claim
-              attached, where `In tel aviv food` and a note say what they are by themselves. */}
-          <span className="flex min-w-0 flex-1 items-baseline gap-2">
-            <span className={cn(SECTION_LABEL, 'shrink-0')}>Category</span>
-            <span className={cn(DETAIL_FIELD_VALUE, 'min-w-0 flex-1 text-foreground')}>{value}</span>
-          </span>
-          <Pencil className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-        </button>
-        {errorLine}
-      </div>
+      <button
+        key={key}
+        type="button"
+        role="radio"
+        aria-checked={active}
+        disabled={pending}
+        data-vaul-no-drag
+        onClick={() => {
+          choose(next);
+        }}
+        className={cn(MENU_ROW, PRESS_ROW, 'w-full disabled:opacity-50')}
+      >
+        <span className={cn(MENU_ROW_PAINT, 'text-sm')}>
+          {/* `invisible`, not absent: the column exists in every row, so all four labels sit at
+              one inline offset. */}
+          <Check
+            aria-hidden
+            className={cn('size-3.5 shrink-0 text-brand', !active && 'invisible')}
+          />
+          {label}
+        </span>
+      </button>
     );
   }
 
   return (
-    <div className={DETAIL_FIELD_OPEN}>
-      <div className="flex items-center justify-between gap-2">
-        <p className={SECTION_LABEL}>Category</p>
-        {/* The trailing glyph becomes a word once the row is open: there is nothing left to
-            promise, only a way out. 44 px of target under 11 px of paint. */}
-        <button
-          type="button"
-          data-vaul-no-drag
-          aria-expanded
-          onClick={() => {
-            setError(null);
-            setEditing(false);
+    <div className="flex flex-col">
+      <button
+        ref={triggerRef}
+        type="button"
+        data-vaul-no-drag
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        onClick={toggleOpen}
+        onKeyDown={(event) => {
+          // Opening by pointer leaves focus on the trigger, so a handler only on the panel never
+          // fires — the defect `library-filter-bar.tsx` measured on its own inline triggers.
+          if (event.key !== 'Escape' || !open) return;
+          event.stopPropagation();
+          setOpen(false);
+        }}
+        className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
+      >
+        {/* **One line, label leading** (spec §A2, 2026-09-03). Stacking an 11 px label over a
+            14 px value, three rows running, is the grammar of a settings form, and the owner's
+            complaint about the card was exactly that it read like work. The label survives here
+            and nowhere else on the card: a bare `Café` row would be a word with no claim
+            attached, where `In tel aviv food` and a note say what they are by themselves. */}
+        <span className="flex min-w-0 flex-1 items-baseline gap-2">
+          <span className={cn(SECTION_LABEL, 'shrink-0')}>Category</span>
+          <span className={cn(DETAIL_FIELD_VALUE, 'min-w-0 flex-1 text-foreground')}>{value}</span>
+        </span>
+        <DisclosureChevron open={open} />
+      </button>
+
+      {open && (
+        <InlinePanel
+          id={panelId}
+          axisClear={null}
+          triggerRef={triggerRef}
+          onEscape={() => {
+            setOpen(false);
+            returnFocus(triggerRef);
           }}
-          className={cn(DETAIL_FIELD_DONE, PRESS_CHIP)}
+          // No focus move: the press has already landed on whatever the user meant to touch.
+          onOutsidePress={() => setOpen(false)}
         >
-          Done
-        </button>
-      </div>
-
-      {/* `radiogroup` rather than a list of buttons: these are one mutually exclusive choice, and
-          a screen reader should say "2 of 4" rather than announce four unrelated controls. */}
-      <div role="radiogroup" aria-label="Category" className="flex flex-wrap gap-1.5">
-        {PRODUCT_CATEGORY_ORDER.map((choice) => {
-          const active = choice === category && isOverridden;
-          return (
-            <button
-              key={choice}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              disabled={pending}
-              data-vaul-no-drag
-              onClick={() => {
-                choose(choice);
-              }}
-              className={cn(
-                'rounded-full px-2.5 py-1 text-xs font-bold disabled:opacity-50',
-                PRESS_CHIP,
-                active ? 'bg-accent text-brand' : 'bg-muted text-foreground hover:bg-accent',
-              )}
-            >
-              {PRODUCT_CATEGORY_LABEL[choice]}
-            </button>
-          );
-        })}
-        {isOverridden && (
-          // "Automatic" writes SQL NULL: *stop, use whatever you work out*, so a better provider
-          // category tomorrow still reaches this place.
-          <button
-            type="button"
-            role="radio"
-            aria-checked={false}
-            disabled={pending}
-            data-vaul-no-drag
-            onClick={() => {
-              choose(null);
-            }}
-            className="rounded-full px-2.5 py-1 text-xs font-bold text-muted-foreground underline underline-offset-4 disabled:opacity-50"
-          >
-            Automatic
-          </button>
-        )}
-      </div>
-
-      {errorLine}
+          <div role="radiogroup" aria-label="Category" className="flex flex-col">
+            {PRODUCT_CATEGORY_ORDER.map((choice) =>
+              choiceRow(
+                choice,
+                PRODUCT_CATEGORY_LABEL[choice],
+                choice === category && isOverridden,
+                choice,
+              ),
+            )}
+            {isOverridden &&
+              // "Automatic" writes SQL NULL: *stop, use whatever you work out*, so a better
+              // provider category tomorrow still reaches this place. A row with an empty
+              // indicator, not an underlined word floating after the choices — it is one of the
+              // four things this control can be set to, and it is spelled like the other three.
+              choiceRow('automatic', 'Automatic', false, null)}
+          </div>
+          {error && (
+            <p role="alert" className="px-2 pb-1 pt-1.5 text-micro font-medium text-destructive">
+              {error}
+            </p>
+          )}
+        </InlinePanel>
+      )}
     </div>
   );
 }
@@ -525,6 +592,9 @@ export function NoteEditor({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  const raiseSheet = useDetailPanelOpen();
 
   useEffect(() => {
     if (editing) textareaRef.current?.focus();
@@ -533,58 +603,16 @@ export function NoteEditor({
   function open() {
     setDraft(note ?? '');
     setError(null);
+    // The sheet goes to `full` before the panel takes room in the column — the same channel the
+    // other two rows use, and the reason the record line and the removal stay reachable.
+    raiseSheet?.();
     setEditing(true);
   }
 
-  // **Empty and filled are the same row.** The empty state used to be a dashed `+ Add a note`
-  // pill and the filled one a label with a mint `Edit` link opposite it — two components for two
-  // states of one field, so writing your first note swapped the thing you had just pressed. Now
-  // only the value changes: the offer in muted ink, the note in foreground ink, one pencil either
-  // way. `whitespace-pre-wrap` because `validateNote` preserves the newlines the user typed, and
-  // rendering the note collapsed would lose the shape they gave it.
-  if (!editing) {
-    return (
-      <div className="flex flex-col">
-        <button
-          type="button"
-          onClick={open}
-          data-vaul-no-drag
-          aria-expanded={false}
-          className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
-        >
-          {/* **The label goes when the row is an offer** (spec §A2). `Your note` over `Add a
-              note` said the same thing twice, and the empty state is the one every place starts
-              in — so the commonest shape of this row was two lines to carry one. Once there is a
-              note the label comes back, inline: it is what tells your own words apart from the
-              note a collection shares with everyone.
-
-              The value is clamped rather than fully drawn: pressing the row opens the editor with
-              the whole note in it, and an unbounded prose block in a resting row is what pushed
-              the controls below the fold in round 3. */}
-          <span className="flex min-w-0 flex-1 items-baseline gap-2">
-            {note && <span className={cn(SECTION_LABEL, 'shrink-0')}>Your note</span>}
-            {/* `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
-                routinely Hebrew (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 1). */}
-            <span
-              dir="auto"
-              className={cn(
-                DETAIL_FIELD_VALUE,
-                'min-w-0 flex-1',
-                note ? 'line-clamp-2 whitespace-pre-wrap text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              {note ?? 'Add a note'}
-            </span>
-          </span>
-          <Pencil className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-        </button>
-        {error && (
-          <p role="alert" className="px-1 pt-1 text-micro font-medium text-destructive">
-            {error}
-          </p>
-        )}
-      </div>
-    );
+  function close() {
+    setEditing(false);
+    setError(null);
+    returnFocus(triggerRef);
   }
 
   const validation = validateNote(draft);
@@ -604,88 +632,156 @@ export function NoteEditor({
       });
       if (outcome.kind === 'ok') {
         setEditing(false);
+        returnFocus(triggerRef);
         return;
       }
       setError(outcome.message);
     });
   }
 
+  // **Empty and filled are the same row, and open and closed are the same row too.** The empty
+  // state used to be a dashed `+ Add a note` pill and the filled one a label with a mint `Edit`
+  // link; both were replaced by this one row in 2026-09-02, and on 2026-09-03 the *open* state
+  // stopped replacing it as well. The row stays, its chevron rotates, and the editor appears in
+  // the panel underneath — which is exactly what the two rows above it do.
+  // `whitespace-pre-wrap` because `validateNote` preserves the newlines the user typed, and
+  // rendering the note collapsed would lose the shape they gave it.
   return (
-    // Open, the row grows; it does not become a panel and it grows no border. The label above the
-    // field is the same label the resting row shows, in the same place, so nothing jumps.
-    <div className={cn(DETAIL_FIELD_OPEN, 'gap-2')}>
-      <label htmlFor={`note-${savedPlaceId}`} className={SECTION_LABEL}>
-        Your note
-      </label>
-      <textarea
-        id={`note-${savedPlaceId}`}
-        ref={textareaRef}
-        dir="auto"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          // Escape cancels. Enter does NOT submit — this is a multi-line prose field, and stealing
-          // Enter would make a second paragraph impossible to type.
-          if (event.key === 'Escape') {
-            event.stopPropagation();
-            setEditing(false);
-            setError(null);
-          }
-        }}
-        rows={4}
-        disabled={pending}
-        aria-invalid={tooLong || undefined}
-        aria-describedby={error ? `note-error-${savedPlaceId}` : undefined}
-        placeholder="Why did you save this?"
-        className={cn(
-          // A `<textarea>` cannot be an `<Input>`, so row 9's hover is restated here rather than
-          // inherited. It is the one duplicate of that chrome left in this file, and it is
-          // structural rather than an oversight.
-          // `TINT_BEAT` rather than a bare `motion-safe:transition-colors`: the border warming
-          // under a pointer is the micro tier, and it ran at Tailwind's unnamed 150ms default
-          // until the scale gave it a name.
-          TINT_BEAT,
-          'w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base leading-relaxed outline-none hover:border-ring/60 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm',
-          tooLong && 'border-destructive ring-3 ring-destructive/20',
-        )}
-      />
+    <div className="flex flex-col">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => (editing ? close() : open())}
+        data-vaul-no-drag
+        aria-haspopup="dialog"
+        aria-expanded={editing}
+        aria-controls={editing ? panelId : undefined}
+        className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
+      >
+        {/* **The label goes when the row is an offer** (spec §A2). `Your note` over `Add a
+            note` said the same thing twice, and the empty state is the one every place starts
+            in — so the commonest shape of this row was two lines to carry one. Once there is a
+            note the label comes back, inline: it is what tells your own words apart from the
+            note a collection shares with everyone.
 
-      <div className="flex items-center justify-between gap-3">
-        <p
-          className={cn(
-            'text-xs font-medium text-muted-foreground',
-            // Hidden rather than absent until it matters: a live counter on an empty field is
-            // noise, and a limit nobody is near is not information.
-            draft.trim().length < COUNTER_VISIBLE_FROM && 'invisible',
-            tooLong && 'text-destructive',
-          )}
-          aria-hidden={draft.trim().length < COUNTER_VISIBLE_FROM}
-        >
-          {draft.trim().length.toLocaleString()} / {NOTE_MAX_LENGTH.toLocaleString()}
-        </p>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={() => {
-              setEditing(false);
-              setError(null);
-            }}
+            The value is clamped rather than fully drawn: pressing the row opens the editor with
+            the whole note in it, and an unbounded prose block in a resting row is what pushed
+            the controls below the fold in round 3. */}
+        <span className="flex min-w-0 flex-1 items-baseline gap-2">
+          {note && <span className={cn(SECTION_LABEL, 'shrink-0')}>Your note</span>}
+          {/* `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
+              routinely Hebrew (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 1). */}
+          <span
+            dir="auto"
+            className={cn(
+              DETAIL_FIELD_VALUE,
+              'min-w-0 flex-1',
+              note ? 'line-clamp-2 whitespace-pre-wrap text-foreground' : 'text-muted-foreground',
+            )}
           >
-            Cancel
-          </Button>
-          <Button type="button" size="sm" disabled={pending || tooLong || unchanged} onClick={save}>
-            {pending ? 'Saving…' : 'Save note'}
-          </Button>
-        </div>
-      </div>
+            {note ?? 'Add a note'}
+          </span>
+        </span>
+        <DisclosureChevron open={editing} />
+      </button>
 
-      {error && (
-        <p id={`note-error-${savedPlaceId}`} role="alert" className="text-micro font-medium text-destructive">
-          {error}
-        </p>
+      {editing && (
+        <InlinePanel
+          id={panelId}
+          axisClear={null}
+          triggerRef={triggerRef}
+          onEscape={close}
+          // A press elsewhere does **not** discard a draft. The note is the one thing on this card
+          // the user made themselves, and dismissing it the way a menu is dismissed would lose it
+          // to a mistimed tap; the panel stays and `Cancel` remains the way out.
+          onOutsidePress={() => {}}
+        >
+          {/* The panel is the surface, so the field draws nothing: no border, no fill, no radius
+              and no ring of its own. A bordered box inside a bordered panel was the only box on a
+              card that otherwise draws none — the "patch" the owner named. Focus is carried by the
+              caret and by the panel the field sits in. */}
+          <div className="flex flex-col gap-2 px-2 py-1.5">
+            <label htmlFor={`note-${savedPlaceId}`} className={cn(SECTION_LABEL, 'sr-only')}>
+              Your note
+            </label>
+            <textarea
+              id={`note-${savedPlaceId}`}
+              ref={textareaRef}
+              dir="auto"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                // Escape cancels. Enter does NOT submit — this is a multi-line prose field, and
+                // stealing Enter would make a second paragraph impossible to type.
+                if (event.key === 'Escape') {
+                  event.stopPropagation();
+                  close();
+                }
+              }}
+              // Three lines, not four: one line of `text-base leading-relaxed` back to the column,
+              // on the surface whose height budget is the reason the removal used to sit under the
+              // bottom bar.
+              rows={3}
+              disabled={pending}
+              aria-invalid={tooLong || undefined}
+              aria-describedby={error ? `note-error-${savedPlaceId}` : undefined}
+              placeholder="Why did you save this?"
+              className={cn(
+                // `text-base` is the iOS zoom floor and is not negotiable on the phone; `md:text-sm`
+                // is the desktop step. `resize-none`, because the panel caps its own height against
+                // `--sheet-content-height` and a hand-dragged field would fight that cap.
+                'w-full resize-none bg-transparent text-base leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-50 md:text-sm',
+                tooLong && 'text-destructive',
+              )}
+            />
+
+            <div className="flex items-center justify-between gap-3">
+              <p
+                className={cn(
+                  'text-xs font-medium text-muted-foreground',
+                  // Hidden rather than absent until it matters: a live counter on an empty field is
+                  // noise, and a limit nobody is near is not information.
+                  draft.trim().length < COUNTER_VISIBLE_FROM && 'invisible',
+                  tooLong && 'text-destructive',
+                )}
+                aria-hidden={draft.trim().length < COUNTER_VISIBLE_FROM}
+              >
+                {draft.trim().length.toLocaleString()} / {NOTE_MAX_LENGTH.toLocaleString()}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={pending}
+                  data-vaul-no-drag
+                  onClick={close}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={pending || tooLong || unchanged}
+                  data-vaul-no-drag
+                  onClick={save}
+                >
+                  {pending ? 'Saving…' : 'Save note'}
+                </Button>
+              </div>
+            </div>
+
+            {error && (
+              <p
+                id={`note-error-${savedPlaceId}`}
+                role="alert"
+                className="text-micro font-medium text-destructive"
+              >
+                {error}
+              </p>
+            )}
+          </div>
+        </InlinePanel>
       )}
     </div>
   );

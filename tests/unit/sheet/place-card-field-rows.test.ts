@@ -167,10 +167,13 @@ describe('the field row — one shape for every field of your own record (H-2)',
 
   it('lets the trailing glyph predict what pressing does', () => {
     const markup = render(SAVED);
-    // Exactly one chevron on the card, and it belongs to the one row that replaces the pane.
-    expect(markup.split('lucide-chevron-right').length - 1).toBe(1);
-    // Two pencils: the two rows that open in place. Neither of them replaces anything.
-    expect(markup.split('lucide-pencil').length - 1).toBe(2);
+    // **One glyph on all three rows, from 2026-09-03.** Every row now opens the same panel in the
+    // same place, so the pencil/chevron-right split stopped being true: the pencil promised "type
+    // here" on a row that offers a list, and the right-chevron promised "this replaces the pane",
+    // which nothing on this card does any more.
+    expect(markup.split('lucide-chevron-down').length - 1).toBe(3);
+    expect(markup).not.toContain('lucide-chevron-right');
+    expect(markup).not.toContain('lucide-pencil');
   });
 
   it('answers an empty field with the same row and a muted value, never another component', () => {
