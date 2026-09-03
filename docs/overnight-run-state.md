@@ -17,7 +17,7 @@ is not running and you should take over.
 > so a heartbeat running fast eventually reads as stale and invites a second session in on top of a
 > live one. **Run `date` before writing a timestamp here. Never estimate one.**
 
-- **Last updated:** 2026-09-04 01:05 IDT
+- **Last updated:** 2026-09-04 01:25 IDT
 - **Run started:** 2026-09-03 22:30 IDT
 - **Hard stops:** 06:00 no new work · 06:30 tree clean · 07:00 handoff written and pushed
 - **Status:** WAVES 1–3 COMPLETE · verification done · two late lanes dispatched
@@ -670,3 +670,38 @@ about that stop. **Same family as the `Been here` fold. Morning list.**
 `add-to-collection.tsx` with zero consumers (~18 dead lines), and
 `tests/e2e/collection-one-back-control.spec.ts` was already broken by `aa2ae44` — the agent listed
 the four things it needs rather than editing a file outside its grant.
+
+### Lane H1 — **feedback 7.3 built and committed (`0952b23`)**, on the owner's explicit instruction
+at ~01:00 ("please do 7.3 now"), overriding the earlier deferral of Lane H. **7.4 remains not
+started** and is still out of scope.
+
+**The design decision, and it was the whole job.** `use-near-me.ts` documents that the permission is
+requested **on a tap and nowhere else**, deliberately, so that no code path could ask on load.
+Firing the native prompt automatically after login would have broken that rule *and* been the wrong
+build: an unexplained native prompt gets denied, and **a denial is sticky** — one ask per origin,
+and spending it without context burns the feature permanently for that user. So the product asks
+first, in its own voice, and the browser is only asked after someone says yes. **One path, two
+controls.** No new geolocation code path, no effect that reads a position, no `watchPosition`.
+
+**I drove all six states myself** at 390×844 and 1280×900: offered (appears, does not steal focus,
+does not overlap the nav) · accept (fix acquired, camera flown, gone after reload, token written) ·
+dismiss (gone after reload, token written) · already granted (never rendered) · already denied
+(never rendered) · `localStorage` throwing (map still renders). The agent's report matched on every
+one; my first run appeared to contradict it on dismiss and the fault was **my** harness — the
+dismiss control is an icon with an `aria-label`, and I was matching on text.
+
+The decision lives as a pure function in `near-me.ts` with 21 unit tests, which is where that file
+already keeps its testable half; the component stays the thin browser shell.
+
+**One thing for the owner to look at:** the offer card overlaps a **country summary pill** while it
+is up — at 1280 (the agent measured it) and also at 390 (I saw it in my own screenshot). Those pills
+are tappable camera controls, so for the seconds the offer is up a tap aimed at one hits the card
+instead. It is one-shot and dismissible, and moving it means moving a geometry constant, so it was
+left. **If it should move, that is a two-line change to where the card anchors.**
+
+**Could not verify, and it is honest:** the native permission dialog itself never paints under
+Playwright — geolocation resolves through its override. What is verified is that the tap runs the
+same `request()` the locate button runs, and that a granted fix flies the camera. Also unverified:
+the `unknown` permission branch on an engine that actually rejects the descriptor (Firefox, older
+Safari — Chromium always answers), and real iOS Safari private mode, which was simulated by making
+the property throw.
