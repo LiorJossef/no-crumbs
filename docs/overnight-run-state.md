@@ -17,10 +17,10 @@ is not running and you should take over.
 > so a heartbeat running fast eventually reads as stale and invites a second session in on top of a
 > live one. **Run `date` before writing a timestamp here. Never estimate one.**
 
-- **Last updated:** 2026-09-04 01:25 IDT
+- **Last updated:** 2026-09-04 01:40 IDT
 - **Run started:** 2026-09-03 22:30 IDT
 - **Hard stops:** 06:00 no new work · 06:30 tree clean · 07:00 handoff written and pushed
-- **Status:** WAVES 1–3 COMPLETE · verification done · two late lanes dispatched
+- **Status:** WAVES 1–3 COMPLETE · owner gave full ownership at ~01:35 · 2 lanes running
 
 ## The resume mechanism
 
@@ -705,3 +705,48 @@ same `request()` the locate button runs, and that a granted fix flies the camera
 the `unknown` permission branch on an engine that actually rejects the descriptor (Firefox, older
 Safari — Chromium always answers), and real iOS Safari private mode, which was simulated by making
 the property throw.
+
+---
+
+## Owner instructions after midnight, in order
+
+1. ~01:00 — *"please do 7.3 now"*, overriding the Lane H deferral. **Done, committed `0952b23`.**
+2. ~01:20 — a screenshot: the sheet heading reads `1 place in Budapest` while the open card is
+   בית גולדברג in תל אביב-יפו. *"when you opened a card of a place, then clicked on the list for
+   another place … doesnt change"*. **Lane BUG-1 running.**
+3. ~01:20 — build NLS v1 from `docs/nls-plan.md`. **The file did not exist at that moment** — checked
+   by name, by history, across all refs and in the four owner stashes. I said so rather than
+   inventing a spec, and reported what prior NLS work does exist: `docs/evidence/.local/nls-benchmark-dryrun.json`,
+   a 35-case golden set with a versioned prompt whose shape is `{city, category, tags[], keyword}`.
+4. ~01:25 — *"wait with the nls"*. Held; nothing had been dispatched.
+5. ~01:30 — *"check now docs/nls-plan.md"*. **It existed by then** (written 01:26, 527 lines).
+   **Lane NLS-A running** against it.
+6. ~01:35 — *"Now I'm going to sleep. You have ownership."*
+
+**Standing instruction from here: work autonomously, fix and finalise the product.** The §1.3
+defaults still govern; anything without a default goes on the morning list rather than waking
+anyone.
+
+## Lanes running
+
+| Lane | Agent | Scope | Why it is alone in those files |
+|---|---|---|---|
+| BUG-1 stale area heading | `maps-geospatial` | `map-page-client.tsx`, `ui/place/active-area.ts`, `ui/place/list-scope.ts` | owns the selection/heading state |
+| NLS-A Stage 1 engine | `ai-extraction` | `domain/search/intent.ts`, `integrations/llm/query-intent.ts`, `api/search/interpret/route.ts`, `scripts/` | pure engine, no UI |
+
+**NLS-B (the `sentence-panel.tsx` surface) is deliberately NOT dispatched yet** — it must write the
+four filter cells in `map-page-client.tsx`, which BUG-1 holds. Serialising beats colliding.
+
+### What NLS Stage 1 is, from the plan
+`{category, tags[0-2], visit, keyword}` + `origin`, clamped twice against **this user's** library.
+The clamp is the security model, not validation: the model returns enum values only, and a value
+with no rows behind it never renders, so **prompt injection is structurally inert** (golden case
+`nls-020`, scored as a gate). Gate: **≥90% no-false-filter**, ≥70% exact intent, Hebrew and English
+reported separately, published to `docs/evidence/` whatever the number is.
+
+**Two traps carried into the brief from the repo's own history:** send `responseSchema` and not only
+`responseMimeType` (the precedent silently read `.places` off a bare array and got `undefined`); and
+a 15-value enum on a nested array's `items` is the open unmeasured risk in `json-schema.ts` —
+**bisect before trusting it, the failure mode is every search returning 400.** Also: an earlier
+`scripts/nls-benchmark.ts` from this workstream once produced every lint and typecheck error in the
+repo and blocked the build.
