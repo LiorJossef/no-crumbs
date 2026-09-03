@@ -17,10 +17,10 @@ is not running and you should take over.
 > so a heartbeat running fast eventually reads as stale and invites a second session in on top of a
 > live one. **Run `date` before writing a timestamp here. Never estimate one.**
 
-- **Last updated:** 2026-09-04 01:40 IDT
+- **Last updated:** 2026-09-04 02:35 IDT
 - **Run started:** 2026-09-03 22:30 IDT
 - **Hard stops:** 06:00 no new work · 06:30 tree clean · 07:00 handoff written and pushed
-- **Status:** WAVES 1–3 COMPLETE · owner gave full ownership at ~01:35 · 2 lanes running
+- **Status:** owner asleep, full ownership · BUG-1, CLEAN and ERR landed · NLS-A still running
 
 ## The resume mechanism
 
@@ -750,3 +750,74 @@ a 15-value enum on a nested array's `items` is the open unmeasured risk in `json
 **bisect before trusting it, the failure mode is every search returning 400.** Also: an earlier
 `scripts/nls-benchmark.ts` from this workstream once produced every lint and typecheck error in the
 repo and blocked the build.
+
+---
+
+## After the handover — four lanes, three landed
+
+| commit | what |
+|---|---|
+| `0b85fed` | `refactor(collections)` — the lendable back control's machinery deleted, its e2e spec repaired |
+| `600ff55` | `test(sheet)` — three superseded claims retired; **`tests/unit` reaches zero failures** |
+| `ea4a3f0` | `fix(auth)` — the sign-in screen stops printing the provider's own error text |
+| `8d77576` | `fix(map)` — the list heading follows the place you just opened (the owner's screenshot) |
+
+### My own smoke pass, before any of it
+21 surface loads — `/map`, collections index, a collection, `/profile`, `/account`, two import
+states — at 390×844 light and dark and 1280×900 light. **Zero page errors, zero console errors, no
+horizontal scroll, no overflow.** The only sub-24 px targets are the CARTO/OSM attribution links and
+one text link inside a larger row.
+
+### BUG-1 — the owner's screenshot, root-caused. **Not clustering and not resolution: it is state.**
+
+**Reproduced first, deterministically**, before any theory: open a Budapest place from the list,
+nudge the map so the scope settles on that area, then open a Tel Aviv place — the header keeps
+saying `1 place in Budapest` over Tel Aviv rows, with a Tel Aviv card and the camera already in Tel
+Aviv. The pin path had the identical defect.
+
+**Mechanism:** the header is derived during render, so nothing was stale there. The scope has **six
+writers and selection was not one of them** — the two movers that fly the camera to a chosen place
+deliberately held the scope. The window was temporary, which is exactly what made it look like a
+rendering fault: **one small drag afterwards corrected it**, because the scope was already destined
+for that area.
+
+**The fix is a pure function and is narrow on purpose:** a place already in scope returns the
+current scope *by identity*, so global scope and same-area selection are untouched and "narrowing
+never navigates" is unchanged; otherwise the scope keeps its kind and moves its value, with a
+country scope moving to the place's **country** rather than its city because that is the granularity
+the user chose. A place no area contains holds still, so a just-saved row cannot teleport the list.
+
+**Tested by mutation:** stubbed back to the old behaviour, **5 of the 9 new tests go red**; the other
+4 are hold-still claims that must pass both ways. One test asserts the new rule agrees with the
+camera-settled rule, so the header cannot change again a gesture later.
+
+**I verified it myself on the agent's own repro** — my first two harness attempts never narrowed the
+scope and proved nothing, which I state because a green run from a harness that never reached the
+bad state is worse than no run. On the real repro: step 2 reaches `1 place in Budapest`, step 3 now
+reads `20 places in תל אביב-יפו`.
+
+**This is very likely the family behind the production `1 in הרצליה` report** on a Jerusalem save,
+which was never root-caused. Same mechanism, same shape — unprovable from here, because prod rows
+cannot be read from this machine. **Morning list: worth re-checking in production once this lands.**
+
+### ERR — the auth leak, closed
+
+The mapping ended with `default: error.message`, guarded by a `/phone/i` test — a filter on the one
+leak somebody had already been burned by, with the rest of the provider's catalogue printed into a
+live region on the front door. The default is now inverted: a closed set, `error.message` never read
+by the mapper, an unrecognised failure landing on a written sentence. **The account-enumeration
+decision is now pinned** — an unknown address returns the identical string to a wrong password and a
+test fails if they diverge. The diagnostic survives for unmapped failures only; logging every
+failure put a red issue badge in the dev overlay on each mistyped password, which was measured and
+narrowed. The two recovery screens were **checked, not assumed** — they already had the right
+posture. I drove real failures myself: no provider text anywhere.
+
+### CLEAN — and `tests/unit` is at **zero failures**, from eleven at the start of the night
+
+Each retirement was checked against the source first: the only occurrence of either provenance
+string in `src/` is the comment recording its own deletion. The valuable halves are kept, and one
+sibling test was made **stronger** rather than deleted. The e2e spec is edited but **not run** — it
+needs a live Supabase and `E2E_PASSWORD`, and the agent said so instead of calling it green.
+
+**Morning list, found in passing:** `map-page-client.tsx` now documents **nine** camera movers;
+`06` §9.2 still says four.

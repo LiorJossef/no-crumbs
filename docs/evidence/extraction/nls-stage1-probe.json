@@ -1,0 +1,25 @@
+{
+  "base": "http://localhost:3477",
+  "startedAt": "2026-09-03T22:41:41.726Z",
+  "probe": [
+    {
+      "variant": "full",
+      "status": 200,
+      "ok": true,
+      "reason": null,
+      "intent": {
+        "category": "restaurant",
+        "tags": [
+          "italian"
+        ],
+        "visit": "all",
+        "origin": "all",
+        "keyword": null
+      }
+    }
+  ],
+  "run": null,
+  "clamp": null,
+  "liveCalls": 1,
+  "finishedAt": "2026-09-03T22:41:44.091Z"
+}

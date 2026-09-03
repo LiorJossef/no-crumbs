@@ -1,0 +1,576 @@
+{
+  "base": "http://localhost:3477",
+  "startedAt": "2026-09-03T22:41:53.696Z",
+  "probe": null,
+  "run": {
+    "variant": "route default",
+    "rows": [
+      {
+        "caseId": "nls-001",
+        "lang": "en",
+        "query": "italian restaurant in london",
+        "intent": {
+          "category": "restaurant",
+          "tags": [
+            "italian"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "london"
+        },
+        "dropped": [],
+        "elapsedMs": 1305,
+        "inputTokens": 873,
+        "outputTokens": 21,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-002",
+        "lang": "en",
+        "query": "japanese restaurants in london",
+        "intent": {
+          "category": "restaurant",
+          "tags": [
+            "japanese"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "london"
+        },
+        "dropped": [],
+        "elapsedMs": 1190,
+        "inputTokens": 876,
+        "outputTokens": 21,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-003",
+        "lang": "en",
+        "query": "middle eastern restaurants in tel aviv",
+        "intent": {
+          "category": "restaurant",
+          "tags": [
+            "middle eastern"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "tel aviv"
+        },
+        "dropped": [],
+        "elapsedMs": 1183,
+        "inputTokens": 879,
+        "outputTokens": 24,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-004",
+        "lang": "he",
+        "query": "מסעדה איטלקית בלונדון",
+        "intent": {
+          "category": "restaurant",
+          "tags": [
+            "italian"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "לונדון"
+        },
+        "dropped": [],
+        "elapsedMs": 1179,
+        "inputTokens": 880,
+        "outputTokens": 24,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-005",
+        "lang": "he",
+        "query": "בית קפה עם מאפים בתל אביב",
+        "intent": {
+          "category": "cafe",
+          "tags": [
+            "bakery"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "תל אביב"
+        },
+        "dropped": [],
+        "elapsedMs": 1234,
+        "inputTokens": 885,
+        "outputTokens": 25,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-006",
+        "lang": "mixed",
+        "query": "מסעדה italian בתל אביב",
+        "intent": {
+          "category": "restaurant",
+          "tags": [
+            "italian"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "תל אביב"
+        },
+        "dropped": [],
+        "elapsedMs": 1275,
+        "inputTokens": 880,
+        "outputTokens": 24,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-007",
+        "lang": "en",
+        "query": "italian restaurant in rome",
+        "intent": {
+          "category": "restaurant",
+          "tags": [
+            "italian"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "rome"
+        },
+        "dropped": [],
+        "elapsedMs": 1117,
+        "inputTokens": 873,
+        "outputTokens": 21,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-008",
+        "lang": "he",
+        "query": "בתי קפה בירושלים",
+        "intent": {
+          "category": "cafe",
+          "tags": [],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "ירושלים"
+        },
+        "dropped": [],
+        "elapsedMs": 1179,
+        "inputTokens": 877,
+        "outputTokens": 23,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-009",
+        "lang": "he",
+        "query": "מסעדות בחיפה",
+        "intent": {
+          "category": "restaurant",
+          "tags": [],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "חיפה"
+        },
+        "dropped": [],
+        "elapsedMs": 1569,
+        "inputTokens": 875,
+        "outputTokens": 21,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-010",
+        "lang": "en",
+        "query": "brunch",
+        "intent": {
+          "category": "cafe",
+          "tags": [
+            "brunch"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": null
+        },
+        "dropped": [],
+        "elapsedMs": 1135,
+        "inputTokens": 877,
+        "outputTokens": 22,
+        "noFalseFilter": false,
+        "falseFilters": [
+          "category=cafe"
+        ],
+        "exact": false
+      },
+      {
+        "caseId": "nls-011",
+        "lang": "en",
+        "query": "bars in tel aviv",
+        "intent": {
+          "category": "bar",
+          "tags": [],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "tel aviv"
+        },
+        "dropped": [],
+        "elapsedMs": 1108,
+        "inputTokens": 874,
+        "outputTokens": 22,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-012",
+        "lang": "he",
+        "query": "ברים בתל אביב",
+        "intent": {
+          "category": "bar",
+          "tags": [],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "תל אביב"
+        },
+        "dropped": [],
+        "elapsedMs": 1169,
+        "inputTokens": 880,
+        "outputTokens": 23,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-013",
+        "lang": "mixed",
+        "query": "cafe בתל אביב",
+        "intent": {
+          "category": "cafe",
+          "tags": [],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "תל אביב"
+        },
+        "dropped": [],
+        "elapsedMs": 1124,
+        "inputTokens": 874,
+        "outputTokens": 23,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-014",
+        "lang": "en",
+        "query": "natural wine bars",
+        "intent": {
+          "category": "bar",
+          "tags": [
+            "wine bar"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "natural wine bars"
+        },
+        "dropped": [],
+        "elapsedMs": 1168,
+        "inputTokens": 875,
+        "outputTokens": 24,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": false
+      },
+      {
+        "caseId": "nls-015",
+        "lang": "en",
+        "query": "pizza places",
+        "intent": {
+          "category": "restaurant",
+          "tags": [
+            "italian"
+          ],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "pizza"
+        },
+        "dropped": [],
+        "elapsedMs": 1147,
+        "inputTokens": 874,
+        "outputTokens": 21,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-016",
+        "lang": "en",
+        "query": "hidden gem",
+        "intent": {
+          "category": null,
+          "tags": [],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "hidden gem"
+        },
+        "dropped": [],
+        "elapsedMs": 1237,
+        "inputTokens": 871,
+        "outputTokens": 21,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-017",
+        "lang": "he",
+        "query": "קפה ברמת גן",
+        "intent": {
+          "category": "cafe",
+          "tags": [],
+          "visit": "all",
+          "origin": "all",
+          "keyword": "רמת גן"
+        },
+        "dropped": [],
+        "elapsedMs": 1135,
+        "inputTokens": 878,
+        "outputTokens": 23,
+        "noFalseFilter": true,
+        "falseFilters": [],
+        "exact": true
+      },
+      {
+        "caseId": "nls-018",
+        "lang": "neutral",
+        "query": "",
+        "category": [
+          null
+        ],
+        "tags": [
+          []
+        ],
+        "visit": [
+          "all"
+        ],
+        "origin": [
+          "all"
+        ],
+        "keyword": [
+          null
+        ],
+        "note": "Empty submit. Scored as 'no call was made' — the route rejects it before the provider (§6.2).",
+        "skipped": "no call — empty submit",
+        "noFalseFilter": true,
+        "exact": true
+      },
+      {
+        "caseId": "nls-019",
+        "lang": "neutral",
+        "status": 429,
+        "failed": "quota",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-020",
+        "lang": "neutral",
+        "status": 429,
+        "failed": "quota",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-021",
+        "lang": "he",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-022",
+        "lang": "he",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-023",
+        "lang": "en",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-024",
+        "lang": "en",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-025",
+        "lang": "en",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-026",
+        "lang": "he",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-027",
+        "lang": "he",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-028",
+        "lang": "en",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-029",
+        "lang": "he",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-030",
+        "lang": "en",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-031",
+        "lang": "he",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-032",
+        "lang": "he",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-033",
+        "lang": "he",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-034",
+        "lang": "mixed",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      },
+      {
+        "caseId": "nls-035",
+        "lang": "mixed",
+        "status": 429,
+        "failed": "rate-limited",
+        "noFalseFilter": false,
+        "exact": false
+      }
+    ],
+    "all": {
+      "n": 35,
+      "noFalseFilter": 17,
+      "exact": 16
+    },
+    "en": {
+      "n": 14,
+      "noFalseFilter": 8,
+      "exact": 7
+    },
+    "he": {
+      "n": 14,
+      "noFalseFilter": 6,
+      "exact": 6
+    },
+    "mixed": {
+      "n": 4,
+      "noFalseFilter": 2,
+      "exact": 2
+    },
+    "neutral": {
+      "n": 3,
+      "noFalseFilter": 1,
+      "exact": 1
+    },
+    "latencyMs": [
+      1108,
+      1117,
+      1124,
+      1135,
+      1135,
+      1147,
+      1168,
+      1169,
+      1179,
+      1179,
+      1183,
+      1190,
+      1234,
+      1237,
+      1275,
+      1305,
+      1569
+    ],
+    "tokens": {
+      "input": 14901,
+      "output": 383
+    }
+  },
+  "clamp": {
+    "query": "italian restaurants",
+    "wide": {
+      "ok": false,
+      "reason": "rate-limited"
+    },
+    "narrow": {
+      "ok": false,
+      "reason": "rate-limited"
+    }
+  },
+  "liveCalls": 36,
+  "finishedAt": "2026-09-03T22:42:15.725Z"
+}
