@@ -53,7 +53,7 @@
  */
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Trash2, Pencil, Check } from 'lucide-react';
+import { Pencil, Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -124,29 +124,43 @@ export const DETAIL_FIELD_DONE =
   '-my-2 inline-flex min-h-11 shrink-0 items-center rounded px-1 text-micro font-bold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /**
- * **The one shape the card's three primary actions share** — `Open on TikTok`, `Google Maps` and
- * `Been here` — exported because the first two are anchors in `place-sheet.tsx` and only the third
- * lives here. Two files drawing "the same pill" from two class strings is how the row comes to have
- * two heights.
+ * **The card's one primary action, and now the only thing wearing this shape** — `Been here`.
  *
- * Why a pill and not the full-width block this was: the block was 44 px tall and the width of the
- * card, and there were two more like it underneath (the note, the remove). Three full-width blocks
- * is a form, and a saved place is not a form — round 3 of the owner's feedback measured the primary
- * actions *below the fold* on both viewports. Side by side they cost one 44 px band instead of
- * three, which is what buys the card its zero-scroll shape.
+ * Until 2026-09-03 `Open on TikTok`, `Google Maps` and `Been here` shared this string: same
+ * height, same border, same radius, same `font-bold`. Three co-equal primaries is none, which is
+ * the mechanism behind the owner's *"the card feels overwhelming"*
+ * (`docs/ux-card-and-share-2026-09-03.md` §A1). The two links keep their words and their 44 px
+ * target and step down to `DETAIL_OUT_LINK` below; the weight collects here.
  *
- * `min-h-11` is not negotiable and is why the row is pills rather than text links: 44 px is the
- * touch floor, and this is the row a person presses on a phone. The height is spent once for all
- * three.
+ * **Not mint, deliberately.** Mint means *create* on the `＋` and *this is narrowing your library*
+ * on a pressed filter chip, and a third meaning would undo `ux-collection-actions-2026-09-03.md`
+ * §4. A bordered, bold, 44 px pill on a card where nothing else is bordered is already the loudest
+ * control on the surface — the promotion is by subtraction, not by paint.
  *
- * `px-3` is measured, not chosen: at `px-3.5` the three pills are 353 px against the 350 px a
- * 390 px phone gives this card, so the row wrapped into two 44 px bands and gave back most of what
- * it had just saved. At `px-3`, with no trailing arrow on the Google Maps pill, they are 333 px and
- * the row is one band with 17 px of slack. The labels are fixed strings, so that number is the same
- * on every place in the library rather than a lucky fixture.
+ * `min-h-11` is the touch floor and is not negotiable. `px-4` rather than the measured `px-3` that
+ * stood while three of these had to share one 350 px band: with the other two out of the row there
+ * is no width contest left to win, and the extra 8 px is what makes the one primary read as
+ * substantial rather than merely bordered.
  */
 export const DETAIL_ACTION_PILL =
-  'inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+
+/**
+ * **A control that leaves the product, one step quieter than the primary** — `Open on TikTok` and
+ * `Open in Google Maps` in `place-sheet.tsx`.
+ *
+ * The owner rejected dissolving these two into the address line and the creator credit (spec §R2,
+ * overridden 2026-09-03): *"if the creator name is clickable, it's not clear that it opens the
+ * original TikTok, and if the address is clickable, it's not clear that it opens Google Maps."* So
+ * they stay explicit and stay labelled, and the hierarchy comes from weight instead — no border,
+ * no fill, `font-medium` rather than `font-bold`, against a bordered bold pill.
+ *
+ * It is not a new shape: this is the class string band 2's other-sources rows already use, minus
+ * their `w-full`. That row is a platform mark, a label and a trailing arrow, which is exactly what
+ * these two are. `min-h-11` because the paint got quieter and the target did not.
+ */
+export const DETAIL_OUT_LINK =
+  'inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-brand outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /**
  * "I've been here" — the one control that lets the library resolve rather than only grow.
@@ -244,10 +258,11 @@ export function BeenToggle({
           // full width or not. The bare `transition-colors` goes rather than gaining a prefix,
           // because `PRESS_BEAT`'s `motion-safe:transition` already carries colour.
           //
-          // **The width is gone and the words are not.** This was `w-full rounded-lg`; it is now
-          // the shared pill, third in a row beside the two links. `voice-and-vocabulary.md` §3
-          // ratifies `Been here` / `Been`, so the size and the weight changed and the string did
-          // not — the complaint was never the wording.
+          // **The width is gone and the words are not.** This was `w-full rounded-lg`, then one
+          // of three identical pills; it is now the band's single primary, first in the row and
+          // the only bordered control on the card. `voice-and-vocabulary.md` §3 ratifies
+          // `Been here` / `Been`, so the size and the weight changed and the string did not — the
+          // complaint was never the wording.
           DETAIL_ACTION_PILL,
           PRESS_BUTTON,
           pending && 'opacity-50',
@@ -322,7 +337,6 @@ export function CategoryEditor({
   savedPlaceId,
   category,
   isOverridden,
-  fromAPost,
 }: {
   savedPlaceId: string;
   /** The place's current category, `null` where nothing resolved one. A null is a legitimate
@@ -331,13 +345,6 @@ export function CategoryEditor({
   /** Whether `category` came from this user's override rather than the provider or the model.
    *  Decides only whether `Automatic` is offered — there is nothing to undo otherwise. */
   isOverridden: boolean;
-  /** Whether this place came from a TikTok at all.
-   *
-   *  Only the sentence under the value depends on it, and only so that it stops being false: a
-   *  manually added place has no TikTok video behind it, and the line read `Bar · from the TikTok
-   *  video` on the first one ever saved. Its category came from the map listing's own type, which
-   *  is a different claim and a better one. */
-  fromAPost: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -361,35 +368,22 @@ export function CategoryEditor({
   // The value line. Open, the row replaces it with the chip group rather than stacking both:
   // the active chip already says what the category is, and repeating it under the editor is the
   // "panel" shape this row exists to avoid.
-  const value = (
-    <>
-      {/* A place with no category says so in words rather than showing a blank line where a value
-          should be — the control is the answer to "what is this?", and silence there reads as a
-          rendering fault rather than as an honest "we could not tell". */}
-      {category === null ? (
-        <span className="text-muted-foreground">Not set</span>
-      ) : (
-        PRODUCT_CATEGORY_LABEL[category]
-      )}
-      {/* **Where the category came from, said as a place rather than as a process.**
-
-          This read `Restaurant · worked out from the video` until 2026-09-02. *Worked out from* is
-          our machinery narrated at the user — the same voice B-T2 retired from the location line.
-          `from the TikTok video` names an object the user already knows is there: the still at the
-          top of this card is a frame of it, and the pill above opens it. That makes it symmetric
-          with the other arm, `from the map listing`, which was already a thing rather than a
-          procedure — and the symmetry is the point, because the whole sentence exists to say *you
-          did not choose this, we did, and here is where we got it*.
-
-          `voice-and-vocabulary.md` §3.1 allows the bare `video` only as an anaphor, so the
-          adjective is written out: this card names TikTok nowhere else in words. */}
-      {category !== null && !isOverridden && (
-        <span className="text-muted-foreground">
-          {fromAPost ? ' · from the TikTok video' : ' · from the map listing'}
-        </span>
-      )}
-    </>
-  );
+  //
+  // **` · from the TikTok video` / ` · from the map listing` is gone** (2026-09-03, spec §R5). It
+  // was the *fourth* statement on one card that this place came from a video — after the still,
+  // the creator credit and the TikTok control — and the card's complaint was repetition, not a
+  // missing provenance. What the sentence protected survives elsewhere: the pin's provenance is
+  // still on the record line at the bottom, and the category is still a claim the user can
+  // overrule by pressing this row.
+  const value =
+    // A place with no category says so in words rather than showing a blank line where a value
+    // should be — the control is the answer to "what is this?", and silence there reads as a
+    // rendering fault rather than as an honest "we could not tell".
+    category === null ? (
+      <span className="text-muted-foreground">Not set</span>
+    ) : (
+      PRODUCT_CATEGORY_LABEL[category]
+    );
 
   const errorLine = error ? (
     <p role="alert" className="px-1 pt-1 text-micro font-medium text-destructive">
@@ -413,9 +407,14 @@ export function CategoryEditor({
           }}
           className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
         >
-          <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className={SECTION_LABEL}>Category</span>
-            <span className={cn(DETAIL_FIELD_VALUE, 'text-foreground')}>{value}</span>
+          {/* **One line, label leading** (spec §A2, 2026-09-03). Stacking an 11 px label over a
+              14 px value, three rows running, is the grammar of a settings form, and the owner's
+              complaint about the card was exactly that it read like work. The label survives here
+              and nowhere else on the card: a bare `Café` row would be a word with no claim
+              attached, where `In tel aviv food` and a note say what they are by themselves. */}
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            <span className={cn(SECTION_LABEL, 'shrink-0')}>Category</span>
+            <span className={cn(DETAIL_FIELD_VALUE, 'min-w-0 flex-1 text-foreground')}>{value}</span>
           </span>
           <Pencil className="size-3 shrink-0 text-muted-foreground" aria-hidden />
         </button>
@@ -553,16 +552,25 @@ export function NoteEditor({
           aria-expanded={false}
           className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
         >
-          <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className={SECTION_LABEL}>Your note</span>
+          {/* **The label goes when the row is an offer** (spec §A2). `Your note` over `Add a
+              note` said the same thing twice, and the empty state is the one every place starts
+              in — so the commonest shape of this row was two lines to carry one. Once there is a
+              note the label comes back, inline: it is what tells your own words apart from the
+              note a collection shares with everyone.
+
+              The value is clamped rather than fully drawn: pressing the row opens the editor with
+              the whole note in it, and an unbounded prose block in a resting row is what pushed
+              the controls below the fold in round 3. */}
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            {note && <span className={cn(SECTION_LABEL, 'shrink-0')}>Your note</span>}
             {/* `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
                 routinely Hebrew (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 1). */}
             <span
               dir="auto"
               className={cn(
                 DETAIL_FIELD_VALUE,
-                'whitespace-pre-wrap',
-                note ? 'text-foreground' : 'text-muted-foreground',
+                'min-w-0 flex-1',
+                note ? 'line-clamp-2 whitespace-pre-wrap text-foreground' : 'text-muted-foreground',
               )}
             >
               {note ?? 'Add a note'}
@@ -739,9 +747,14 @@ export function RemoveSavedPlace({
             setError(null);
             setConfirming(true);
           }}
-          className="flex items-center gap-1.5 self-start text-sm font-bold text-muted-foreground underline-offset-4 hover:text-destructive hover:underline"
+          /* **The glyph is gone and the air is the demotion** (spec §A6). A trash icon was the
+             only icon in this band, so the eye landed on the irreversible action before it landed
+             on anything the user came for; `font-bold` on top of that made the loudest thing at
+             the foot of the card the one that destroys a row. `font-medium`, no glyph, and the
+             space above it does the separating instead — no divider, because a rule here would
+             make the removal look like a section of the card rather than its exit. */
+          className="mt-5 flex items-center self-start text-sm font-medium text-muted-foreground underline-offset-4 hover:text-destructive hover:underline"
         >
-          <Trash2 className="size-3.5" aria-hidden />
           Remove from your places
         </button>
         {error && (

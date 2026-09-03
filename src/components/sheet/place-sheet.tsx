@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * The mobile sheet system for `/map` (S3/S4/S5, `docs/ux-architecture.md` §6.5, §7). Built on
@@ -47,8 +47,8 @@ import {
   STOP_TO_CONTENT_HEIGHT,
   floatingBarClearancePx,
   type SheetStop,
-} from '@/components/shell/sheet-geometry';
-import { savedPlaceRef } from '@/components/map/saved-place-ref';
+} from "@/components/shell/sheet-geometry";
+import { savedPlaceRef } from "@/components/map/saved-place-ref";
 import {
   useEffect,
   useLayoutEffect,
@@ -57,42 +57,55 @@ import {
   useState,
   type CSSProperties,
   type ReactNode,
-} from 'react';
-import { ArrowUpRight, MapPin, X, ChevronLeft, ChevronUp, Play, Search } from 'lucide-react';
-import { CrumbMascot } from '@/components/brand/crumb-mascot';
-import { PlatformMark } from '@/components/brand/platform-mark';
-import { Button } from '@/components/ui/button';
-import { PRESS_BEAT, PRESS_BUTTON, PRESS_ROW } from '@/lib/interaction';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import { isSearchActive } from '@/domain/places/search';
-import { tagKey } from '@/domain/extraction/tags';
-import { tagFacets, type TagFacet } from '@/ui/place/tag-filter';
+} from "react";
+import {
+  ArrowUpRight,
+  MapPin,
+  X,
+  ChevronLeft,
+  ChevronUp,
+  Play,
+  Search,
+} from "lucide-react";
+import { CrumbMascot } from "@/components/brand/crumb-mascot";
+import { PlatformMark } from "@/components/brand/platform-mark";
+import { Button } from "@/components/ui/button";
+import { PRESS_BEAT, PRESS_ROW } from "@/lib/interaction";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { isSearchActive } from "@/domain/places/search";
+import { tagKey } from "@/domain/extraction/tags";
+import { tagFacets, type TagFacet } from "@/ui/place/tag-filter";
 import {
   BeenToggle,
   CategoryEditor,
-  DETAIL_ACTION_PILL,
+  DETAIL_OUT_LINK,
   NoteEditor,
   RemoveSavedPlace,
-} from './saved-place-edits';
+} from "./saved-place-edits";
 import {
   ActiveTagFilter,
   DishLine,
   TagChipList,
   TagChipRow,
   WhyGoLine,
-} from './place-enrichment';
-import { BeenBadge } from './visit-state';
-import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
-import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
-import { AxisRows, LibraryFilterBar, MenuAxis, type FilterSurface } from './library-filter-bar';
-import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
+} from "./place-enrichment";
+import { BeenBadge } from "./visit-state";
+import { NO_BEEN_PLACES_LINE, type VisitFilter } from "@/ui/place/visit-state";
+import { BOTTOM_NAV_HEIGHT_PX } from "@/components/nav/bottom-nav";
+import {
+  AxisRows,
+  LibraryFilterBar,
+  MenuAxis,
+  type FilterSurface,
+} from "./library-filter-bar";
+import { DEFAULT_PLACE_ORDER, type PlaceOrder } from "./place-order";
 import {
   extraSources,
   moreSourcesLine,
   openSourceLabel,
   sourceCreatorLabel,
-} from './place-sources';
+} from "./place-sources";
 import {
   BulkDeleteControl,
   BulkDeleteNotice,
@@ -102,38 +115,53 @@ import {
   SelectionToolbar,
   useLibrarySelection,
   type LibrarySelection,
-} from './library-selection';
-import type { CategoryFacet } from '@/domain/places/category-filter';
-import type { ProductCategory } from '@/domain/places/product-category';
-import { thumbnailOf, type PlaceDetailFacts, type ThumbnailRef } from '@/domain/places/spot';
-import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
+} from "./library-selection";
+import type { CategoryFacet } from "@/domain/places/category-filter";
+import type { ProductCategory } from "@/domain/places/product-category";
+import {
+  thumbnailOf,
+  type PlaceDetailFacts,
+  type ThumbnailRef,
+} from "@/domain/places/spot";
+import {
+  enrichmentOf,
+  rowAccessibleName,
+  whyGoEarnsItsPlace,
+} from "@/ui/place/enrichment";
 import {
   categoryColorVar,
   categoryLocalityLine,
   categoryTintVar,
-} from '@/ui/place/category-display';
-import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
-import { nearbyDistanceLabel, nearbyPlaces, type NearbyPlace } from '@/ui/place/nearby';
+} from "@/ui/place/category-display";
+import { savedPlaceMapsUrl } from "@/ui/place/maps-link";
+import {
+  nearbyDistanceLabel,
+  nearbyPlaces,
+  type NearbyPlace,
+} from "@/ui/place/nearby";
 import {
   APPROXIMATE_ROW_ANNOTATION,
   locationCertainty,
   savedElapsedLine,
   savedOnLine,
   visitedOnLine,
-} from '@/ui/place/location-certainty';
-import { AddToCollection } from '@/components/collections/add-to-collection';
+} from "@/ui/place/location-certainty";
+import { AddToCollection } from "@/components/collections/add-to-collection";
 
-import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
-import { SECTION_LABEL } from '@/ui/place/section-label';
+import {
+  formatCaptionQuote,
+  quoteAddsSomething,
+} from "@/ui/place/caption-quote";
+import { SECTION_LABEL } from "@/ui/place/section-label";
 import {
   CLEAR_FILTERS_LABEL,
   NO_FILTER_MATCHES_HINT,
   NO_FILTER_MATCHES_LINE,
   isolate,
   type AreaHeading,
-} from '@/ui/place/active-area';
-import type { MapPlace } from '@/components/map/types';
-import { useNearMeDistance } from '@/components/map/near-me-context';
+} from "@/ui/place/active-area";
+import type { MapPlace } from "@/components/map/types";
+import { useNearMeDistance } from "@/components/map/near-me-context";
 
 /**
  * The stops, the snap points and the content heights now live in
@@ -286,7 +314,10 @@ export function PlaceSheet({
        * `map-shell.tsx` deliberately declines to impose the height on `sheetContent`, so the stop
        * has to be spent by whoever renders into it. Both arms of this branch now spend it.
        */
-      <div style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }} className="flex min-h-0 flex-col">
+      <div
+        style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
+        className="flex min-h-0 flex-col"
+      >
         <PlaceDetail
           place={selected}
           /* What `BottomNav` costs the bottom of this column. Passed rather than assumed inside
@@ -337,7 +368,7 @@ export function PlaceSheet({
       // as that button above roughly 1 100 px of white, with the map they came for hidden behind
       // it. Half fits the content and leaves the map visible; a list is the only thing worth the
       // whole screen.
-      onExpand={() => onExpand(libraryIsEmpty ? 'half' : 'full')}
+      onExpand={() => onExpand(libraryIsEmpty ? "half" : "full")}
       onAddTikTok={onAddTikTok}
       onSelect={onSelect}
       {...(onHover ? { onHover } : {})}
@@ -429,13 +460,18 @@ function PlaceList({
    * long animated scroll would also fight the camera flight happening at the same moment.
    */
   useLayoutEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [activeAreaId]);
 
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
-  const facets = useLibraryTagFacets(places, otherPlaces, activeTags, libraryPlaces);
+  const facets = useLibraryTagFacets(
+    places,
+    otherPlaces,
+    activeTags,
+    libraryPlaces,
+  );
 
   /** Nothing at all to show — the scope's places *and* the continuation under `Everywhere else`
    *  are both empty, which is the only state in which a filter's own empty line is the truth. */
@@ -443,7 +479,8 @@ function PlaceList({
   /** Whether any of the three narrowing axes is on — the same three `Clear` resets, and
    *  deliberately not the sort or the search, neither of which can empty the list in a way
    *  `Clear filters` would undo. Search has its own escape one line above. */
-  const filtersAreOn = activeCategory !== null || visitFilter !== 'all' || activeTags.length > 0;
+  const filtersAreOn =
+    activeCategory !== null || visitFilter !== "all" || activeTags.length > 0;
 
   /**
    * What the peek row promises above the count in the header: how many more rows are down there.
@@ -499,7 +536,7 @@ function PlaceList({
     const leftSelection = wasSelecting.current && !selecting;
     wasSelecting.current = selecting;
     if (!leftSelection) return;
-    const enter = selectSlotRef.current?.querySelector('button');
+    const enter = selectSlotRef.current?.querySelector("button");
     if (!enter?.checkVisibility()) return;
     enter.focus({ preventScroll: true });
   }, [selecting]);
@@ -513,12 +550,12 @@ function PlaceList({
           // column* instead of against the viewport. `dvh` is a lie in here: at `half` the column
           // is `55dvh - 70px`, so a child capped at `45dvh` claims 96 % of it and leaves the list
           // nothing. The inline filter panel in `library-filter-bar.tsx` is the reader.
-          '--sheet-content-height': STOP_TO_CONTENT_HEIGHT[stop],
+          "--sheet-content-height": STOP_TO_CONTENT_HEIGHT[stop],
         } as CSSProperties
       }
       className="flex min-h-0 flex-col gap-3.5 px-5 pt-3.5"
     >
-      {stop === 'peek' ? (
+      {stop === "peek" ? (
         /*
          * One line, and the bar underneath it carries everything else.
          *
@@ -562,7 +599,7 @@ function PlaceList({
             aria-label={
               moreElsewhere > 0
                 ? `Show your places, and ${moreElsewhere} more from everywhere else`
-                : 'Show your places'
+                : "Show your places"
             }
             className={cn(
               // **`min-h-11`, and it is the 44px floor rather than a layout tweak.** W7-6 measured
@@ -573,7 +610,7 @@ function PlaceList({
               // It is the floor the whole band is now sized around: `PEEK_PX` grew 128 → 156 on
               // 2026-09-02 precisely because 44 px plus the bar plus a drag handle does not fit in
               // 128, and the button is the one term in that sum that may not shrink.
-              'flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
+              "flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground",
               // The only control on the peek strip, and the one whose result — the sheet rising —
               // takes a spring to arrive. Without a press this row looked inert for that whole
               // beat.
@@ -592,7 +629,7 @@ function PlaceList({
                 <>
                   <span className="font-heading font-extrabold text-foreground">
                     {heading.count}
-                  </span>{' '}
+                  </span>{" "}
                   {/* The short form — `18 in London`, not `18 places in London`. Given to us by
                     `areaHeading` rather than sliced off `text` here, because a surface that parses
                     a string it was handed pre-split is a surface that will eventually disagree
@@ -607,7 +644,9 @@ function PlaceList({
                 there and that the same tap reaches them. `shrink-0` so the city name is what gives
                 way when the row runs out of room — the promise must not be the half that truncates. */}
             {moreElsewhere > 0 ? (
-              <span className="shrink-0 whitespace-nowrap">· +{moreElsewhere} more</span>
+              <span className="shrink-0 whitespace-nowrap">
+                · +{moreElsewhere} more
+              </span>
             ) : null}
             {/* The one thing the row was missing: at rest the middle slot read as a caption, so
                 nothing on screen said the list was there to be pulled up. The underline it used to
@@ -660,12 +699,12 @@ function PlaceList({
                 `ux-collection-actions-2026-09-03.md` §8). The collection's heading does **not**
                 demote — it is an identity rather than a status, and nothing competes with it. */}
             <h2
-              key={activeAreaId ?? 'no-area'}
+              key={activeAreaId ?? "no-area"}
               className={cn(
-                'min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 outline-none',
+                "min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 outline-none",
                 selecting
-                  ? 'text-caption font-medium text-muted-foreground'
-                  : 'font-heading text-xl font-extrabold tracking-tight text-foreground',
+                  ? "text-caption font-medium text-muted-foreground"
+                  : "font-heading text-xl font-extrabold tracking-tight text-foreground",
               )}
             >
               {headingText}
@@ -711,7 +750,9 @@ function PlaceList({
             <BulkDeleteNotice notice={selection.notice} />
           )}
 
-          {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
+          {!libraryIsEmpty && !selecting && (
+            <PlaceSearchField value={query} onChange={onQueryChange} />
+          )}
 
           {/* **Two rows, not three.** Measured at 375x812 on the owner's own library, the header
               drew the visit chip and three category chips at y190, two sort chips at y248 and ten
@@ -731,7 +772,7 @@ function PlaceList({
               // Opening a panel at `half` would be dividing 83 px between a menu and the list it
               // narrows. The sheet goes to `full` first, and only from a stop that is not already
               // there — see `onPanelOpen`.
-              {...(stop === 'full' ? {} : { onPanelOpen: onExpand })}
+              {...(stop === "full" ? {} : { onPanelOpen: onExpand })}
               facets={categoryFacets}
               activeCategory={activeCategory}
               onToggleCategory={onToggleCategory}
@@ -768,8 +809,10 @@ function PlaceList({
               from `notBeenOnly`, which `been` is not, so without this the screen would go quiet
               about the one filter that emptied it. The control that undoes it is above this line,
               which is the rule the whole header already holds itself to. */}
-          {!libraryIsEmpty && listIsEmpty && visitFilter === 'been' ? (
-            <p className="text-sm font-medium text-muted-foreground">{NO_BEEN_PLACES_LINE}</p>
+          {!libraryIsEmpty && listIsEmpty && visitFilter === "been" ? (
+            <p className="text-sm font-medium text-muted-foreground">
+              {NO_BEEN_PLACES_LINE}
+            </p>
           ) : (
             /* **The heading does not explain an empty list.** Owner, 2026-09-02. `heading.note`
                still carries the notes that are *about the scope* rather than about a filter having
@@ -779,7 +822,9 @@ function PlaceList({
             !libraryIsEmpty &&
             heading.note !== null &&
             !(filtersAreOn && places.length === 0) && (
-              <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                {heading.note}
+              </p>
             )
           )}
 
@@ -805,25 +850,32 @@ function PlaceList({
                 // paid the 68 and not the inset, so on a notched phone the last row sat under the
                 // bar by the whole inset. Simulated at 34 px: the row's title was behind the pill.
                 className="mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] min-h-0 flex-1 overflow-y-auto"
-                style={{ '--floating-bar': `${BOTTOM_NAV_HEIGHT_PX}px` } as CSSProperties}
+                style={
+                  {
+                    "--floating-bar": `${BOTTOM_NAV_HEIGHT_PX}px`,
+                  } as CSSProperties
+                }
               >
-                {heading.escape === 'clear-search' && (
-                  <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+                {heading.escape === "clear-search" && (
+                  <ClearSearchEscape onClearSearch={() => onQueryChange("")} />
                 )}
                 {/* **The filters emptied the list, so the list says so** — owner, 2026-09-02. This
                     sits where the first row would have been, not in the heading: the reader is
                     looking at the space that has nothing in it, and an explanation a control row
                     above it is an explanation somewhere else. Search already worked this way one
                     line up; the two empty results now behave alike. */}
-                {filtersAreOn && heading.escape !== 'clear-search' && places.length === 0 && (
-                  <ClearFiltersEscape
-                    onClearFilters={() => {
-                      if (activeCategory !== null) onToggleCategory(activeCategory);
-                      if (visitFilter !== 'all') onChangeVisitFilter('all');
-                      if (activeTags.length > 0) onClearTags();
-                    }}
-                  />
-                )}
+                {filtersAreOn &&
+                  heading.escape !== "clear-search" &&
+                  places.length === 0 && (
+                    <ClearFiltersEscape
+                      onClearFilters={() => {
+                        if (activeCategory !== null)
+                          onToggleCategory(activeCategory);
+                        if (visitFilter !== "all") onChangeVisitFilter("all");
+                        if (activeTags.length > 0) onClearTags();
+                      }}
+                    />
+                  )}
                 {!heading.empty && (
                   <ul>
                     {places.map((place) =>
@@ -834,7 +886,9 @@ function PlaceList({
                           key={place.id}
                           place={place}
                           checked={selection.picked.has(place.savedPlaceId)}
-                          onToggle={() => selection.toggle(place.savedPlaceId as string)}
+                          onToggle={() =>
+                            selection.toggle(place.savedPlaceId as string)
+                          }
                         />
                       ) : (
                         <PlaceRow
@@ -911,7 +965,10 @@ export function useLibraryTagFacets(
   libraryPlaces?: readonly MapPlace[],
 ): readonly TagFacet[] {
   const tagsOf = (place: MapPlace) => enrichmentOf(place.detail).tags;
-  const matching = useMemo(() => [...places, ...otherPlaces], [places, otherPlaces]);
+  const matching = useMemo(
+    () => [...places, ...otherPlaces],
+    [places, otherPlaces],
+  );
 
   // The vocabulary and its order: every tag in the library, most-used-in-the-library first.
   //
@@ -925,7 +982,13 @@ export function useLibraryTagFacets(
     () =>
       libraryPlaces === undefined
         ? null
-        : tagFacets(libraryPlaces, tagsOf, activeTags, Number.POSITIVE_INFINITY, 1),
+        : tagFacets(
+            libraryPlaces,
+            tagsOf,
+            activeTags,
+            Number.POSITIVE_INFINITY,
+            1,
+          ),
     [libraryPlaces, activeTags],
   );
 
@@ -936,12 +999,17 @@ export function useLibraryTagFacets(
 
   return useMemo(() => {
     if (vocabulary === null) return live;
-    const counts = new Map(live.map((facet) => [tagKey(facet.tag), facet.count]));
+    const counts = new Map(
+      live.map((facet) => [tagKey(facet.tag), facet.count]),
+    );
     // **A tag that currently matches nothing keeps its row and reads `0`.** Dropping it is the
     // behaviour being complained about: a row that vanishes as you narrow is a row you cannot aim
     // at, and the tag is still in the library — the filter is what is hiding it, and the way back
     // is `Clear`, one row up.
-    return vocabulary.map((facet) => ({ ...facet, count: counts.get(tagKey(facet.tag)) ?? 0 }));
+    return vocabulary.map((facet) => ({
+      ...facet,
+      count: counts.get(tagKey(facet.tag)) ?? 0,
+    }));
   }, [vocabulary, live]);
 }
 
@@ -1004,7 +1072,7 @@ export function SortControl({
   orders,
   onChange,
   listLength,
-  surface = 'popover',
+  surface = "popover",
 }: {
   order: PlaceOrder;
   orders: readonly PlaceOrder[];
@@ -1031,7 +1099,12 @@ export function SortControl({
       value={SORT_OPTION_LABEL[current]}
       surface={surface}
     >
-      <SortOptions surface={surface} current={current} orders={orders} onChange={onChange} />
+      <SortOptions
+        surface={surface}
+        current={current}
+        orders={orders}
+        onChange={onChange}
+      />
     </MenuAxis>
   );
 }
@@ -1132,7 +1205,8 @@ export function PlaceRow({
    * replaced the wording on the detail view without updating the comment that pointed at it.)
    */
   const certainty = locationCertainty(place.detail?.provenance?.sourceDataset);
-  const approximateLabel = certainty?.isApproximate === true ? certainty.label : null;
+  const approximateLabel =
+    certainty?.isApproximate === true ? certainty.label : null;
   const rowName = rowAccessibleName(place.name, tags, place.visited);
   /**
    * `Saved 3 days ago`, against the reader's own clock. `new Date()` at render rather than a
@@ -1152,7 +1226,8 @@ export function PlaceRow({
    * position. The map's centre is not, and can never become, one of the inputs here.
    */
   const distanceKm = useNearMeDistance(place.id);
-  const distanceLabel = distanceKm === null ? null : nearbyDistanceLabel(distanceKm);
+  const distanceLabel =
+    distanceKm === null ? null : nearbyDistanceLabel(distanceKm);
   // `aria-label` replaces the button's content in the accessibility tree, so anything rendered
   // inside it that is not in the name is announced nowhere at all. Both annotations qualify the pin
   // rather than the place, so both come last; the distance first, because it is the one the user
@@ -1213,7 +1288,9 @@ export function PlaceRow({
           {/* The muted line is the one that lifts, not the name: the name is already
               `text-foreground`, so brightening it would be a change with nowhere to go. */}
           <p className="line-clamp-1 break-words text-xs font-medium text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple motion-safe:ease-standard group-hover/row:text-foreground/80">
-            <bdi>{secondLine ?? categoryLocalityLine(place.category, locality)}</bdi>
+            <bdi>
+              {secondLine ?? categoryLocalityLine(place.category, locality)}
+            </bdi>
           </p>
           {place.visited && <BeenBadge />}
         </div>
@@ -1242,7 +1319,9 @@ export function PlaceRow({
             this row sits on. Quiet comes from the token and from `text-micro`; alpha is the one
             hierarchy device that costs legibility, so it is not the one to reach for. */}
         {place.detail?.savedAt && (
-          <p className="text-micro font-medium text-muted-foreground">{savedElapsed}</p>
+          <p className="text-micro font-medium text-muted-foreground">
+            {savedElapsed}
+          </p>
         )}
       </div>
       {/* Trailing, aligned with the name, and only ever present while a real fix is held. `ms-auto`
@@ -1287,7 +1366,7 @@ export function PlaceRow({
         // running it for a touch that never set anything costs nothing, while skipping it after a
         // pointer type changes mid-session would strand a highlight on the map.
         onPointerEnter={(event) => {
-          if (event.pointerType === 'mouse') onHover?.(place.id);
+          if (event.pointerType === "mouse") onHover?.(place.id);
         }}
         onPointerLeave={() => onHover?.(null)}
         // Focus is the keyboard's pointer. A user arrowing down this list gets the same coupling a
@@ -1299,7 +1378,7 @@ export function PlaceRow({
         // selected styling reads (`aria-[current=true]:` below), so there is no second source of
         // truth to fall out of step with it. `"true"` rather than `"location"`: the list is not a
         // navigation, and a row is not a page.
-        {...(selected ? { 'aria-current': 'true' as const } : {})}
+        {...(selected ? { "aria-current": "true" as const } : {})}
         // The accessible name says what happens, not what the row contains — a screen reader user
         // hears the name twice otherwise (once as the button label, once as its content).
         //
@@ -1313,7 +1392,9 @@ export function PlaceRow({
         // decisive of the row's facts for "is this the row I want open". `rowAccessibleName` still
         // builds the name; this appends the one thing it has no argument for.
         aria-label={
-          annotations.length === 0 ? rowName : `${isolate(rowName)}, ${annotations.join(', ')}`
+          annotations.length === 0
+            ? rowName
+            : `${isolate(rowName)}, ${annotations.join(", ")}`
         }
         // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
         // otherwise be read as the start of a sheet drag, and the tap would be swallowed.
@@ -1332,16 +1413,16 @@ export function PlaceRow({
           // 2 px wide it was painted *over* the first column of the thumbnail — measured on the
           // desktop panel, where the list content sat flush against it. 10 px of inline-start
           // padding is the gap; `pe-1` keeps the trailing distance off the panel's own edge.
-          'relative flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 ps-2.5 pe-1 text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+          "relative flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 ps-2.5 pe-1 text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
           // **A named group, never a bare `group`.** These rows nest inside other grouped
           // containers on `/collections`, and an unnamed group would let a parent's hover light up
           // every row inside it.
-          'group/row',
+          "group/row",
           // The open place: a tinted ground and a 2px rule on the inline-start edge. `start-0`
           // rather than `left-0` because this list renders Hebrew names and the rule belongs on the
           // edge the text starts at — the same reason the distance uses `ms-auto`.
-          'aria-[current=true]:bg-primary/8',
-          'aria-[current=true]:before:absolute aria-[current=true]:before:inset-y-2 aria-[current=true]:before:start-0 aria-[current=true]:before:w-0.5 aria-[current=true]:before:rounded-full aria-[current=true]:before:bg-primary',
+          "aria-[current=true]:bg-primary/8",
+          "aria-[current=true]:before:absolute aria-[current=true]:before:inset-y-2 aria-[current=true]:before:start-0 aria-[current=true]:before:w-0.5 aria-[current=true]:before:rounded-full aria-[current=true]:before:bg-primary",
           PRESS_ROW,
         )}
       >
@@ -1398,13 +1479,12 @@ export function PlaceRow({
  * it shows TikTok's own message about its own post, which is TikTok's to give.
  */
 export type ThumbnailRefreshOutcome =
-  | { readonly kind: 'url'; readonly url: string }
-  | { readonly kind: 'gone' };
+  { readonly kind: "url"; readonly url: string } | { readonly kind: "gone" };
 
 /** See rule 4 above. Roughly a screenful of rows plus the open detail view. */
 export const MAX_THUMBNAIL_REFRESHES_PER_PAGE = 8;
 
-const GONE: ThumbnailRefreshOutcome = { kind: 'gone' };
+const GONE: ThumbnailRefreshOutcome = { kind: "gone" };
 
 /** What the coordinator needs from the network, narrowed to the three things it reads so a test
  *  can supply it without a `Response`, a `fetch` polyfill or a jsdom this repo does not have. */
@@ -1435,7 +1515,10 @@ export function createThumbnailRefresher(options: {
    *  so one failure cannot poison the queue for every request behind it. */
   let tail: Promise<void> = Promise.resolve();
 
-  async function ask(sourceId: string, failedUrl: string): Promise<ThumbnailRefreshOutcome> {
+  async function ask(
+    sourceId: string,
+    failedUrl: string,
+  ): Promise<ThumbnailRefreshOutcome> {
     let response;
     try {
       response = await options.post({ sourceId, failedUrl });
@@ -1445,14 +1528,20 @@ export function createThumbnailRefresher(options: {
     }
     if (!response.ok) return GONE;
 
-    const body = (typeof response.body === 'object' && response.body !== null
-      ? response.body
-      : {}) as { status?: unknown; url?: unknown };
+    const body = (
+      typeof response.body === "object" && response.body !== null
+        ? response.body
+        : {}
+    ) as { status?: unknown; url?: unknown };
     // `url !== failedUrl` is the guard that keeps a refresh from handing back the corpse: if the
     // route answered with the same string the browser just failed on, retrying it is a second
     // failed image request for a certain outcome.
-    if (body.status === 'ok' && typeof body.url === 'string' && body.url !== failedUrl) {
-      return { kind: 'url', url: body.url };
+    if (
+      body.status === "ok" &&
+      typeof body.url === "string" &&
+      body.url !== failedUrl
+    ) {
+      return { kind: "url", url: body.url };
     }
     return GONE;
   }
@@ -1503,9 +1592,9 @@ const thumbnailRefresher = createThumbnailRefresher({
     // Same-origin, so the session cookie rides along and no `Referer` reaches TikTok — the refresh
     // never talks to the CDN, only to us. The `no-referrer` policy on the `<img>` elements below
     // is untouched and stays the only thing that speaks to TikTok's servers.
-    const response = await fetch('/api/sources/thumbnail', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+    const response = await fetch("/api/sources/thumbnail", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
     let parsed: unknown = null;
@@ -1536,7 +1625,10 @@ function useRefreshableThumbnail(thumb: ThumbnailRef | null): {
   onFailure: () => void;
 } {
   const base = thumb?.url ?? null;
-  const [state, setState] = useState<{ base: string | null; url: string | null }>(() => ({
+  const [state, setState] = useState<{
+    base: string | null;
+    url: string | null;
+  }>(() => ({
     base,
     url: base,
   }));
@@ -1549,11 +1641,14 @@ function useRefreshableThumbnail(thumb: ThumbnailRef | null): {
       if (thumb === null || url === null) return;
       const dead = url;
       setState({ base, url: null });
-      void thumbnailRefresher.refresh({ ...thumb, url: dead }).then((outcome) => {
-        // `outcome.url !== dead` is checked again here and not only in `ask`: a memoised outcome
-        // from a *different* row can carry a URL that has since died for this one.
-        if (outcome.kind === 'url' && outcome.url !== dead) setState({ base, url: outcome.url });
-      });
+      void thumbnailRefresher
+        .refresh({ ...thumb, url: dead })
+        .then((outcome) => {
+          // `outcome.url !== dead` is checked again here and not only in `ask`: a memoised outcome
+          // from a *different* row can carry a URL that has since died for this one.
+          if (outcome.kind === "url" && outcome.url !== dead)
+            setState({ base, url: outcome.url });
+        });
     },
   };
 }
@@ -1655,8 +1750,8 @@ function RowMedia({
           // Zooming the contents under a fixed mask is also the better shape mechanically: the
           // `overflow-hidden` here starts doing real work, the transform lands on a leaf `<img>`
           // rather than on a box that clips, and nothing the list measures ever moves.
-          'mt-0.5 block size-11 shrink-0 overflow-hidden rounded-lg bg-muted',
-          approximate && 'border border-dashed',
+          "mt-0.5 block size-11 shrink-0 overflow-hidden rounded-lg bg-muted",
+          approximate && "border border-dashed",
         )}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- an arbitrary, expiring, signed
@@ -1687,7 +1782,7 @@ function RowMedia({
             if (node?.complete === true && node.naturalWidth === 0) onFailure();
           }}
           className={cn(
-            'size-full object-cover',
+            "size-full object-cover",
             // The picture pushes in a little while the pointer is on the row — the same 160 ms the
             // pin on the map lifts in, so the two halves of the coupling read as one gesture
             // rather than two effects that happen to fire together. `group-hover/row:` reaches in
@@ -1699,7 +1794,7 @@ function RowMedia({
             // moved it here. `transition-transform` in Tailwind v4 declares
             // `transform, translate, scale, rotate`, so it does animate the `scale` property
             // `scale-110` sets; measured on the running app, `transition-duration: 0.16s`.
-            'motion-safe:transition-transform motion-safe:duration-couple motion-safe:ease-standard group-hover/row:scale-110',
+            "motion-safe:transition-transform motion-safe:duration-couple motion-safe:ease-standard group-hover/row:scale-110",
           )}
         />
       </span>
@@ -1725,8 +1820,8 @@ function RowMedia({
         ...(approximate ? { borderColor: color } : {}),
       }}
       className={cn(
-        'mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full',
-        approximate && 'border border-dashed',
+        "mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full",
+        approximate && "border border-dashed",
       )}
     >
       {/* Same lift as the thumbnail arm above, on the same element type — the *contents* of the
@@ -1758,7 +1853,7 @@ export function PlaceSearchField({
   // What this field searches, used as both the visible placeholder and the accessible name so the
   // two can never disagree. A collection's own list passes its own wording; everywhere else the
   // library is what is being searched.
-  label = 'Search your places',
+  label = "Search your places",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -1768,7 +1863,7 @@ export function PlaceSearchField({
   const filtering = isSearchActive(value);
 
   return (
-    <div data-vaul-no-drag className={cn('relative', className)}>
+    <div data-vaul-no-drag className={cn("relative", className)}>
       <Search
         className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden
@@ -1778,19 +1873,19 @@ export function PlaceSearchField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Escape' && value !== '') {
+          if (event.key === "Escape" && value !== "") {
             // Stop it here: at `full` the sheet is a dialog, and Escape would otherwise be read as
             // "close", throwing the user out of the list they are searching.
             event.preventDefault();
             event.stopPropagation();
-            onChange('');
+            onChange("");
           }
         }}
         aria-label={label}
         placeholder={label}
         className={cn(
-          'h-12 rounded-lg pl-10 text-sm font-medium [&::-webkit-search-cancel-button]:hidden',
-          filtering && 'pr-12',
+          "h-12 rounded-lg pl-10 text-sm font-medium [&::-webkit-search-cancel-button]:hidden",
+          filtering && "pr-12",
         )}
       />
       {filtering && (
@@ -1809,7 +1904,7 @@ export function PlaceSearchField({
           // is not in `overnight-copy-deck.md` yet, so inventing one would be putting words in the
           // product's mouth to fix an accessibility bug that the label alone fixes.
           aria-label="Clear the search field"
-          onClick={() => onChange('')}
+          onClick={() => onChange("")}
           className="absolute right-1.5 top-1/2 size-9 -translate-y-1/2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <X className="size-4" aria-hidden />
@@ -1840,7 +1935,11 @@ export function PlaceSearchField({
  * only sometimes. This is the same escape hatch `ClearSearchEscape` gives the search case, in the
  * same place, so the two empty results behave alike.
  */
-export function ClearFiltersEscape({ onClearFilters }: { onClearFilters: () => void }) {
+export function ClearFiltersEscape({
+  onClearFilters,
+}: {
+  onClearFilters: () => void;
+}) {
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
       {/* **A composed empty state, not a sentence with a face next to it** — owner, 2026-09-02:
@@ -1859,7 +1958,9 @@ export function ClearFiltersEscape({ onClearFilters }: { onClearFilters: () => v
         <p className="font-heading text-base font-extrabold text-foreground">
           {NO_FILTER_MATCHES_LINE}
         </p>
-        <p className="text-sm font-medium text-muted-foreground">{NO_FILTER_MATCHES_HINT}</p>
+        <p className="text-sm font-medium text-muted-foreground">
+          {NO_FILTER_MATCHES_HINT}
+        </p>
       </div>
       <Button
         type="button"
@@ -1873,7 +1974,11 @@ export function ClearFiltersEscape({ onClearFilters }: { onClearFilters: () => v
   );
 }
 
-export function ClearSearchEscape({ onClearSearch }: { onClearSearch: () => void }) {
+export function ClearSearchEscape({
+  onClearSearch,
+}: {
+  onClearSearch: () => void;
+}) {
   return (
     <div className="flex flex-col items-start py-6">
       <Button
@@ -1935,7 +2040,7 @@ export function EverywhereElse({
   if (places.length === 0) return null;
 
   return (
-    <section className={flush ? '' : 'mt-5 border-t border-border/70 pt-4'}>
+    <section className={flush ? "" : "mt-5 border-t border-border/70 pt-4"}>
       {/* `px-2.5` follows `PlaceRow`'s own inline padding, so the heading still lines up
           with the names under it now that the rows are inset off the selected rule. */}
       <h3 className="px-2.5 pb-1.5 font-heading text-sm font-extrabold tracking-tight text-foreground">
@@ -1987,26 +2092,26 @@ export function EverywhereElse({
  * press expresses, held here as a default the host may override through `playSourceLabel` — see
  * `PlaceDetail`'s prop.
  */
-export const PLAY_SOURCE_LABEL = 'Play this TikTok video';
+export const PLAY_SOURCE_LABEL = "Play this TikTok video";
 
 /** `C131`. **The visible axis word**, printed before the current value: `Sort: Recently saved`.
  *  It used to be an `aria-label` on a group of chips and nothing else — so the word existed only
  *  in the accessibility tree, and on screen the control was two unexplained values. */
-export const SORT_LABEL = 'Sort';
+export const SORT_LABEL = "Sort";
 
 /** The control's accessible name, and the visible `Sort` is contained in it — the axis stated as a
  *  verb phrase, because "Sort" alone read out before a value announces as a command. */
-export const SORT_BY_LABEL = 'Sort by';
+export const SORT_BY_LABEL = "Sort by";
 
 /** `C132`–`C134`, `overnight-copy-deck.md` §4.2. `A–Z` takes an **en dash**, matching the
  *  product's typography elsewhere; it is not a hyphen and must not be normalised into one. */
 export const SORT_OPTION_LABEL: Record<PlaceOrder, string> = {
-  recent: 'Recently saved',
-  nearest: 'Nearest',
-  alpha: 'A\u2013Z',
+  recent: "Recently saved",
+  nearest: "Nearest",
+  alpha: "A\u2013Z",
 };
 
-export const EMPTY_LIBRARY_HEADING = 'Your map starts here.';
+export const EMPTY_LIBRARY_HEADING = "Your map starts here.";
 
 /**
  * The one line under that heading. It states what the product does in the product's own voice — it
@@ -2083,7 +2188,7 @@ export function PlaceDetail({
   nearby,
   onSelectNearby,
   onClose,
-  variant = 'sheet',
+  variant = "sheet",
   floatingBarPx = 0,
   primaryAction,
   fields,
@@ -2144,7 +2249,7 @@ export function PlaceDetail({
    *  scroll column would be two ways out of one screen. It also takes the host's `px-4` gutter
    *  rather than this view's `px-5`, because that column has to line up with the list rows behind
    *  the same arrow and a 4 px sideways shift on every open is more visible than the difference. */
-  variant?: 'sheet' | 'panel' | 'popover' | 'hosted';
+  variant?: "sheet" | "panel" | "popover" | "hosted";
   /**
    * **The play affordance's press — the seam, and the whole of what this file owns about playback.**
    *
@@ -2220,7 +2325,8 @@ export function PlaceDetail({
   // / `source.media` — same value for the common case, but present even when the
   // `saved_place_sources` → `sources` join above didn't resolve one for any reason. `source`'s
   // fields remain the fallback for a save made before 0016 shipped.
-  const tiktokUrl = detail?.sourceUrl ?? source?.canonicalUrl ?? place.sourceUrl;
+  const tiktokUrl =
+    detail?.sourceUrl ?? source?.canonicalUrl ?? place.sourceUrl;
   // `thumbnailOf` reverses what this line used to do. It preferred `sourceThumbnailUrl` — `0016`'s
   // denormalized copy, filled once and never refreshed by anything, by that migration's own
   // admission — over the joined `sources.thumbnail_url`, which is the row a refresh can actually
@@ -2273,8 +2379,8 @@ export function PlaceDetail({
       </span>
     ) : null;
 
-  const isPopover = variant === 'popover';
-  const isHosted = variant === 'hosted';
+  const isPopover = variant === "popover";
+  const isHosted = variant === "hosted";
 
   /** Every mutation block below is gated on this, and none of them reads an id off `place` — that
    *  is the whole point of this refactor. No narrowing is needed: the prop is already the pair. */
@@ -2283,7 +2389,9 @@ export function PlaceDetail({
   /** Gated on `visited` as well as on the date. The pair cannot disagree in the database (`0006`'s
    *  CHECK), but this prop is an object a caller assembles, and a date printed under a button
    *  reading `Been here` would be the screen contradicting itself. */
-  const visitedOn = savedRow?.visited ? visitedOnLine(savedRow.visitedAt, new Date()) : null;
+  const visitedOn = savedRow?.visited
+    ? visitedOnLine(savedRow.visitedAt, new Date())
+    : null;
 
   // Resolved here rather than inline so the JSX below carries no cast: `whyGoEarnsItsPlace` already
   // rejects null/blank, but TypeScript cannot see that through a boolean.
@@ -2321,7 +2429,10 @@ export function PlaceDetail({
     : null;
 
   const hasBand2 =
-    shownQuote !== null || shownWhyGo !== null || dishes.length > 0 || extra.length > 0;
+    shownQuote !== null ||
+    shownWhyGo !== null ||
+    dishes.length > 0 ||
+    extra.length > 0;
   const hasBand3 =
     savedPlace !== null ||
     fields !== undefined ||
@@ -2365,11 +2476,11 @@ export function PlaceDetail({
        */
       style={
         {
-          '--floating-bar': `${floatingBarPx}px`,
+          "--floating-bar": `${floatingBarPx}px`,
         } as CSSProperties
       }
       className={cn(
-        'mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-5 pt-3.5',
+        "mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-5 pt-3.5",
         // ## The popover's height is set by the *pin*, not by the viewport — measured, 2026-09-01
         //
         // `MapPopup` is a MapLibre `Popup` anchored to the selected place's lng/lat, and the map
@@ -2425,11 +2536,10 @@ export function PlaceDetail({
         // the *preview versus detail* ruling the round-4 review names as `ux-interaction`'s call.
         // It is not more tuning of this constant, which is how the surface got here.
         isPopover &&
-          'max-h-[min(50vh,28rem)] w-80 overscroll-contain px-0 pb-0 pt-0 scroll-fade-b scroll-fade-6 [scrollbar-width:thin]',
+          "max-h-[min(50vh,28rem)] w-80 overscroll-contain px-0 pb-0 pt-0 scroll-fade-b scroll-fade-6 [scrollbar-width:thin]",
         // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
         // matters here and why the top padding belongs to the header row above this column.
-        isHosted &&
-          'px-4 pb-8 pt-1',
+        isHosted && "px-4 pb-8 pt-1",
       )}
     >
       {thumb && (
@@ -2453,12 +2563,12 @@ export function PlaceDetail({
 
       <div
         className={cn(
-          'flex items-start justify-between gap-3',
+          "flex items-start justify-between gap-3",
           // 12 px under the still, which is a group-to-group step like every other one in band 1.
           // The popover's still is full-bleed against the card's top edge, so there the same 12 px
           // is the column's own top padding rather than this block's margin.
-          thumb && !isPopover && 'mt-3',
-          isPopover && 'px-4 pt-3',
+          thumb && !isPopover && "mt-3",
+          isPopover && "px-4 pt-3",
         )}
       >
         <div className="flex min-w-0 flex-col gap-1">
@@ -2482,8 +2592,8 @@ export function PlaceDetail({
                 // the *box* shrink, and an unbreakable word simply overflows whatever box it is
                 // given. A 288 px popover is the narrowest column this heading is ever drawn in,
                 // so it is where the defect surfaces first, not where it is unique.
-                'min-w-0 break-words font-heading text-2xl font-extrabold tracking-tight text-foreground',
-                isPopover && 'text-lg',
+                "min-w-0 break-words font-heading text-2xl font-extrabold tracking-tight text-foreground",
+                isPopover && "text-lg",
               )}
             >
               <bdi>{place.name}</bdi>
@@ -2510,11 +2620,13 @@ export function PlaceDetail({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label={variant === 'panel' ? 'Back to your places' : 'Close place detail'}
+            aria-label={
+              variant === "panel" ? "Back to your places" : "Close place detail"
+            }
             onClick={onClose}
             className="shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            {variant === 'panel' ? (
+            {variant === "panel" ? (
               <ChevronLeft className="size-5" aria-hidden />
             ) : (
               <X className="size-5" aria-hidden />
@@ -2523,7 +2635,7 @@ export function PlaceDetail({
         )}
       </div>
 
-      <div className={cn('flex flex-col', isPopover && 'px-4 pb-4')}>
+      <div className={cn("flex flex-col", isPopover && "px-4 pb-4")}>
         {/* **Band 1 — the place.** Identity, address, the action band, the collection host's
             primary action: what this place *is*, and the one-press things you can do with it.
             12 px between its groups, which is the whole vertical vocabulary inside a band. */}
@@ -2551,7 +2663,10 @@ export function PlaceDetail({
               it, and putting it inside the isolate would let a Hebrew address reorder it. */}
           {addressLine && (
             <p className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm text-foreground">
-              <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <MapPin
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
               <bdi>{addressLine}</bdi>
               {approximateMark}
             </p>
@@ -2594,49 +2709,73 @@ export function PlaceDetail({
               every host except the one where nothing is. Controls before the reason is a real cost;
               the reason being unreachable behind the controls was a bigger one.
 
-              Three pills, `flex-wrap`, all at the 44 px touch floor via `DETAIL_ACTION_PILL` — one
-              shape from one string in `saved-place-edits.tsx`, because the third of them is the
-              `Been` toggle and it lives in that file with the other Server-Action writes.
+              **One primary and two quieter links, not three pills** (2026-09-03,
+              `docs/ux-card-and-share-2026-09-03.md` and its owner ruling). All three used to share
+              `DETAIL_ACTION_PILL`: same height, border, radius and `font-bold`, so two controls
+              that *leave* the product carried the weight of the one write the product wants a
+              returning user to make. Three co-equal primaries is none, and that is the mechanism
+              behind the card feeling overwhelming.
 
-              **The words did not change and are not the fix.** `voice-and-vocabulary.md` §3 ratifies
-              `Been` / `Not been yet`, and `Open on TikTok` survives as each link's accessible name —
-              the visible label is the destination alone because the pill's icon already says
-              *leaves the product*, and three verbs in one row is a row of sentences. */}
+              `Been here` keeps the pill and is now the only thing wearing it. The two links step
+              down to `DETAIL_OUT_LINK` — no border, no fill, `font-medium` — and keep their 44 px
+              targets, because the paint got quieter and the finger did not.
+
+              **Both links keep their words**, which is the owner's ruling and not the spec's: the
+              spec had them dissolve into the address line and the creator credit, and he rejected
+              it — *"if the creator name is clickable, it's not clear that it opens the original
+              TikTok, and if the address is clickable, it's not clear that it opens Google Maps."*
+              The same objection convicts the icon-only TikTok control that was already shipped, so
+              it gains the word too.
+
+              `voice-and-vocabulary.md` §3 ratifies `Been` / `Not been yet`, and `Open on TikTok`
+              survives as the link's accessible name. */}
           {/* Unconditional: `Google Maps` is the one action every host of this view offers, saved or
               not — a place seen inside a collection is still a place you want directions to. */}
           <div className="flex flex-col items-start gap-2">
-              {/* Only when the quote did not already carry it — the attribution belongs with the
+            {/* Only when the quote did not already carry it — the attribution belongs with the
                   words it attributes, and printing it twice on one card is the kind of repetition
                   that makes a detail view feel padded. */}
-              {authorLabel && shownQuote === null && (
-                <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
+            {authorLabel && shownQuote === null && (
+              <p className="text-xs font-medium text-muted-foreground">
+                Saved from {authorLabel}
+              </p>
+            )}
+            {/* **Two flex children, not three, and that is what makes the wrap deliberate.**
+                  Measured 2026-09-03: the primary is 124 px, the two links 72 and 93, so with
+                  `gap-x-3` the row wants 313 px. A 390 px phone gives this card 350 and it is one
+                  band; the `lg+` panel is `w-80` and gives 288, so it must wrap. Left as three
+                  peers it wrapped between the two links and dropped `Google Maps` alone onto a
+                  second line, which reads as an accident. Grouped, the break falls in the one
+                  place that means something — the primary on its own line, the two ways out
+                  together underneath. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              {/* The primary leads the row. The one control the product wants the user to come
+                    back and use — see `saved-place-edits.tsx`. `key` on the saved place's id so a
+                    pending transition from the previously selected place can never land on this
+                    one. */}
+              {savedRow && (
+                <BeenToggle
+                  key={`been-${savedRow.id}`}
+                  savedPlaceId={savedRow.id}
+                  placeName={place.name}
+                  visited={savedRow.visited}
+                />
               )}
-              <div className="flex flex-wrap items-center gap-1.5">
+              <span className="flex min-w-0 items-center gap-x-3">
                 {tiktokUrl && (
                   <a
                     href={tiktokUrl}
                     target="_blank"
                     rel="noreferrer"
                     data-vaul-no-drag
-                    // The ratified sentence, kept where it costs no pixels: `aria-label` replaces the
-                    // content, so a screen-reader user still hears `Open on TikTok` while the pill
-                    // shows the mark and the destination.
+                    /* The ratified sentence stays the accessible name; the visible label is the
+                       destination alone, because a row of three verbs is a row of sentences. */
                     aria-label="Open on TikTok"
                     title="Open on TikTok"
-                    className={cn(DETAIL_ACTION_PILL, PRESS_BUTTON, 'border-input text-brand hover:bg-muted')}
+                    className={cn(DETAIL_OUT_LINK, PRESS_ROW)}
                   >
-                    {/* **The one pill with no word on it, and the reason is the desktop popover.**
-                        The popover is `w-80` with a 16 px gutter, so this row gets 288 px; with
-                        `TikTok` written out the three pills are 333 px, they wrap, and `Been here`
-                        lands under the popover's own 50vh cap — which is the exact defect round 4
-                        filed and round 5 papered over with a scroll mask. Without the word they are
-                        281 px and the row is one 44 px band on both viewports.
-
-                        It is an honest icon-only control rather than a squeeze: the mark is TikTok's
-                        own, the card above it is a TikTok still with the creator's handle under it,
-                        and the ratified `Open on TikTok` is on both `aria-label` and `title`, so
-                        neither a screen reader nor a hovering pointer loses the sentence. */}
                     <PlatformMark className="size-4" />
+                    TikTok
                   </a>
                 )}
                 <a
@@ -2645,42 +2784,27 @@ export function PlaceDetail({
                   rel="noopener noreferrer"
                   data-vaul-no-drag
                   aria-label="Open in Google Maps"
-                  className={cn(DETAIL_ACTION_PILL, PRESS_BUTTON, 'border-input text-brand hover:bg-muted')}
+                  className={cn(DETAIL_OUT_LINK, PRESS_ROW)}
                 >
-                  {/* Named in full, never `Maps`: the pill is a link into Google's product and the
+                  {/* Named in full, never `Maps`: this is a link into Google's product, and the
                       same attribution rule that keeps `Matched on Google Maps` in the provenance
-                      line applies to the button that goes there.
-
-                      **No trailing `ExternalLink`, and the reason is arithmetic rather than taste.**
-                      Measured at 390x844: with the arrow the three pills are 353 px against 350 px of
-                      card, so the row wrapped to two bands — 94 px for a row whose entire purpose is
-                      to cost one. Without it they are 333 px and the row is a single 44 px band. The
-                      arrow was saying *this leaves the product* on a pill that already says `Google
-                      Maps` beside one wearing TikTok's own mark. */}
+                      line applies to the control that goes there. */}
                   Google Maps
                 </a>
-                {/* The one control the product wants the user to come back and use — see
-                    `saved-place-edits.tsx`. `key` on the saved place's id so a pending transition
-                    from the previously selected place can never land on this one. */}
-                {savedRow && (
-                  <BeenToggle
-                    key={`been-${savedRow.id}`}
-                    savedPlaceId={savedRow.id}
-                    placeName={place.name}
-                    visited={savedRow.visited}
-                  />
-                )}
-              </div>
-              {/* The one thing the database has always held about a been mark and no screen said.
+              </span>
+            </div>
+            {/* The one thing the database has always held about a been mark and no screen said.
                   Same 11px muted weight as `Saved on …` below, because it is the same kind of fact:
                   a quiet record of when, not something to act on. Absent — silently — when the row
                   carries no timestamp; `visitedOnLine` says why that is a real state. Start-aligned
                   now rather than centred: it sits under a row of pills, not under a full-width
                   button, so a centred line would point at nothing. */}
-              {visitedOn && (
-                <p className="text-micro font-medium text-muted-foreground">{visitedOn}</p>
-              )}
-              {/* The same position, for a host whose caller has no row to toggle: on
+            {visitedOn && (
+              <p className="text-micro font-medium text-muted-foreground">
+                {visitedOn}
+              </p>
+            )}
+            {/* The same position, for a host whose caller has no row to toggle: on
                   `/collections/[id]` this is `Added by …` and `Save to your places`. It keeps its own
                   full width — it is that card's single primary action, not one of three. */}
           </div>
@@ -2694,8 +2818,8 @@ export function PlaceDetail({
         {hasBand2 && (
           <div
             className={cn(
-              'mt-5 flex flex-col gap-3 border-t border-border/60 pt-5',
-              isPopover && 'mt-4 pt-4',
+              "mt-5 flex flex-col gap-3 border-t border-border/60 pt-5",
+              isPopover && "mt-4 pt-4",
             )}
           >
             {/* What the creator actually wrote, as a quotation rather than as a labelled field.
@@ -2732,7 +2856,10 @@ export function PlaceDetail({
                 `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
             {shownQuote !== null ? (
               <figure className="flex flex-col gap-2 border-l-2 border-brand-tint pl-3">
-                <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
+                <blockquote
+                  dir="auto"
+                  className="text-sm leading-relaxed text-foreground"
+                >
                   &ldquo;{shownQuote}&rdquo;
                 </blockquote>
                 {authorLabel && (
@@ -2796,7 +2923,7 @@ export function PlaceDetail({
                         // `Open on TikTok` name no destination between them.
                         aria-label={openSourceLabel(extraSource)}
                         className={cn(
-                          'flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-brand outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
+                          "flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-brand outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
                           PRESS_ROW,
                         )}
                       >
@@ -2808,7 +2935,10 @@ export function PlaceDetail({
                           <bdi>{sourceCreatorLabel(extraSource)}</bdi>
                         </span>
                         {/* `ms-auto`, never `ml-auto`: this row is rendered in an RTL column too. */}
-                        <ArrowUpRight className="ms-auto size-3.5 shrink-0 opacity-70" aria-hidden />
+                        <ArrowUpRight
+                          className="ms-auto size-3.5 shrink-0 opacity-70"
+                          aria-hidden
+                        />
                       </a>
                     </li>
                   ))}
@@ -2824,8 +2954,8 @@ export function PlaceDetail({
         {hasBand3 && (
           <div
             className={cn(
-              'mt-5 flex flex-col gap-3 border-t border-border/60 pt-5',
-              isPopover && 'mt-4 pt-4',
+              "mt-5 flex flex-col gap-3 border-t border-border/60 pt-5",
+              isPopover && "mt-4 pt-4",
             )}
           >
             {/* **The field rows, flush.** `Add to a collection`, `Category`, `Your note` and the
@@ -2834,13 +2964,16 @@ export function PlaceDetail({
                 each is what made them read as floating fragments. Nothing else in this column is
                 spaced at 0. */}
             <div className="flex flex-col">
-                {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
+              {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
                   this in" are both statements about the user's *intent* with the place, while category
                   and note are corrections to what we got wrong. Grouping the two intent controls keeps
                   the correction block intact underneath. Renders nothing outside a `CollectionsContext`
                   provider, so the desktop popover and any test host are unaffected. */}
               {savedRow && (
-                <AddToCollection key={`collections-${savedRow.id}`} placeId={detail?.placeId} />
+                <AddToCollection
+                  key={`collections-${savedRow.id}`}
+                  placeId={detail?.placeId}
+                />
               )}
 
               {/* The user's own word for what this place is. Below the prose blocks rather than beside
@@ -2852,10 +2985,6 @@ export function PlaceDetail({
                   savedPlaceId={savedRow.id}
                   category={place.category}
                   isOverridden={detail?.categoryIsOverridden ?? false}
-                  // A place with no TikTok behind it was added by hand, so nothing was "worked out from
-                  // the post" — there is no post. `tiktokUrl` rather than a new field: the same value
-                  // already decides whether this card offers `Open on TikTok`, so the two cannot disagree.
-                  fromAPost={Boolean(tiktokUrl)}
                 />
               )}
 
@@ -2863,7 +2992,13 @@ export function PlaceDetail({
                   were stuck with. `key` on the saved place's id is what resets a half-typed draft when
                   the selection changes — the editor deliberately does not sync from props in an effect,
                   which would discard typing every time the server revalidated. */}
-              {savedRow && <NoteEditor key={savedRow.id} savedPlaceId={savedRow.id} note={note} />}
+              {savedRow && (
+                <NoteEditor
+                  key={savedRow.id}
+                  savedPlaceId={savedRow.id}
+                  note={note}
+                />
+              )}
 
               {/* The host's own fields, in the same flush list rather than below the removal:
                   `/collections/[id]` puts `Shared note` here, which is the same field as the note
@@ -2880,7 +3015,9 @@ export function PlaceDetail({
             {nearby !== undefined && nearby.length > 0 && (
               <div className="flex flex-col gap-2">
                 <p className={SECTION_LABEL}>
-                  {nearby.length === 1 ? 'Also nearby' : `${nearby.length} more nearby`}
+                  {nearby.length === 1
+                    ? "Also nearby"
+                    : `${nearby.length} more nearby`}
                 </p>
                 <ul className="flex flex-col">
                   {nearby.map((neighbour) => (
@@ -2893,7 +3030,7 @@ export function PlaceDetail({
                           data-vaul-no-drag
                           onClick={() => onSelectNearby(neighbour.id)}
                           className={cn(
-                            'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                            "flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
                             // The same row shape, so the same press. It swaps the whole detail view
                             // under the finger, which is the one place a missing acknowledgement reads
                             // as the app having lost the place you were looking at.
@@ -2936,19 +3073,25 @@ export function PlaceDetail({
                 is left here is the attribution: `Matched on Google Maps`, which Google's terms require
                 and which is a claim about the pin's provenance rather than a warning about it. Printing
                 both here would have said `Approximate location` twice on one card. */}
+            {/* **One line rather than two stacked** (spec §A5, 2026-09-03). These are the same
+                kind of fact at the same weight — a quiet record of where the pin came from and
+                when you saved it — and two 11 px lines in a column read as a block of small print
+                to skip, which is a shame for the only provenance the card shows. A literal
+                separator element, never an interpolated string: `·` between a Latin attribution
+                and a date that may render in either direction has to be its own node. Either fact
+                may be absent, so the separator is conditional on both being present. */}
             {((certainty && !certainty.isApproximate) || detail?.savedAt) && (
-              <div className="flex flex-col gap-1">
+              <p className="flex flex-wrap items-baseline gap-x-1.5 text-micro font-medium text-muted-foreground">
                 {certainty && !certainty.isApproximate && (
-                  <p className="text-micro font-medium text-muted-foreground">
-                    {certainty.label}
-                  </p>
+                  <span>{certainty.label}</span>
+                )}
+                {certainty && !certainty.isApproximate && detail?.savedAt && (
+                  <span aria-hidden>·</span>
                 )}
                 {detail?.savedAt && (
-                  <p className="text-micro font-medium text-muted-foreground">
-                    {savedOnLine(detail.savedAt, new Date())}
-                  </p>
+                  <span>{savedOnLine(detail.savedAt, new Date())}</span>
                 )}
-              </div>
+              </p>
             )}
 
             {/* Last, and quiet. The destructive action belongs below everything the user might have
@@ -2957,7 +3100,11 @@ export function PlaceDetail({
                 once the revalidated list arrives, but that would leave the detail open over a place
                 that is already gone for the length of the round trip. */}
             {savedRow && (
-              <RemoveSavedPlace savedPlaceId={savedRow.id} placeName={place.name} onRemoved={onClose} />
+              <RemoveSavedPlace
+                savedPlaceId={savedRow.id}
+                placeName={place.name}
+                onRemoved={onClose}
+              />
             )}
 
             {/* Last of all, and the host's to fill: `/collections/[id]` puts the shared note and
@@ -3083,8 +3230,8 @@ function SourceMediaThumbnail({
       className={cn(
         // `relative` is what the glyph below is positioned against; `shrink-0` is what keeps this
         // band from being the one child a height-capped column collapses. Both are structural.
-        'relative shrink-0 overflow-hidden bg-muted',
-        fullBleed ? 'rounded-none' : 'rounded-lg',
+        "relative shrink-0 overflow-hidden bg-muted",
+        fullBleed ? "rounded-none" : "rounded-lg",
       )}
     >
       {/* **The leading-top corner, because every other corner is taken.** The play control sits at
@@ -3093,7 +3240,9 @@ function SourceMediaThumbnail({
           scrim: `bg-accent` is a *solid* ground rather than an alpha, which is the same argument
           the play button's own comment makes about being legible over an arbitrary photograph, and
           `shadow-raised` is what lifts it off a bright frame. `start-`, not `left-`. */}
-      {visited && <BeenBadge className="absolute top-2 start-2 z-10 shadow-raised" />}
+      {visited && (
+        <BeenBadge className="absolute top-2 start-2 z-10 shadow-raised" />
+      )}
       {player ?? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- same reason `RowMedia`'s carries
@@ -3110,9 +3259,10 @@ function SourceMediaThumbnail({
                during parse and an expired URL fails before any handler exists. Without this the
                refresh would only ever fire for images that failed after hydration. */
             ref={(node) => {
-              if (node?.complete === true && node.naturalWidth === 0) onFailure();
+              if (node?.complete === true && node.naturalWidth === 0)
+                onFailure();
             }}
-            className={cn('w-full object-cover', compact ? 'h-28' : 'h-40')}
+            className={cn("w-full object-cover", compact ? "h-28" : "h-40")}
           />
           {onPlay !== undefined && playLabel !== undefined && (
             <button
@@ -3128,12 +3278,12 @@ function SourceMediaThumbnail({
                 // whose subject sits centre-top, so a centred glyph lands on a face; this corner is
                 // the quietest part of the still and the one nearest the thumb on a phone. `end-`
                 // rather than `right-`, for the same reason the row's distance uses `ms-auto`.
-                'absolute bottom-2 end-2 flex size-11 items-center justify-center rounded-full',
+                "absolute bottom-2 end-2 flex size-11 items-center justify-center rounded-full",
                 // A solid ground rather than an alpha scrim: the ink behind it is an arbitrary
                 // photograph, and an alpha that reads on a dark frame disappears on a bright one.
                 // Both tokens carry both themes, so the pair is legible on either.
-                'bg-background text-foreground shadow-md',
-                'outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
+                "bg-background text-foreground shadow-md",
+                "outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
                 PRESS_BEAT,
               )}
             >

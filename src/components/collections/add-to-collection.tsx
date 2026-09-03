@@ -52,7 +52,6 @@ import {
   DETAIL_FIELD_ROW,
   DETAIL_FIELD_VALUE,
 } from '@/components/sheet/saved-place-edits';
-import { SECTION_LABEL } from '@/ui/place/section-label';
 import { PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
@@ -115,18 +114,19 @@ export function AddToCollection({ placeId }: { placeId: string | undefined }) {
       data-vaul-no-drag
       className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
     >
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className={SECTION_LABEL}>Collections</span>
-        <span
-          className={cn(
-            DETAIL_FIELD_VALUE,
-            'flex min-w-0 items-baseline gap-1',
-            names.length > 0 ? 'text-foreground' : 'text-muted-foreground',
-          )}
-        >
-          <span className="shrink-0">{text}</span>
-          {name ? <bdi className="min-w-0 truncate">{name}</bdi> : null}
-        </span>
+      {/* **The `Collections` label is deleted, not moved** (spec §A2, 2026-09-03). `In tel aviv
+          food` already names what it is; the label above it was an 11 px line spent restating the
+          preposition underneath. What is left is one line, which is what stops three of these rows
+          reading as a form. */}
+      <span
+        className={cn(
+          DETAIL_FIELD_VALUE,
+          'flex min-w-0 flex-1 items-baseline gap-1',
+          names.length > 0 ? 'text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        <span className="shrink-0">{text}</span>
+        {name ? <bdi className="min-w-0 truncate">{name}</bdi> : null}
       </span>
       <ChevronRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
     </button>
