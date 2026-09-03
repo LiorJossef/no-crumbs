@@ -51,12 +51,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
-import type { AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_AFTER_SIGN_IN, safeReturnPath } from '@/domain/auth/return-path';
 import { AUTH_CALLBACK_PATH, RESET_REQUEST_PATH } from '@/app/auth/_lib/routes';
 import { PASSWORD_MIN_HINT, PASSWORD_PLACEHOLDER } from '@/app/auth/_lib/copy';
 import type { Mode } from './mode';
+import {
+  authErrorMessage,
+  isRecognisedAuthError,
+  SIGN_IN_ERROR_COPY,
+} from './auth-error-message';
 import { NAME_MAX_LENGTH, signUpNames } from './name-fields';
 import { ChromeGround } from '@/components/brand/chrome-ground';
 import { ChromeItem, ChromeKicker, ChromeStage } from '@/components/brand/chrome-stage';
@@ -64,46 +68,6 @@ import { DISPLAY_HEADING_AXES } from '@/components/brand/display-type';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-/**
- * The answer to a password the server refused as too short — named, because the field's own hint
- * says the same rule and the two must never be on screen together saying it twice.
- */
-const WEAK_PASSWORD_MESSAGE = 'Choose a password with at least 6 characters.';
-
-// Supabase's own error copy assumes a product that offers phone auth too (e.g. "Missing email
-// or phone", `email_exists`/`phone_exists` split) — this product never does, so raw
-// `error.message` must never reach the UI verbatim. Known codes get product-accurate copy; the
-// `/phone/i` fallback is a backstop for whichever future code still slips a phone mention through.
-function authErrorMessage(error: AuthError, mode: Mode): string {
-  switch (error.code) {
-    case 'invalid_credentials':
-      return "That email or password doesn't match an account.";
-    case 'user_already_exists':
-    case 'email_exists':
-    case 'identity_already_exists':
-      return 'An account with this email already exists — try signing in instead.';
-    case 'email_not_confirmed':
-      return 'Check your email to confirm your account, then sign in.';
-    case 'email_address_invalid':
-      return 'Enter a valid email address.';
-    case 'weak_password':
-      return WEAK_PASSWORD_MESSAGE;
-    case 'over_email_send_rate_limit':
-    case 'over_request_rate_limit':
-      return "You've tried this a few times. Give it a few minutes.";
-    case 'user_not_found':
-      return mode === 'sign-up'
-        ? 'Something went wrong creating your account. Try again.'
-        : "That email or password doesn't match an account.";
-    case 'validation_failed':
-      // Supabase's message here is "Missing email or phone" (submitting with an empty field
-      // bypasses HTML5 validation because the form uses `noValidate`) — never surface that verbatim.
-      return 'Enter your email and password.';
-    default:
-      return /phone/i.test(error.message) ? 'Enter your email and password.' : error.message;
-  }
-}
 
 /**
  * **The field label, defined once because there are now four of them.**
@@ -257,6 +221,31 @@ export function SignInScreen({
     setPending(false);
 
     if (error) {
+      /*
+       * **The diagnostic, kept deliberately, while the user reads a written sentence.**
+       *
+       * `authErrorMessage` is a closed set, so a failure nobody has seen before is indistinguishable
+       * on screen from one we wrote a case for — which is the point, and which would otherwise cost
+       * whoever debugs it the only clue there was. So an **unrecognised** failure is logged with the
+       * provider's own fields: a line here means this product's mapping needs another arm.
+       *
+       * Only the unrecognised ones. A wrong password is the commonest failure this screen has, the
+       * screen already says what happened, and logging it would put a red count in the dev overlay
+       * on an outcome that is working exactly as designed.
+       *
+       * The console rather than a server log, because this is where the call is made — the request
+       * that failed is already in the same browser's network panel, so this labels something the
+       * same person could already read and discloses nothing new. What is *shown* was always the
+       * only surface at risk.
+       */
+      if (!isRecognisedAuthError(error, mode)) {
+        console.error('sign-in failed with an unmapped error', {
+          name: error.name,
+          code: error.code,
+          status: error.status,
+          message: error.message,
+        });
+      }
       setMessage(authErrorMessage(error, mode));
       return;
     }
@@ -508,7 +497,7 @@ export function SignInScreen({
                   * `minLength={6}` above it, and the server's `weak_password` answer, are
                   * unchanged: this is where the rule is *said*, not where it is enforced.
                   */}
-                {isSignUp && message !== WEAK_PASSWORD_MESSAGE && (
+                {isSignUp && message !== SIGN_IN_ERROR_COPY.weakPassword && (
                   <p id="password-hint" className="text-micro font-medium text-muted-foreground">
                     {PASSWORD_MIN_HINT}
                   </p>
