@@ -395,7 +395,10 @@ export function AddMenu({
         <MenuRow
           icon={<Library className="size-4 text-muted-foreground" aria-hidden />}
           label="Create a collection"
-          hint="Group places into a list you can share"
+          // Not "Group places into a list you can share": `voice-and-vocabulary.md` §3 has one word
+          // for this thing and it is the one in the label above, so the hint's job is the fact the
+          // label leaves out — that it can be shared.
+          hint="Places you can share"
           onSelect={onChooseCollection}
         />
       </ul>

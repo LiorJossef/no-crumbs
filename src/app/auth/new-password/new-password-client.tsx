@@ -144,10 +144,20 @@ export function NewPasswordScreen() {
                 minLength={6}
                 autoComplete="new-password"
                 placeholder={NEW_PASSWORD_COPY.passwordPlaceholder}
+                aria-describedby="password-hint"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-12 rounded-lg border-border bg-background px-4 text-sm font-medium text-foreground placeholder:font-normal placeholder:text-muted-foreground lg:h-13 lg:px-4.5 lg:text-reading"
               />
+              {/* The rule moved out of the placeholder and into the one place a requirement can
+                  survive being typed over. `aria-describedby` rather than a loose span, for the
+                  same reason `/sign-in`'s `Optional` marker is described rather than merely near
+                  its field. */}
+              {message !== NEW_PASSWORD_ERROR_COPY.weak && (
+                <p id="password-hint" className="text-micro font-medium text-muted-foreground">
+                  {NEW_PASSWORD_COPY.passwordHint}
+                </p>
+              )}
             </ChromeItem>
 
             {message && (

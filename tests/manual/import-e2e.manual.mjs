@@ -60,7 +60,7 @@ async function clickAddTikTok() {
 console.log('→ sign in');
 await page.goto(`${BASE}/sign-in`);
 await page.getByPlaceholder('you@example.com').fill(EMAIL);
-await page.getByPlaceholder('At least 6 characters').fill(PASSWORD);
+await page.locator('#password').fill(PASSWORD);
 await page.getByRole('button', { name: /sign in/i }).click();
 await page.waitForURL('**/map', { timeout: 30_000 });
 await page.waitForTimeout(4000);

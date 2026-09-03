@@ -43,7 +43,7 @@ const shot = (n) => page.screenshot({ path: `${OUT}/${n}.png` });
 
 await page.goto('http://localhost:3000/sign-in');
 await page.getByPlaceholder('you@example.com').fill('demo@example.com');
-await page.getByPlaceholder('At least 6 characters').fill('local-dev-preview-1234');
+await page.locator('#password').fill('local-dev-preview-1234');
 await page.getByRole('button', { name: /sign in/i }).click();
 await page.waitForURL('**/map', { timeout: 60000 });
 await page.waitForTimeout(4000);

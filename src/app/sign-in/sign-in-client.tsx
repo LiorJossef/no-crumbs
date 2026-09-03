@@ -55,6 +55,7 @@ import type { AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_AFTER_SIGN_IN, safeReturnPath } from '@/domain/auth/return-path';
 import { AUTH_CALLBACK_PATH, RESET_REQUEST_PATH } from '@/app/auth/_lib/routes';
+import { PASSWORD_MIN_HINT, PASSWORD_PLACEHOLDER } from '@/app/auth/_lib/copy';
 import type { Mode } from './mode';
 import { NAME_MAX_LENGTH, signUpNames } from './name-fields';
 import { ChromeGround } from '@/components/brand/chrome-ground';
@@ -63,6 +64,12 @@ import { DISPLAY_HEADING_AXES } from '@/components/brand/display-type';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+/**
+ * The answer to a password the server refused as too short — named, because the field's own hint
+ * says the same rule and the two must never be on screen together saying it twice.
+ */
+const WEAK_PASSWORD_MESSAGE = 'Choose a password with at least 6 characters.';
 
 // Supabase's own error copy assumes a product that offers phone auth too (e.g. "Missing email
 // or phone", `email_exists`/`phone_exists` split) — this product never does, so raw
@@ -81,7 +88,7 @@ function authErrorMessage(error: AuthError, mode: Mode): string {
     case 'email_address_invalid':
       return 'Enter a valid email address.';
     case 'weak_password':
-      return 'Choose a password with at least 6 characters.';
+      return WEAK_PASSWORD_MESSAGE;
     case 'over_email_send_rate_limit':
     case 'over_request_rate_limit':
       return "You've tried this a few times. Give it a few minutes.";
@@ -485,11 +492,27 @@ export function SignInScreen({
                   required
                   minLength={6}
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                  placeholder="At least 6 characters"
+                  placeholder={PASSWORD_PLACEHOLDER}
+                  {...(isSignUp ? { 'aria-describedby': 'password-hint' } : {})}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="h-12 rounded-lg border-border bg-background px-4 text-sm font-medium text-foreground placeholder:font-normal placeholder:text-muted-foreground lg:h-13 lg:px-4.5 lg:text-reading"
                 />
+                {/*
+                  * The six-character minimum, on the side of the toggle that is choosing a
+                  * password. It was a placeholder on both sides, which put a rule about a new
+                  * password in front of somebody typing the one they have had for months — and a
+                  * placeholder is the one place a requirement cannot survive, because it leaves
+                  * the moment the first character lands.
+                  *
+                  * `minLength={6}` above it, and the server's `weak_password` answer, are
+                  * unchanged: this is where the rule is *said*, not where it is enforced.
+                  */}
+                {isSignUp && message !== WEAK_PASSWORD_MESSAGE && (
+                  <p id="password-hint" className="text-micro font-medium text-muted-foreground">
+                    {PASSWORD_MIN_HINT}
+                  </p>
+                )}
               </div>
 
               {!isSignUp && (
@@ -524,9 +547,12 @@ export function SignInScreen({
                     {!rememberMe && (
                       <>
                         {' '}
+                        {/* Two wrapped lines of hedge, cut to one clause. The caveat it used to
+                            spell out — *unless it restores your last session* — is a browser
+                            behaviour nobody can act on, and `usually` carries it honestly without
+                            asking the reader to hold two conditions at once. */}
                         <span className="text-xs font-normal text-muted-foreground/80">
-                          (signed out when you close your browser — unless it restores your last
-                          session)
+                          (usually signs you out when you close your browser)
                         </span>
                       </>
                     )}

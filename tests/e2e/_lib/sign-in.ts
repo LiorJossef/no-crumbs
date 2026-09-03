@@ -40,7 +40,7 @@ export async function signInAsDemoUser(page: Page, email: string, password: stri
     await page.waitForTimeout(1000);
 
     const emailField = page.getByPlaceholder('you@example.com');
-    const passwordField = page.getByPlaceholder('At least 6 characters');
+    const passwordField = page.locator('#password');
 
     try {
       await expect(async () => {

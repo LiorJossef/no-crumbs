@@ -28,7 +28,7 @@ test.describe('the map page is reachable by assistive technology', () => {
   }) => {
     await page.goto('/sign-in');
     await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
+    await page.locator('#password').fill(PASSWORD as string);
     await page.getByRole('button', { name: /sign in/i }).click();
     await page.waitForURL('**/map');
 

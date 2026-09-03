@@ -30,6 +30,26 @@
  */
 export const LINK_EXPIRED_NOTICE = 'That link has expired.';
 
+/**
+ * What a password field shows before anything is typed, on every screen that has one.
+ *
+ * It used to read `At least 6 characters`, on `/sign-in` as well — where nobody is choosing a
+ * password and the only thing the line could mean was a rule about one they already have. A
+ * placeholder is an example of the value, the way `you@example.com` is in the field above it, and
+ * the example of a password is what typing one looks like.
+ *
+ * **The rule is unchanged and still stated**, in `PASSWORD_MIN_HINT`, on the two screens where a
+ * password is actually being chosen. `minLength={6}` and the server's own `weak_password` check are
+ * untouched by this file.
+ */
+export const PASSWORD_PLACEHOLDER = '••••••••';
+
+/**
+ * The six-character minimum, said where a requirement belongs: under the field, on the screens that
+ * ask for a new password. Sign-in does not show it — there is nothing to comply with there.
+ */
+export const PASSWORD_MIN_HINT = 'Use at least 6 characters.';
+
 /** Asking for a recovery link. */
 export const RESET_REQUEST_COPY = {
   kicker: 'Password reset',
@@ -70,7 +90,8 @@ export const NEW_PASSWORD_COPY = {
   headline: ['Set a new', 'password.'],
   subhead: "You'll go straight to your map.",
   passwordLabel: 'New password',
-  passwordPlaceholder: 'At least 6 characters',
+  passwordPlaceholder: PASSWORD_PLACEHOLDER,
+  passwordHint: PASSWORD_MIN_HINT,
   submit: 'Save password →',
   pending: 'Working…',
 } as const;
