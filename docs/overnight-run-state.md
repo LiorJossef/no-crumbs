@@ -17,7 +17,7 @@ is not running and you should take over.
 > so a heartbeat running fast eventually reads as stale and invites a second session in on top of a
 > live one. **Run `date` before writing a timestamp here. Never estimate one.**
 
-- **Last updated:** 2026-09-04 00:46 IDT
+- **Last updated:** 2026-09-04 01:05 IDT
 - **Run started:** 2026-09-03 22:30 IDT
 - **Hard stops:** 06:00 no new work · 06:30 tree clean · 07:00 handoff written and pushed
 - **Status:** WAVES 1–3 COMPLETE · verification done · two late lanes dispatched
@@ -639,3 +639,34 @@ changes plus a backfill over live rows, both need `security-privacy`, and the fa
 wrong is the *opposite* one — two real branches of a chain collapsing into one place — which is worse
 than the duplicate. **Owner decision. The agent looked for a small migration-free fix and reported
 honestly that none exists.**
+
+### Lane A5 — committed (`e950d1e`). Feedback 2.1 closed as far as it goes tonight.
+
+I verified the collection host myself at 390×844 light and 1280×900 dark: **four rows, all 48 px,
+all `aria-expanded`** — `In London 2026`, `Category Restaurant`, `Add a note`, `Add a shared note` —
+**zero pencils anywhere**, TikTok and Google Maps still present and labelled, **exactly one back
+control** (`Back to the collection`). Opening the shared note flips `aria-expanded` to true, the
+textarea computes `border-width: 0px`, and the house `Cancel` / `Save note` pair appears.
+
+**The agent found the brief named the wrong file and said so rather than editing it.**
+`place-desktop-panel.tsx` is not a detail host and has no field rows — the 288 px surface is
+`MapPopup` inside `map-surface.mapcn.tsx`, outside its scope. It measured that host anyway rather
+than skipping the question: cap resolves to 360 px and **never binds**, the tallest panel is 186 px,
+nothing is unreachable.
+
+**One behaviour change, and it was not optional:** save-on-blur is gone from the shared note. Inside
+a panel a blur commit fires on the way to `Cancel` — it would write the draft you pressed Cancel to
+abandon. The write path, the 500-character limit, `canEdit` and who may edit are all untouched; the
+lane stopped at the row, per its pre-authorised default.
+
+**Not fixed, reported — and the reasoning is the useful part.** On the collection host the sheet
+stays at `half` with a place open, so the shared note's commit pair lands **behind the bottom nav**
+until you scroll; `Your note`'s pair clears it by 8 px purely because it sits one 48 px row higher.
+The obvious lever — wiring `onPanelOpen` at that call site — **would do nothing**, because that
+host's expander tops out at `half` and the sheet is already there. Real fix is a product decision
+about that stop. **Same family as the `Been here` fold. Morning list.**
+
+**Still open, out of scope:** `HostedPaneBackContext`'s `createContext` and interface remain in
+`add-to-collection.tsx` with zero consumers (~18 dead lines), and
+`tests/e2e/collection-one-back-control.spec.ts` was already broken by `aa2ae44` — the agent listed
+the four things it needs rather than editing a file outside its grant.
