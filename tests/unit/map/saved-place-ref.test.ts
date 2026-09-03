@@ -88,12 +88,16 @@ describe('savedPlaceRef', () => {
 });
 
 describe('the map popup never derives a write target from the pin id again', () => {
-  it('passes savedPlaceRef(selected) to PlaceDetail', () => {
-    expect(code(SURFACE_SOURCE)).toContain('savedPlace={savedPlaceRef(selected)}');
+  /** `card` is the selection once MAP-02's opening gate has cleared it — the same object as
+   *  `selected`, held back until the camera is at rest. The assertion is about where the write
+   *  target comes from, and it still comes from the rendered place's `savedPlaceRef`. */
+  it('passes savedPlaceRef(card) to PlaceDetail', () => {
+    expect(code(SURFACE_SOURCE)).toContain('savedPlace={savedPlaceRef(card)}');
   });
 
-  it('constructs no savedPlace object from selected.id', () => {
+  it('constructs no savedPlace object from the pin id', () => {
     expect(code(SURFACE_SOURCE)).not.toMatch(/savedPlace=\{\{/);
     expect(code(SURFACE_SOURCE)).not.toContain('id: selected.id');
+    expect(code(SURFACE_SOURCE)).not.toContain('id: card.id');
   });
 });

@@ -57,11 +57,13 @@
  *    it for what that buys and what it cost.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { Map as MapcnMap, MapControls, MapPopup, useMap } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { FocusBoundsRequest, LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
+import { whenAtRest, type AtRestMap } from './at-rest';
+import { isRevealPanWorthMaking, revealPanDuration } from './reveal-pan';
 import { savedPlaceRef } from './saved-place-ref';
 import { SummaryMarkerLayer } from './summary-marker-layer';
 import { countryPillSpecs, toAreaFeatures, toCountryFeatures } from './summary-features';
@@ -162,9 +164,8 @@ const FIT_BOUNDS_MAX_ZOOM = 15;
  *  `FIT_BOUNDS_PADDING` on purpose: this is a corrective nudge, and every pixel of margin here is a
  *  pixel the map moves that the user did not ask it to. */
 const REVEAL_MARGIN_PX = 24;
-/** Shorter than `FOCUS_FLIGHT_MS`: a nudge that takes as long as a journey reads as a journey.
- *  `easeTo` sets its own duration to 0 under `prefers-reduced-motion`, so there is no branch. */
-const REVEAL_PAN_MS = 320;
+// The nudge's duration is proportional to how far it actually pans, and its floor is in
+// `./reveal-pan` — a flat constant made a 10 px correction take as long as a 200 px one.
 
 // Extra top padding for the floating chrome that overlays the map's top edge — the **default**,
 // used by any surface that does not declare its own (`MapSurfaceProps.floatingTopChromePx`).
@@ -415,6 +416,10 @@ function whenReady(map: MapLibreMap, action: () => void): void {
 /** Every event that can mean "the map has settled enough to move the camera". More than one,
  *  because each of them individually has a case it does not cover — see `whenReady`. */
 const READY_EVENTS = ['load', 'styledata', 'sourcedata', 'idle'] as const;
+
+/** A stand-in for the map in the cases where the place card's opening gate has nothing to wait for
+ *  — no map attached yet, or a deselection, which is never gated. */
+const AT_REST: AtRestMap = { isMoving: () => false, on: () => {}, off: () => {} };
 
 export function MapSurfaceMapcn({
   places,
@@ -1340,7 +1345,9 @@ export function MapSurfaceMapcn({
    *
    * It is `easeTo` rather than `flyTo` because the two are different gestures. A flight arcs out
    * through a lower zoom and reads as "we are going somewhere"; this is a nudge, the zoom never
-   * changes, and it should read as the sheet pushing the map up rather than as travel.
+   * changes, and it should read as the sheet pushing the map up rather than as travel. Its
+   * duration is proportional to the distance it pans (`./reveal-pan`) for the same reason: a
+   * correction of a few pixels that takes a third of a second is not a nudge, it is a stall.
    *
    * Keyed on the selected id, so re-rendering for any other reason cannot re-pan; and it reads the
    * **container**, never `window.innerHeight`, because the container is what `project` speaks and a
@@ -1398,12 +1405,15 @@ export function MapSurfaceMapcn({
 
     const dx = point.x < minX ? point.x - minX : point.x > maxX ? point.x - maxX : 0;
     const dy = point.y < minY ? point.y - minY : point.y > maxY ? point.y - maxY : 0;
-    if (dx === 0 && dy === 0) return;
+    // Includes the `dx === 0 && dy === 0` case this used to test for. Anything under a few pixels
+    // is not a movement anyone can see, and animating it only delays the card — see `reveal-pan`
+    // for why spending that much of `REVEAL_MARGIN_PX` still leaves the pin clear of the chrome.
+    if (!isRevealPanWorthMaking(dx, dy)) return;
 
     // `panBy` negates its argument and hands it to `easeTo` as an offset, so passing the point's
     // own overshoot moves that point onto the boundary. Verified in `maplibre-gl/src/ui/camera.ts`
     // (`panBy` at :432 does `Point.convert(offset).mult(-1)`), not assumed.
-    instance.panBy([dx, dy], { duration: REVEAL_PAN_MS });
+    instance.panBy([dx, dy], { duration: revealPanDuration(dx, dy) });
   }, [selected, selectedOcclusionFraction]);
 
   // The explicit post-import camera mover. Keyed on the `focusPlaceIds` array identity so the same
@@ -1476,6 +1486,49 @@ export function MapSurfaceMapcn({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [refitFramed]);
+
+  /**
+   * **The place card does not open while the map is still moving.**
+   *
+   * `MapPopup` passes no `anchor`, so MapLibre derives one from the pin's screen position and
+   * re-derives it on every `move` — every animation frame. Opening the card in the same commit as
+   * the selection therefore put it on screen *during* camera mover 6's reveal pan (and during the
+   * framing flights), and it visibly flipped from below the pin to above it as the pin crossed the
+   * viewport's midpoint. Waiting for rest means the anchor is computed once, at the position it
+   * keeps.
+   *
+   * **Only the opening is gated.** Once the card is up, movement changes nothing — gating it while
+   * open would blink it out and back every time the user panned with a card on screen, which is a
+   * worse defect than the one this fixes.
+   *
+   * **It is declared after every camera mover on purpose.** React runs effects in declaration
+   * order, and `easeTo`/`panBy`/`flyTo` set the map moving synchronously, so by the time this runs
+   * the commit's camera command — if there was one — is already in flight and `isMoving()` answers
+   * truthfully. It issues no camera command itself, so the "last camera command in a commit wins"
+   * ordering that mover 6's docblock depends on is untouched.
+   *
+   * The common path is the immediate one: mover 6 legitimately declines to move in several cases
+   * (pin already inside the visible band, zero-size container, an occlusion taller than the
+   * container), so "a selection with no camera move" is ordinary, and it opens with no wait at all.
+   */
+  const [openedId, setOpenedId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = selected?.id ?? null;
+    if (openedId === id) return; // Already open. Movement is not allowed to close or re-gate it.
+    // Closing is never gated, and neither is a surface whose map has not attached yet: both are
+    // trivially at rest. Waiting for a `moveend` that cannot arrive would trade a flicker for a
+    // card that never appears — and a selection that moves no camera is the common case, not an
+    // edge one.
+    const gate = (id === null ? null : mapRef.current) ?? AT_REST;
+    // Cancels cleanly on deselection and on re-selection: the cleanup detaches the listener, so a
+    // move still in flight for the previous selection can never open a card for it late.
+    return whenAtRest(gate, () => setOpenedId(id));
+  }, [selected, openedId]);
+
+  /** The selection, but only once it has been cleared to open. Never a stale one: a new selection
+   *  arriving mid-move takes the card down until *its* camera settles, rather than leaving the
+   *  previous place's card sitting at the previous place's coordinates. */
+  const card = selected !== null && openedId === selected.id ? selected : null;
 
   return (
     <MapcnMap
@@ -1557,20 +1610,22 @@ export function MapSurfaceMapcn({
         hoveredId={hoveredPlaceId ?? null}
         replacedBelowZoom={hasSummaryBands ? PIN_BAND_MIN : null}
       />
-      {selected && (
+      {card && (
         // Anchored at the selected place's own lng/lat — mapcn's `MapPopup` keeps a MapLibre
         // `Popup` instance pinned to that point and repositions it on every pan/zoom, so this
         // reads as a Google Maps-style info card stuck to the pin rather than a fixed-position
         // overlay. `lg+`-only via a Tailwind class on `MapPopup`'s own `className` (its *shell*,
         // not just its content) — matching `PlaceSheet`/`PlaceDesktopPanel`'s own `hidden lg:block`
         // convention — so below `lg` no popup DOM (not even an empty padded shell) mounts over the
-        // map; the mobile `PlaceSheet` remains the only detail surface there. Keyed on
-        // `selected.id` so switching between two pins remounts the popup at the new anchor instead
-        // of animating the old DOM node across the map.
+        // map; the mobile `PlaceSheet` remains the only detail surface there. Keyed on the open
+        // place's id so switching between two pins remounts the popup at the new anchor instead
+        // of animating the old DOM node across the map. It renders `card`, not `selected`: the
+        // gate above holds it back until the camera is at rest, because an anchor derived
+        // mid-animation flips from below the pin to above it.
         <MapPopup
-          key={selected.id}
-          longitude={selected.lng}
-          latitude={selected.lat}
+          key={card.id}
+          longitude={card.lng}
+          latitude={card.lat}
           // MapLibre's own `closeOnClick` removed this popup's DOM on *any* map click, including
           // the click that selected a pin — so a tap read as select-then-dismiss, and re-tapping
           // the pin already selected left the place selected with no card. Dismissal is explicit
@@ -1589,8 +1644,8 @@ export function MapSurfaceMapcn({
               latter is a collection item id on `/collections/[id]`, and this surface is about to
               be the shell that route renders too. No id, no mutations. */}
           <PlaceDetail
-            place={selected}
-            savedPlace={savedPlaceRef(selected)}
+            place={card}
+            savedPlace={savedPlaceRef(card)}
             nearby={nearbyToSelected}
             onSelectNearby={(id) => {
               const neighbour = places.find((candidate) => candidate.id === id);
