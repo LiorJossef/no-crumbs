@@ -139,6 +139,33 @@ export function resolutionView(resolution: StoredResolution | null): CandidateRe
   return derived.status === 'resolved' ? { kind: 'matched', options } : { kind: 'ambiguous', options };
 }
 
+/**
+ * An `ambiguous` view whose offerable list holds **exactly one** row.
+ *
+ * ## Why this state needs a name of its own
+ *
+ * Measured 2026-09-03 on the owner's six failing TikToks: three of the six land here, and all three
+ * read the same way. `offerableShortlist` cuts the stored shortlist to the rows within
+ * `rivalScoreBand` of the top, so a `confirm`-band result routinely arrives with **one** offerable
+ * row — and the screen still asked *"Which one is it?"* over a list of one. A question with one
+ * answer is not a question; it is a control the user has no reason to touch.
+ *
+ * That was the harmless half. The harmful half is that `arrivesTicked` was `willSave(..., null)`,
+ * true whenever the model produced a coordinate — so the card arrived **pre-ticked on the model's
+ * own pin while the provider's unpicked row sat directly above it**. Drift between the two, same
+ * candidate, measured: 2.78 km (`רגאצי`), 4.70 km (`Bread - Lehi 2`), 1.36 km (`Kro Bakery`). Two
+ * competing answers for one venue on one card, and the silent default took the worse one — which is
+ * also the owner's round-4 feedback 6.1, one place saved twice.
+ *
+ * The fix is not to promote the provider row to a match and it is not a new threshold. The band
+ * stays `deriveResolution`'s, the scorer is untouched, the cut is untouched. What changes is that
+ * the card asks the question that genuinely has two answers — **this row, or the caption's own
+ * pin** — and answers neither on the user's behalf.
+ */
+function isSoleOption(view: CandidateResolutionView): boolean {
+  return view.kind === 'ambiguous' && view.options.length === 1;
+}
+
 /** The options a user may pick from, or an empty list for every view that has none. */
 export function resolutionOptions(view: CandidateResolutionView): readonly ResolutionOption[] {
   return view.kind === 'matched' || view.kind === 'ambiguous' ? view.options : [];
@@ -227,6 +254,9 @@ export function willSave(
  * The line is drawn at *was this candidate put to the resolver at all*, and only there:
  *
  *  - `matched` / `ambiguous`-with-a-pick — a provider row. Ticked.
+ *  - `ambiguous` with rows and no pick — **not** ticked, since 2026-09-03. The tick used to fall
+ *    through to the model's coordinate here, so the one card holding two competing answers for one
+ *    venue silently took the worse of them. See `isSoleOption` for the measurement.
  *  - `unresolved` / `failed` with a model coordinate — the degraded path the owner ruled in on
  *    2026-08-28 (*resolution must never dead-end*). We looked, we got nothing back, and the card
  *    says `Pin from the caption` about the pin it is about to save. **Still ticked**, deliberately:
@@ -266,6 +296,12 @@ export function arrivesTicked(
 ): boolean {
   if (view.kind === 'capped' || view.kind === 'not_attempted') return false;
   if (hashtagOnly) return false;
+  // 2026-09-03, feedback 6.1/6.4. An `ambiguous` view always carries offerable rows, none of them
+  // picked — so before this line the tick fell through to the model's coordinate while the
+  // provider's own row for the same candidate sat unpicked above it. See `isSoleOption`: three of
+  // the owner's six failing links were this, 1.36-4.70 km apart. The user is not being told the
+  // provider row is right; they are being asked, and neither answer is taken for them.
+  if (view.kind === 'ambiguous' && view.options.length > 0) return false;
   return willSave(modelHasCoordinates, view, null);
 }
 
@@ -331,7 +367,9 @@ export function resolutionHeadline(view: CandidateResolutionView): string | null
     case 'matched':
       return 'Matched to a place on the map';
     case 'ambiguous':
-      return 'Which one is it?';
+      // A list of one cannot be asked "which one" (`isSoleOption`). The real question there has two
+      // answers and only one of them is in the list: this row, or the pin the caption gave us.
+      return isSoleOption(view) ? 'Is this the place?' : 'Which one is it?';
     default:
       return null;
   }
@@ -343,7 +381,12 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
     case 'matched':
       return 'Pick a different one if this isn’t it.';
     case 'ambiguous':
-      return 'The caption doesn’t say which.';
+      // Two short sentences rather than one: what we have, and what picking it does. It says
+      // nothing about how likely the row is — the band behind it is an internal ranking, and
+      // "close" is already the most this screen may claim.
+      return isSoleOption(view)
+        ? 'One close match. Pick it to use its pin.'
+        : 'The caption doesn’t say which.';
     default:
       return null;
   }
@@ -374,11 +417,13 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
  *
  * `ambiguous` used to be excluded from that last case on the grounds that its pin is waiting on a
  * decision rather than on the data. That is true only while there is no model coordinate to save
- * instead — and when there is, `willSave` returns true, so the card arrives **pre-ticked** with
- * `Save this place →` live, `pickRequiredNotice` suppressed, and this line falling through to
- * `locationLine`'s `Pin is approximate`. The one card that would save a guess was the one card that
- * did not say so, with the provider's own rows sitting unpicked directly above it. Reaching here as
- * `ambiguous` means exactly that case: options exist, none is picked, and the model gave a pin.
+ * instead — and when there is, `willSave` returns true, so `Save this place →` is live,
+ * `pickRequiredNotice` is suppressed, and this line used to fall through to `locationLine`'s
+ * `Pin is approximate`. The one card that would save a guess was the one card that did not say so,
+ * with the provider's own rows sitting unpicked directly above it. Reaching here as `ambiguous`
+ * means exactly that case: options exist, none is picked, and the model gave a pin. Such a card no
+ * longer arrives **ticked** (`arrivesTicked`, 2026-09-03) — it stays saveable, and this line is
+ * what it says about the pin it would save.
  * (`matched` can never reach here — `effectivePick` always returns its top entry.)
  *
  * `not_attempted`/`capped` get their **own** line, and the reason they cannot share the one above
@@ -564,7 +609,9 @@ export function pickRequiredNotice(
   pick: number | null,
 ): string | null {
   if (willSave(modelHasCoordinates, view, pick)) return null;
-  return view.kind === 'ambiguous' ? 'Pick one of these to save it.' : null;
+  if (view.kind !== 'ambiguous') return null;
+  // "one of these" over a list of one is the same one-answer question `isSoleOption` names.
+  return isSoleOption(view) ? 'Pick it to save this place.' : 'Pick one of these to save it.';
 }
 
 /* ------------------------------------------------------------------------------------------- *

@@ -106,8 +106,22 @@ describe('a candidate nobody looked up does not arrive ticked', () => {
     expect(arrivesTicked(true, failed)).toBe(true);
   });
 
+  it('does not tick a model pin while a provider row sits unpicked (feedback 6.1, 2026-09-03)', () => {
+    // The whole of this one: `ambiguous` carries offerable rows and no pick, so the tick used to
+    // fall through to the model's own coordinate — measured 1.36-4.70 km from the provider row
+    // shown directly above it on three of the owner's six failing links. One venue, two competing
+    // answers, and the silent default took the worse one.
+    expect(arrivesTicked(true, ambiguous)).toBe(false);
+    expect(arrivesTicked(false, ambiguous)).toBe(false);
+    // Still a default and not a veto: the checkbox is live and one tap saves the caption pin.
+    expect(willSave(true, ambiguous, null)).toBe(true);
+    // And a pick is still what settles it — the pick path is `willSave`'s, not this function's.
+    expect(willSave(false, ambiguous, 0)).toBe(true);
+  });
+
   it('leaves every other arrival exactly as it was', () => {
-    const views: readonly CandidateResolutionView[] = [matched, ambiguous, unresolved, failed];
+    // `ambiguous` is deliberately absent: it is the exception the test above pins.
+    const views: readonly CandidateResolutionView[] = [matched, unresolved, failed];
     for (const view of views) {
       for (const hasCoords of [true, false]) {
         expect(arrivesTicked(hasCoords, view), view.kind).toBe(willSave(hasCoords, view, null));

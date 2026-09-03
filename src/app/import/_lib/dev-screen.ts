@@ -39,6 +39,8 @@
  * ```
  * /import?state=rail
  * /import?state=review
+ * /import?state=review-one-option        a confirm band whose offerable list holds ONE row,
+ *                                        with a model coordinate — feedback 6.1's card
  * /import?state=no-places                  case B, the modal arrival
  * /import?state=no-places-a                case A, no caption at all
  * /import?state=no-places-c                case C, an area but no venue
@@ -196,6 +198,49 @@ const DEV_PROBE: ProbeSuccess = {
  * `priorSaves` names all three candidates, so every card is marked and the review screen's primary
  * becomes the way back to the map rather than a dead `Select a place to save`.
  */
+/**
+ * Feedback 6.1 / 6.4's card, and the reason it is a fixture: **three of the owner's six failing
+ * links land in this state and no other dev screen reaches it.**
+ *
+ * A `confirm`-band result whose offerable list holds exactly one row (`offerableShortlist` cuts to
+ * the rows within `rivalScoreBand` of the top, so this is common, not exotic) *and* a model
+ * coordinate. Before 2026-09-03 that card asked "Which one is it?" over a list of one while
+ * arriving **pre-ticked on the model's own pin**, with the single unpicked provider row directly
+ * above it. The two coordinates here are 2.7 km apart on purpose — the measured drift on `רגאצי`,
+ * the owner's own example of one place saved twice.
+ *
+ * Reaching it for real costs a TikTok fetch, an LLM extraction and a Google Places lookup. The
+ * fixture is what makes the screen judgeable without spending any of the three.
+ */
+const RAGAZZI_BASE = ranked('Ragazzi', 'אחוזה 100, רעננה', 'g-ragazzi');
+/** The provider's row: 2.7 km from the model's pin above, which is the whole point of the fixture. */
+const RAGAZZI_ROW: RankedPlace = {
+  ...RAGAZZI_BASE,
+  score: 0.78,
+  place: { ...RAGAZZI_BASE.place, locality: 'רעננה', lat: 32.1611, lng: 34.8712 },
+};
+
+const ONE_OPTION_CANDIDATES: readonly ProbeCandidate[] = [
+  candidate({
+    rawName: 'רגאצי',
+    cityHint: 'רעננה',
+    // The model's own pin — what this card used to save silently.
+    coordinates: { lat: 32.1848, lng: 34.8713 },
+    resolution: {
+      kind: 'answered',
+      result: {
+        shortlist: [RAGAZZI_ROW],
+        confidence: { band: 'confirm', score: 0.78, margin: 0.04 },
+        regionsSearched: ['tlv'],
+        candidatesPrefiltered: 18,
+      },
+    },
+  }),
+  // Kept beside it so the screen can be judged on the contrast: real ambiguity, three rows, and it
+  // must still ask "Which one is it?".
+  DEV_PROBE.candidates[1]!,
+];
+
 const ALREADY_ADDED_CANDIDATES: readonly ProbeCandidate[] = [
   DEV_PROBE.candidates[0]!,
   candidate({ rawName: 'רגאצי', cityHint: 'רעננה' }),
@@ -243,6 +288,17 @@ export function parseDevScreen(raw: string | null | undefined): Screen | null {
     };
   }
   if (raw === 'review') return { kind: 'caption_preview', probe: DEV_PROBE };
+  // Feedback 6.1's card beside a genuinely ambiguous one — see `ONE_OPTION_CANDIDATES`.
+  if (raw === 'review-one-option') {
+    return {
+      kind: 'caption_preview',
+      probe: {
+        ...DEV_PROBE,
+        caption: 'רגאצי ברעננה, ואחר כך קפה קפה בתל אביב.',
+        candidates: ONE_OPTION_CANDIDATES,
+      },
+    };
+  }
   // H2-T1. Every candidate already on the map from this same video, so nothing arrives ticked and
   // the screen must say something true about why.
   if (raw === 'review-added') {
