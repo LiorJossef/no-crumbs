@@ -261,17 +261,17 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
   /**
    * **Empty and filled are the same row** (`ux-place-card-unification-2026-09-02.md` §4.2, H-4).
    *
-   * Three shapes have now been tried for this one field. It was a bordered panel holding a
+   * Four shapes have now been tried for this one field. It was a bordered panel holding a
    * `SHARED NOTE` kicker, a pencil link and a line of prose reading `Nothing yet — everyone here
    * will see what you write.`; then, briefly, a dashed `Add a shared note` pill borrowed from the
-   * private note so the two objects would at least match. Both answers accepted that an empty
-   * field and a written one are different components, which is what makes writing your first note
-   * swap the thing you just pressed.
+   * private note; then a `DETAIL_FIELD_ROW` whose label sat *above* its value with a pencil at the
+   * end and its own editor replacing it in place.
    *
-   * The row is now `DETAIL_FIELD_ROW` in both states — label, value, pencil — and only the value
-   * and its ink change. So the label is *present* when the field is empty, which the previous
-   * assertion here forbade: a label over a muted offer is a field with nothing in it yet, not a
-   * heading over nothing.
+   * **The label-when-empty assertion is retired here deliberately, not repaired.** It came from
+   * §4.2 H-4, and spec §A2 (2026-09-03) superseded it: `Shared note` over `Add a shared note` says
+   * the same thing twice, and empty is the state most rows are in. `Your note` directly above this
+   * one lost its label in the same ruling, in `bd6f46a`. Keeping it here would be the one row on
+   * the card still spending two lines to carry one — which is the incoherence feedback 2.1 named.
    *
    * The *shared* qualifier stays in the words — a shared note and a private one have different
    * audiences, and flattening that would be a lie rather than a unification.
@@ -279,13 +279,52 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
   it('answers an empty shared note with the same row, not a panel and not a dashed pill', () => {
     const markup = render('editor', { note: null });
     expect(markup).toContain('Add a shared note');
-    expect(markup).toContain('Shared note<');
+    // The offer names the field by itself, so the label does not repeat it. Same rule as `Your
+    // note`, and the reason this line reads `not.toContain` where it once read `toContain`.
+    expect(markup).not.toContain('>Shared note</span>');
     // The prose the panel used to spend on saying a field is empty.
     expect(markup).not.toContain('Nothing yet');
-    // Neither of the two shapes this replaced: no dashed outline, and no bordered/filled panel
-    // around the field.
+    // None of the three shapes this replaced: no dashed outline, no bordered/filled panel around
+    // the field, and no pencil.
     expect(markup).not.toContain('border-dashed');
     expect(markup).not.toContain('bg-muted/40 p-3');
+    expect(markup).not.toContain('lucide-pencil');
+  });
+
+  /**
+   * **The defect feedback 2.1 named, as a guard.** `bd6f46a` and `aa2ae44` rebuilt `Add to a
+   * collection`, `Category` and `Your note` so that all three disclose one `InlinePanel` under one
+   * rotating chevron. This row kept a pencil and its own in-place editor — so on the single screen
+   * where all four are drawn in one flush list, three answered one way and the fourth answered
+   * another. That is the whole of the owner's complaint about the card, reproduced on the
+   * collection host.
+   *
+   * Asserted on the *disclosure contract* rather than on the class string: a row that promises a
+   * panel says `aria-haspopup`, reports `aria-expanded`, and draws the one glyph that means "a
+   * panel opens directly underneath and this row stays where it is".
+   */
+  it('discloses its editor the same way every other field row on the card does', () => {
+    for (const markup of [render('editor', { note: null }), renderMine()]) {
+      expect(markup).toContain('aria-haspopup="dialog"');
+      expect(markup).toContain('aria-expanded="false"');
+      expect(markup).toContain('lucide-chevron-down');
+      // The two glyphs that each promised something this row stopped doing: a pencil says *type
+      // here* on a row that opens a panel, and a right chevron says *this replaces the pane*.
+      expect(markup).not.toContain('lucide-pencil');
+      expect(markup).not.toContain('lucide-chevron-right');
+    }
+  });
+
+  /**
+   * A viewer who may not edit still reads the note — but gets a paragraph, not a control, and so
+   * no disclosure glyph on a row that discloses nothing. Same inset and same 48 px minimum, so the
+   * column's edge and rhythm do not move between the two roles.
+   */
+  it('gives a read-only viewer the note without the affordance', () => {
+    const markup = render('viewer');
+    expect(markup).toContain('Everyone: book ahead');
+    expect(markup).toContain('flex min-h-12 w-full items-center gap-2 px-1');
+    expect(markup).not.toContain('lucide-pencil');
   });
 
   /**
@@ -301,9 +340,10 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
     expect(markup.split(DETAIL_FIELD_ROW).length - 1).toBeGreaterThanOrEqual(1);
   });
 
-  it('still draws the full section once there is a note to read', () => {
-    // Same row, different value: the label is there either way, and the offer is gone once there
-    // is a note to read.
+  it('names the field once there is a note, and only then', () => {
+    // Same row, different value. The label comes back inline the moment there is a note, because
+    // that is what tells a shared note apart from the private one directly above it — and the
+    // offer goes, because a row cannot both offer and hold a value.
     const markup = render();
     expect(markup).toContain('Shared note');
     expect(markup).toContain('Everyone: book ahead');
