@@ -4,13 +4,25 @@
  * "Add to a collection", from a place you have saved.
  *
  * Two states in one component: a row that reports which collections this place is in, and — when
- * opened — the picker that replaces the detail's content in place. The picker is **not** a dialog
- * stacked over the sheet, for the reason `shell/non-modal-drawer.tsx` records: a second overlay
- * over the vaul drawer is how `<main>` gets marked `aria-hidden` and the map page disappears from
- * the accessibility tree.
+ * opened — the picker, in an `InlinePanel` **directly under that row**. It is not a dialog stacked
+ * over the sheet, for the reason `shell/non-modal-drawer.tsx` records: a second overlay over the
+ * vaul drawer is how `<main>` gets marked `aria-hidden` and the map page disappears from the
+ * accessibility tree.
  *
- * Toggling writes immediately and optimistically. There is no Save button, so the back control is
- * the only exit and nothing is ever left pending behind it.
+ * ## It stopped replacing the detail pane on 2026-09-03
+ *
+ * Until then, pressing this row swapped the whole card for a picker with its own `ArrowLeft`, its
+ * own `Add to…` heading and its own row vocabulary — bordered-bottom rows with a 20 px tick disc.
+ * That was the card's third answer to "what does editing look like here": the category row
+ * committed with a mint word, the note with a button pair, and this one did not commit at all
+ * because it left the card. It is now the same panel and the same `MENU_ROW` material as the other
+ * two rows, the library's filter bar and the share panel's role control.
+ *
+ * Deleting the navigation deletes the collision the back control existed to solve: nothing
+ * navigates, so there is never a second back-shaped control on screen.
+ *
+ * Toggling writes immediately and optimistically. There is no Save button — this is multi-select,
+ * so the panel stays open on a toggle and closes on Escape or a press outside it.
  *
  * ## No write here `await`s an action directly
  *
@@ -31,19 +43,21 @@
 import {
   createContext,
   useCallback,
-  useContext,
-  useEffect,
+  useId,
   useMemo,
   useOptimistic,
   useRef,
   useState,
   useTransition,
+  type KeyboardEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, ChevronRight, Plus } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InlinePanel, MENU_ROW, MENU_ROW_PAINT } from '@/components/ui/inline-menu';
+import { useDetailPanelOpen } from '@/ui/place/detail-panel-open';
 import { addToCollectionLabel, useCollections } from '@/ui/place/collections-context';
 import { addPlacesToCollection, removePlaceFromCollection } from '@/app/actions/collections';
 import { attemptCreateCollection } from '@/components/collections/use-create-collection';
@@ -51,6 +65,7 @@ import { attemptWrite } from '@/ui/place/write-failure';
 import {
   DETAIL_FIELD_ROW,
   DETAIL_FIELD_VALUE,
+  DisclosureChevron,
 } from '@/components/sheet/saved-place-edits';
 import { PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
@@ -78,14 +93,35 @@ export function AddToCollection({ placeId }: { placeId: string | undefined }) {
   const [open, setOpen] = useState(false);
   const collections = useCollections();
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  const raiseSheet = useDetailPanelOpen();
 
-  // Stable, because a host may hold onto it: see `HostedPaneBackContext`.
   const close = useCallback(() => {
     setOpen(false);
-    // Focus goes back to what opened it; a back control that drops focus at the top of the
-    // document strands a keyboard user mid-task.
+    // Focus goes back to what opened it; a dismissal that drops focus at the top of the document
+    // strands a keyboard user mid-task.
     requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
   }, []);
+
+  function toggleOpen() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    // The sheet goes to `full` before the panel takes room in the column. `undefined` on every
+    // host that provides no channel — the desktop popover, the panel, and `/collections/[id]` —
+    // where this is exactly today's behaviour.
+    raiseSheet?.();
+    setOpen(true);
+  }
+
+  function dismissOnEscape(event: KeyboardEvent<HTMLButtonElement>) {
+    // Opening by pointer leaves focus on the trigger, so a handler only on the panel never fires —
+    // the defect `library-filter-bar.tsx` measured on its own inline triggers.
+    if (event.key !== 'Escape' || !open) return;
+    event.stopPropagation();
+    setOpen(false);
+  }
 
   // No provider, or a place we cannot identify (a row not built from a real saved place): show
   // nothing rather than a control that cannot work.
@@ -97,48 +133,62 @@ export function AddToCollection({ placeId }: { placeId: string | undefined }) {
     .map((collection) => collection.name);
   const { text, name } = addToCollectionLabel(names);
 
-  if (open) {
-    return <CollectionPicker placeId={placeId} onBack={close} />;
-  }
-
   return (
-    // The same field row as `Category` and `Your note` — label above value, one trailing glyph.
-    // The chevron is the one that means *pressing replaces the pane*, which is exactly what this
-    // control does and what the two pencil rows below it do not. The leading folder glyph went
-    // with the boxed row: a decoration on one of three otherwise identical rows is what made them
-    // read as three different kinds of thing.
-    <button
-      ref={triggerRef}
-      type="button"
-      onClick={() => setOpen(true)}
-      data-vaul-no-drag
-      className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
-    >
-      {/* **The `Collections` label is deleted, not moved** (spec §A2, 2026-09-03). `In tel aviv
-          food` already names what it is; the label above it was an 11 px line spent restating the
-          preposition underneath. What is left is one line, which is what stops three of these rows
-          reading as a form. */}
-      <span
-        className={cn(
-          DETAIL_FIELD_VALUE,
-          'flex min-w-0 flex-1 items-baseline gap-1',
-          names.length > 0 ? 'text-foreground' : 'text-muted-foreground',
-        )}
+    <div className="flex flex-col">
+      {/* The same field row as `Category` and `Your note`, and now the same *opening* as both:
+          the row stays where it is, the chevron rotates, and the picker appears in a panel
+          underneath. The leading folder glyph went with the boxed row — a decoration on one of
+          three otherwise identical rows is what made them read as three different kinds of
+          thing. */}
+      <button
+        ref={triggerRef}
+        type="button"
+        data-vaul-no-drag
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        onClick={toggleOpen}
+        onKeyDown={dismissOnEscape}
+        className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
       >
-        <span className="shrink-0">{text}</span>
-        {name ? <bdi className="min-w-0 truncate">{name}</bdi> : null}
-      </span>
-      <ChevronRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-    </button>
+        {/* **The `Collections` label is deleted, not moved** (spec §A2, 2026-09-03). `In tel aviv
+            food` already names what it is; the label above it was an 11 px line spent restating the
+            preposition underneath. What is left is one line, which is what stops three of these rows
+            reading as a form. */}
+        <span
+          className={cn(
+            DETAIL_FIELD_VALUE,
+            'flex min-w-0 flex-1 items-baseline gap-1',
+            names.length > 0 ? 'text-foreground' : 'text-muted-foreground',
+          )}
+        >
+          <span className="shrink-0">{text}</span>
+          {name ? <bdi className="min-w-0 truncate">{name}</bdi> : null}
+        </span>
+        <DisclosureChevron open={open} />
+      </button>
+
+      {open && (
+        <InlinePanel
+          id={panelId}
+          // No kicker: an action list has no axis, and the row above the panel is already naming
+          // the thing. This is what the `Add to…` heading used to do, and the heading was a second
+          // title on a surface that already had one.
+          axisClear={null}
+          triggerRef={triggerRef}
+          onEscape={close}
+          onOutsidePress={() => setOpen(false)}
+        >
+          <CollectionPicker placeId={placeId} />
+        </InlinePanel>
+      )}
+    </div>
   );
 }
 
-/** Named once: the host that borrows this control announces it with the same words. */
-const BACK_LABEL = 'Back to the place';
-
-/** Exported for the test that holds the one-back-control invariant: the picker opens on a press,
- *  and there is no DOM in this suite to press with. */
-export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack: () => void }) {
+/** Exported for the test that holds this surface's markup rules: the panel opens on a press, and
+ *  there is no DOM in that suite to press with. */
+export function CollectionPicker({ placeId }: { placeId: string }) {
   const router = useRouter();
   const collections = useCollections();
   const serverIn = useMemo(
@@ -165,14 +215,6 @@ export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack:
   const [composeError, setComposeError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [, startTransition] = useTransition();
-  const headingRef = useRef<HTMLParagraphElement>(null);
-  const host = useContext(HostedPaneBackContext);
-
-  useEffect(() => {
-    if (!host) return;
-    host.setBack({ label: BACK_LABEL, onBack });
-    return () => host.setBack(null);
-  }, [host, onBack]);
 
   function toggle(collectionId: string) {
     const wasIn = optimisticIn.includes(collectionId);
@@ -200,31 +242,51 @@ export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack:
   }
 
   return (
+    // The panel's own list: no `<ul>` chrome, no bordered-bottom rows and no 20 px tick disc. The
+    // tick lives in the indicator column every menu row in this product already has, so the
+    // collection names sit at the same inline offset as the category choices one row below.
     <div className="flex flex-col">
-      <div className="flex items-center gap-1 pb-1">
-        {/* Nothing here when the host draws it: two back-shaped controls on one screen is the
-            ambiguity `ux-collections-as-scope.md` §2.2 exists to forbid. */}
-        {host ? null : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            aria-label={BACK_LABEL}
-            onClick={onBack}
-            data-vaul-no-drag
-            className="-ms-2 size-11 shrink-0 rounded-full text-muted-foreground"
-          >
-            <ArrowLeft className="size-4" aria-hidden />
-          </Button>
-        )}
-        <p ref={headingRef} tabIndex={-1} className="font-heading text-sm font-bold outline-none">
-          Add to…
-        </p>
-      </div>
+      {collections && collections.collections.length > 0
+        ? collections.collections.map((collection) => {
+            const isIn = optimisticIn.includes(collection.id);
+            return (
+              <div key={collection.id} className="flex flex-col">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isIn}
+                  onClick={() => toggle(collection.id)}
+                  data-vaul-no-drag
+                  className={cn(MENU_ROW, PRESS_ROW, 'w-full')}
+                >
+                  <span className={cn(MENU_ROW_PAINT, 'text-sm')}>
+                    {/* `invisible`, not absent: the column is in every row, so one unticked
+                        collection does not shift its neighbours' names. */}
+                    <Check
+                      aria-hidden
+                      className={cn('size-3.5 shrink-0 text-brand', !isIn && 'invisible')}
+                    />
+                    <span dir="auto" className="min-w-0 flex-1 truncate text-start">
+                      {collection.name}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {collection.placeCount}
+                    </span>
+                  </span>
+                </button>
+                {failed?.collectionId === collection.id ? (
+                  <p role="alert" className="px-2 pb-1.5 text-xs text-destructive">
+                    {failed.message}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })
+        : null}
 
       {composing ? (
         <form
-          className="flex flex-col gap-2 py-2"
+          className="flex flex-col gap-2 p-2"
           onSubmit={(event) => {
             event.preventDefault();
             startTransition(async () => {
@@ -242,7 +304,7 @@ export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack:
               // closes and the field clears on the *create*, not on the pair: leaving the name in
               // an open form after a failed add invites a second collection with the same name,
               // which is a worse outcome than the place not being in the first one. The retry for
-              // the add is the new collection's own row in the list below.
+              // the add is the new collection's own row in the list above.
               setName('');
               setComposing(false);
               const added = await attemptWrite(() =>
@@ -289,17 +351,19 @@ export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack:
           </div>
         </form>
       ) : (
+        // **Last, not first.** It is the least-used row of the list and it makes something rather
+        // than choosing something; above the collections it was the first thing a returning user
+        // had to read past every time.
         <button
           type="button"
           onClick={() => setComposing(true)}
           data-vaul-no-drag
-          className={cn(
-            'flex min-h-11 items-center gap-2.5 border-b border-border/70 px-1 text-left text-sm font-medium hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-            PRESS_ROW,
-          )}
+          className={cn(MENU_ROW, PRESS_ROW, 'w-full')}
         >
-          <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          New collection
+          <span className={cn(MENU_ROW_PAINT, 'text-sm')}>
+            <Plus className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            New collection
+          </span>
         </button>
       )}
 
@@ -307,58 +371,16 @@ export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack:
           name being kept is visible; closed, it is what reports a collection that was made without
           the place going into it. */}
       {composeError ? (
-        <p role="alert" className="px-1 py-1.5 text-xs text-destructive">
+        <p role="alert" className="px-2 py-1.5 text-xs text-destructive">
           {composeError}
         </p>
       ) : null}
 
-      {collections && collections.collections.length > 0 ? (
-        <ul>
-          {collections.collections.map((collection) => {
-            const isIn = optimisticIn.includes(collection.id);
-            return (
-              <li key={collection.id} className="border-b border-border/70 last:border-b-0">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isIn}
-                  onClick={() => toggle(collection.id)}
-                  data-vaul-no-drag
-                  className={cn(
-                    'flex min-h-11 w-full items-center gap-2.5 px-1 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                    PRESS_ROW,
-                  )}
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'flex size-5 shrink-0 items-center justify-center rounded-full border',
-                      isIn ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
-                    )}
-                  >
-                    {isIn ? <Check className="size-3" /> : null}
-                  </span>
-                  <span dir="auto" className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {collection.name}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {collection.placeCount}
-                  </span>
-                </button>
-                {failed?.collectionId === collection.id ? (
-                  <p role="alert" className="pb-1.5 pl-8 text-xs text-destructive">
-                    {failed.message}
-                  </p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="px-1 py-4 text-sm text-muted-foreground">
+      {collections && collections.collections.length === 0 ? (
+        <p className="px-2 py-2 text-sm text-muted-foreground">
           You don&apos;t have any collections yet.
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

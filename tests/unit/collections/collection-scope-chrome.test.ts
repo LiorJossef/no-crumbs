@@ -13,9 +13,10 @@
  * nothing is trapped. These assertions are inverted rather than deleted: the up-link's absence is
  * now the rule, and a silently reintroduced one would be a regression nobody would catch.
  *
- * §2.2 — **at most one back-shaped control on screen at any moment.** Inside a collection the
- * place detail already draws one in its header, so the add-to-a-collection picker must not draw a
- * second; on `/map`, where the host affordance is an `×`, it keeps its own.
+ * §2.2 — **at most one back-shaped control on screen at any moment.** From 2026-09-03 the
+ * add-to-a-collection picker opens as an inline panel under its own field row rather than
+ * replacing the detail pane, so it navigates nowhere and draws no back control on either host.
+ * The rule is held by construction; what is asserted below is that construction.
  *
  * Rendered with `react-dom/server` — vitest is a `node` environment here, with no DOM to press.
  */
@@ -49,9 +50,7 @@ vi.mock('@/app/actions/saved-places', () => ({
 }));
 
 const { CollectionContent } = await import('@/components/collections/collection-content');
-const { CollectionPicker, HostedPaneBackContext } = await import(
-  '@/components/collections/add-to-collection'
-);
+const { CollectionPicker } = await import('@/components/collections/add-to-collection');
 const { CollectionsContext } = await import('@/ui/place/collections-context');
 
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
@@ -151,24 +150,27 @@ describe('the collection list header’s text', () => {
 });
 
 describe('the add-to-a-collection picker', () => {
-  function picker(hosted: boolean): string {
-    const tree = createElement(
-      CollectionsContext,
-      { value: { collections: [], byPlaceId: {} } },
-      createElement(CollectionPicker, { placeId: 'p1', onBack: () => {} }),
-    );
+  function picker(): string {
     return renderToStaticMarkup(
-      hosted
-        ? createElement(HostedPaneBackContext, { value: { setBack: () => {} } }, tree)
-        : tree,
+      createElement(
+        CollectionsContext,
+        { value: { collections: [], byPlaceId: {} } },
+        createElement(CollectionPicker, { placeId: 'p1' }),
+      ),
     );
   }
 
-  it('draws its own back control when nothing else does', () => {
-    expect(picker(false)).toContain('aria-label="Back to the place"');
+  // §2.2 held by construction from 2026-09-03: the picker opens as an inline panel under its own
+  // field row instead of replacing the detail pane, so it navigates nowhere and draws no back
+  // control on either host. The rule it was protecting — at most one back-shaped control on
+  // screen — can no longer be broken here, and this asserts the mechanism rather than the symptom.
+  it('draws no back control on any host, because it navigates nowhere', () => {
+    const markup = picker();
+    expect(markup).not.toContain('aria-label="Back to the place"');
+    expect(markup).not.toMatch(/aria-label="[^"]*Back/i);
   });
 
-  it('draws none when the host already has one on screen', () => {
-    expect(picker(true)).not.toContain('aria-label="Back to the place"');
+  it('draws no heading of its own — the row above the panel is the title', () => {
+    expect(picker()).not.toContain('Add to…');
   });
 });
