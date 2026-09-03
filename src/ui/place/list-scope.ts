@@ -386,6 +386,61 @@ function areasOnScreen<T>(areas: readonly Area<T>[], rect: ViewportBounds): numb
   return count;
 }
 
+/**
+ * **The scope after a place is opened**, and the repair for a heading that described somewhere the
+ * user had already left.
+ *
+ * Reported by the owner on 2026-09-03 and reproduced at 1280x900: with the list scoped to Budapest
+ * — one place — opening `בית גולדברג` from the continuation below it flew the camera to Tel Aviv,
+ * put a Tel Aviv card on the screen and left the header reading `1 place in Budapest` over rows the
+ * sentence does not contain. The same gesture on a pin does the same thing. It is the same shape as
+ * the production report of `1 in הרצליה` over a Jerusalem save.
+ *
+ * **This asserts nothing the machine was not about to assert anyway**, which is what makes it a
+ * repair rather than a new rule. Selecting a place is one of the camera movers: the map flies to
+ * it, and the *next* user gesture of any size hands the scope to whatever is under the camera
+ * through `dominantArea`. Measured on the repro: one 36 px drag after the selection turned
+ * `1 place in Budapest` into `20 places in תל אביב-יפו`. So the scope was already destined for the
+ * opened place's area; all that was wrong was the window in between, during which the header said
+ * something false. This closes the window at the gesture that opens it.
+ *
+ * **A place already in scope changes nothing, by identity.** That is every ordinary selection —
+ * global scope (which holds everything), or another place in the area you are already reading — so
+ * the deliberate rule that *narrowing never navigates* and that opening a card does not re-scope
+ * the list is untouched for every case where the header was telling the truth.
+ *
+ * **The kind of scope survives; only its value moves.** From a country you get the opened place's
+ * country, not its city: the user chose that granularity and a place elsewhere in the United
+ * Kingdom is not a reason to narrow the list to London. From an area you get the place's area,
+ * which is the most specific true thing and the one the camera is now showing.
+ *
+ * Returns `scope.scope` **by identity** whenever there is nothing to correct, so the caller's
+ * `setState` bails out rather than re-rendering every surface on the page.
+ */
+export function scopeAfterSelection<T>(input: {
+  /** The scope as the list is currently rendering it. */
+  readonly scope: ResolvedScope<T>;
+  /** The place just opened. */
+  readonly placeId: string;
+  readonly areas: readonly Area<T>[];
+  readonly countries: readonly CountrySummary<T>[];
+}): ListScope {
+  const { scope, placeId, areas, countries } = input;
+  if (scope.memberIds.has(placeId)) return scope.scope;
+  const area = areas.find((candidate) => candidate.memberIds.has(placeId));
+  // A place in no area at all is a place the library has not caught up with — a just-saved row
+  // arriving before its refresh. The header is no less honest for holding still, and inventing a
+  // scope from an id nothing contains is how a save turns into a teleport (`resolveScope`).
+  if (area === undefined) return scope.scope;
+  if (scope.kind === 'country') {
+    const country = countries.find((candidate) =>
+      candidate.areas.some((candidateArea) => candidateArea.id === area.id),
+    );
+    if (country !== undefined) return scopeForCountryTap(country.key);
+  }
+  return scopeForAreaTap(area.id);
+}
+
 function unionMemberIds<T>(areas: readonly Area<T>[]): ReadonlySet<string> {
   const ids = new Set<string>();
   for (const area of areas) for (const id of area.memberIds) ids.add(id);

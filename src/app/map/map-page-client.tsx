@@ -142,7 +142,9 @@ import {
   activeCountryKey as ringedCountryKeyFor,
   defaultScope,
   resolveScopeOrFallback,
+  sameScope,
   scopeAfterCameraSettled,
+  scopeAfterSelection,
   scopeAreaId,
   scopeForAreaTap,
   scopeForCountryTap,
@@ -502,7 +504,9 @@ export function MapPageClient({
    *     clamped the resting zoom below the pin band, which drew none of the user's places at all
    *     and was undone on 2026-08-31. See `initialBounds`, and `zoom-bands.ts` for both.
    *  2. A finished import flies to the places it saved.
-   *  3. Selecting a place from the list flies to that place, and **holds** the scope. It frames
+   *  3. Selecting a place from the list flies to that place, and **holds** the scope unless the
+   *     scope does not contain that place — see `retargetScope`, the 2026-09-03 repair for a header
+   *     that went on naming the area you had just left. It frames
    *     into the band the *raised* sheet leaves visible, not into the whole viewport — the surface
    *     reads `selected` for that, which is why 3 and 6 are one padding rule rather than two.
    *  4. Tapping an `Elsewhere` row — or the map's own area marker, which is the same gesture — flies
@@ -530,7 +534,8 @@ export function MapPageClient({
    *     `onPlaceClick`). It is a **recentre and not a re-frame**: the zoom the camera is already at
    *     is held exactly, so the scale around the tapped pin never changes and the map cannot lurch
    *     out from under the thumb that tapped it — the failure the old rule was protecting against,
-   *     which the reversal does not oblige us to accept. See `focusPin`.
+   *     which the reversal does not oblige us to accept. It carries mover 3's scope repair for the
+   *     same reason mover 3 does. See `focusPin`.
    *
    * Three are gone, all of them for the same reason — narrowing must never navigate. A settled
    * search no longer flies to its matches, clearing the search no longer returns to a cluster, and
@@ -932,10 +937,32 @@ export function MapPageClient({
     announcer.say(announcer.begin(), filterAnnouncement);
   }, [filterAnnouncement, announcer]);
 
+  /**
+   * **Opening a place that the scope does not contain moves the scope to it** — the repair for the
+   * header the owner reported on 2026-09-03, reproduced at 1280x900: scoped to Budapest, opening a
+   * Tel Aviv place from the continuation below left `1 place in Budapest` over a Tel Aviv card and
+   * Tel Aviv rows. `ui/place/list-scope.ts`'s `scopeAfterSelection` owns the rule and carries the
+   * argument; the short version is that the camera has just flown there and the next user gesture
+   * of any size would hand the scope to the same area through `dominantArea` anyway, so all this
+   * closes is the window in between, during which the header said something false.
+   *
+   * A place already in scope is unchanged by identity, so the ordinary case — a global scope, or
+   * another place in the area you are reading — still does not re-scope anything.
+   */
+  const retargetScope = useCallback(
+    (place: MapPlace) => {
+      const next = scopeAfterSelection({ scope: listScope, placeId: place.id, areas, countries });
+      if (!sameScope(next, listScope.scope)) setScope(next);
+    },
+    [listScope, areas, countries],
+  );
+
   /** Camera mover 3. A fresh array each time, because the flight is keyed on array identity — so
-   *  re-selecting the same place does fly again. The active area is deliberately not touched. */
+   *  re-selecting the same place does fly again. It holds the scope wherever the scope still
+   *  describes the list; see `retargetScope` for the one case that cannot. */
   function selectPlace(place: MapPlace) {
     selectId(place.id);
+    retargetScope(place);
     camera.framePlaces([place.id]);
   }
 
@@ -1251,6 +1278,10 @@ export function MapPageClient({
         pinTapInFlight.current = false;
       });
       selectId(place.id);
+      // The same repair mover 3 makes, on the other way of opening a place: a pin in an area the
+      // list is not scoped to is tappable whenever both areas are on screen, and holding the scope
+      // there leaves the header naming somewhere the open card is not. See `retargetScope`.
+      retargetScope(place);
       const zoom = lastZoomRef.current;
       // No settled report yet means no honest zoom to hold. It should be unreachable — a pin the
       // user can tap is a pin the camera has already settled around — so it degrades to mover 3's
@@ -1265,7 +1296,7 @@ export function MapPageClient({
         maxZoom: zoom,
       });
     },
-    [camera, selectId],
+    [camera, selectId, retargetScope],
   );
 
   /**
