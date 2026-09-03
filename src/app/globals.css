@@ -287,7 +287,23 @@
     --accent: var(--mint-100);
     --accent-foreground: #1B1B1A;
     --ring: var(--mint-700);
-    --destructive: oklch(0.577 0.245 27.325);
+    /*
+     * **The soft red, and it is more legible than the loud one it replaced.**
+     *
+     * `oklch(0.577 0.245 27.325)` (`#E7000B`) was a maximum-chroma alarm red — the browser-default
+     * register — and its saturation was buying volume, not contrast. Measured on the surfaces it
+     * actually lands on, it FAILED AA for body text in two of them: `--card-2` at 4.22:1, and the
+     * destructive button's own 10% tint at 3.99:1.
+     *
+     * This is 53% less saturated and better everywhere: `--popover` 5.13:1, `--background` 4.87:1,
+     * `--card-2` 4.54:1, inside the tinted button 4.49:1. Three of those four clear AA where the
+     * old value cleared two.
+     *
+     * The token is never a solid background — 46 of its uses are `text-destructive`, the rest are
+     * borders and 10–30% tints — so text contrast is the whole of its accessibility budget, which
+     * is why the numbers above are the ones that were optimised against.
+     */
+    --destructive: oklch(0.55 0.115 27.325);
 
     /*
      * The strong mint, as a role rather than a ramp step.
@@ -1156,7 +1172,7 @@
     --ring: var(--mint-400);
     /* Lighter than the light theme's, for the same reason `--brand` is: the light `--destructive`
      * is chosen to be read on paper. */
-    --destructive: oklch(0.704 0.191 22.216);
+    --destructive: oklch(0.725 0.09 22.216);
 
     /* Rule 2, applied. `--brand-foreground` is the ink that sits *on* the brand, so it follows the
      * brand from white onto `--ink-on-mint`. `--brand-tint` is the soft rule — a quote's border, a
@@ -1464,7 +1480,7 @@
         --accent: #222A28;
         --accent-foreground: #F4F2EC;
         --ring: var(--mint-400);
-        --destructive: oklch(0.704 0.191 22.216);
+        --destructive: oklch(0.725 0.09 22.216);
         --brand: var(--mint-400);
         --brand-foreground: var(--ink-on-mint);
         --brand-tint: var(--mint-600);
