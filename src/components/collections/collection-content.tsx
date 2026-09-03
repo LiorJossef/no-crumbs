@@ -357,8 +357,7 @@ function CollectionList({
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const menuPanelId = useId();
   /** The `Select` control's slot, so `Cancel` can hand focus back to the thing that opened the
-   *  mode. `display: contents`, so the wrapper is not a box — the button is still the flex item
-   *  the heading row lays out. `EnterSelectionButton` is reused verbatim and takes no ref. */
+   *  mode. `EnterSelectionButton` is reused verbatim and takes no ref. */
   const selectSlotRef = useRef<HTMLSpanElement>(null);
   /** A ref rather than state: it is a one-shot instruction to the effect below, and putting it in
    *  state would make `Cancel` render twice to move focus once. */
@@ -659,10 +658,8 @@ function CollectionList({
               belong in an object menu. The component is reused verbatim rather than re-styled, so
               the library and the collection cannot drift into two words for one act.
 
-              The wrapper is `display: contents` — not a box, so the button is still the flex item
-              this row lays out and nothing sits between the heading and the `⋯` — and it exists
-              only to give `Cancel` something to hand focus back to. `EnterSelectionButton` takes no
-              ref. */}
+              The wrapper gives `Cancel` something to hand focus back to — `EnterSelectionButton`
+              takes no ref — and carries the row's vertical margin; see its own comment below. */}
           {/* **One slot, two controls, one conditional** (`ux-select-control-2026-09-03.md` §3.1
               and §5). `Cancel` stands exactly where `Select` was, at the same size and one ink
               step darker; the exit used to be at the other end of a row below, two weights
@@ -673,10 +670,25 @@ function CollectionList({
               The word stays `Cancel` and not `Done`: `bulk-delete.ts` rules that the reversible
               removal and the irreversible one do not share an exit word. §6 of the spec records
               honestly that the divergence is now thin, and that unifying it is the owner's call. */}
+          {/* **The `-my-1.5` is the same economy the `⋯` states above, applied to the control that
+              broke it.** `EnterSelectionButton` is `min-h-11` and carries no negative margin,
+              correctly: in the library it owns its row and 44 px is the row. Promoted onto a
+              heading whose text is 24 px, it set the row height back to 44 and handed back the
+              space the `⋯` move had bought — measured at 375×812, `tel aviv food`: a 44 px row
+              leaving 10 px of dead air under the title before the members line's own 2 px.
+              The margin belongs here rather than inside the shared control, which must keep its
+              full height where it sits on a row of its own.
+
+              This wrapper is a box now, not `display: contents`. It has to be — `contents`
+              generates no box and so cannot carry a margin. Nothing else changes: it still wraps
+              exactly one button, so nothing sits between the heading and the `⋯`, and it still
+              exists to give `Cancel` something to hand focus back to. */}
           {selecting ? (
-            <LeaveSelectionButton onLeave={() => leaveSelection({ returnFocus: true })} label="Cancel" />
+            <span className="-my-1.5 flex items-center">
+              <LeaveSelectionButton onLeave={() => leaveSelection({ returnFocus: true })} label="Cancel" />
+            </span>
           ) : editable && collection.places.length > 0 ? (
-            <span ref={selectSlotRef} className="contents">
+            <span ref={selectSlotRef} className="-my-1.5 flex items-center">
               <EnterSelectionButton onEnter={enterSelection} />
             </span>
           ) : null}
