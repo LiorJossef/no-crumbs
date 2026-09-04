@@ -547,7 +547,15 @@ Three properties survive whichever design wins, and should not be re-litigated:
 
 1. the interpretation is written into **the filter controls that already exist**, never a parallel
    set;
-2. it is undoable as **one transaction**, including the camera;
+2. it is undoable as **one transaction** — the filters and the scope, **not the camera**. That
+   clause said "including the camera" until 2026-09-04, when the owner used it: *"undo in sentence
+   search is taking you to see all countries, not sure this is a good behavior."* Apply writes the
+   scope and the flight together as camera mover 4's pair, so undo restored both — but symmetry is
+   not the user's model. `Undo` corrects a *filter*; throwing the map from a city out to four
+   countries is a second action nobody asked for, and it is disorienting in proportion to how far
+   it goes. Unlike apply, undo has no new geography to frame: it returns the user to the view they
+   were already looking at when they typed. Measured after the change: **0 of 163,800 map pixels
+   differ across the press** at 390x844, and no basemap tile is requested;
 3. **offer chips never wear the active filter pill.** That pill means *this is on*; an offer wearing
    it would be lying about state before the user agreed to anything.
 
