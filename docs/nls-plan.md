@@ -419,11 +419,15 @@ whose places are spread must not quietly rest on pills either.
 That is accepted rather than tolerated: the pins are there when the map is panned, every row is in
 the list beside it, and `EverywhereElse` names what is outside the frame.
 
-**The boundary this rule does not cross.** The owner's example carries geography (`in Israel`). A
-sentence with none still moves no camera at all — `map-page-client.tsx`'s standing rule is that
-typing is not a camera mover, and a Stage 1 apply setting only a category or a tag has nothing to
-frame. The rule is *when an apply moves the camera, it lands on pins*, not *every apply moves the
-camera*. Widening it would reverse a standing rule and is the owner's to take.
+**The boundary this rule does not cross — confirmed by the owner, not inferred.** Their example
+carries geography (`in Israel`). A sentence with none still moves no camera at all:
+`map-page-client.tsx`'s standing rule is that typing is not a camera mover, and a Stage 1 apply
+setting only a category or a tag has nothing to frame. Put to them as the one thing the ruling
+might have been read to widen, the answer was: *"yes, no camera move without geography is right."*
+
+So the rule is exactly *when an apply moves the camera, it lands on pins* — never *every apply
+moves the camera*. Both halves are now the owner's words rather than a reading of them, which
+matters, because the second half is the one a future change would be tempted to relax.
 
 ### 5.6 Done when
 
