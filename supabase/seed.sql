@@ -218,3 +218,187 @@ begin
     values (v_saved_id, v_source_id, v_user_id);
   end loop;
 end $$;
+
+-- ---------------------------------------------------------------------------------------------
+-- A collection, with places in it. Added 2026-09-04 for the CI e2e run, which is the only
+-- consumer that has ever needed it: `tests/e2e/collections-index-is-the-sheet.spec.ts` waits for
+-- the `Yours` section heading and `tests/e2e/collection-one-back-control.spec.ts` opens "the first
+-- collection", and until now `db reset` produced a database with zero `collections` rows — so both
+-- specs measured an empty index rather than the screen they are about. They passed locally only
+-- because the developer's own database happened to hold collections a human had made.
+--
+-- It has places in it, and that is a requirement rather than decoration: the index row's
+-- accessible name is built by `placeCountLabel()` (`src/app/map/collections-index-list.tsx`),
+-- which reads `No places yet` at zero — and the back-control spec finds the row it opens with
+-- `/\d+ places?/`, which that string does not match. An empty collection is a different screen.
+-- Two rather than one so the row also exercises the plural, and so the collection has a second
+-- place to open after the first.
+--
+-- `collection_members` is NOT inserted here. `collections_owner_membership` (0024) is an AFTER
+-- INSERT trigger that seats the owner, and it runs for this insert like any other — writing the
+-- membership row by hand would either duplicate it or, worse, hide the day that trigger stops
+-- firing. Same reasoning as the `handle_new_user` note above.
+-- ---------------------------------------------------------------------------------------------
+do $$
+declare
+  v_user_id uuid;
+  -- Fixed, so the fixture is the same row on every reset and a failure screenshot can be looked up.
+  v_collection_id constant uuid := '5eed0000-0000-4000-8000-00000000c011';
+begin
+  select id into v_user_id from auth.users where email = 'demo@example.com';
+  if v_user_id is null then return; end if;
+
+  insert into public.collections (id, owner_id, name, description)
+  values (v_collection_id, v_user_id, 'Tel Aviv weekend', 'The two we always end up going back to.')
+  on conflict (id) do nothing;
+
+  -- `insert ... select` rather than a lookup into a variable: if the places block above was
+  -- skipped (a re-run against a database that already has them) the select still finds them, and
+  -- if a place is genuinely absent the row is simply not added instead of failing on a null FK.
+  insert into public.collection_items (collection_id, place_id, added_by, note, position)
+  select v_collection_id, p.id, v_user_id, n.note, n.position
+  from (values ('Anat Bakery', 'Queue is shortest before nine.', 0),
+               ('Nordoy Cafe',  null,                             1)) as n(name, note, position)
+  join lateral (
+    -- Matched on a prefix, not on equality: the place above is `Nordoy Café`, and pinning the
+    -- accented literal in a second place is one copy-paste away from silently selecting no row
+    -- and seeding a collection with one item in it.
+    select id from public.places
+    where name like left(n.name, 6) || '%'
+    order by created_at
+    limit 1
+  ) p on true
+  on conflict (collection_id, place_id) do nothing;
+end $$;
+
+-- ---------------------------------------------------------------------------------------------
+-- The cached import. `tests/e2e/import-happy-path.spec.ts` pastes exactly this TikTok and its
+-- docstring states the precondition: the extraction is already in `extractions`, so the run
+-- "must not cost a model call". Nothing in this file created that row, so the precondition held
+-- only on a developer's own database. With no API key configured, CI's `/api/imports/probe`
+-- reached the model instead and answered INTERNAL — a fixture gap reported as a defect.
+--
+-- Two rows are needed, and both are cache keys rather than data:
+--
+--  * The `sources` row. `oembedSourceAdapter.fetch` is cache-through on `platform_source_id` and
+--    returns a `fetch_status = 'ok'` row with ZERO network calls, so seeding it also removes
+--    TikTok's oEmbed endpoint from the CI critical path. `canonical_url` is exactly what
+--    `canonicalUrlFor()` builds (`@_`, not the handle) because `start_import` is called with that
+--    value and `sources_platform_identity` would otherwise be hit with a second spelling.
+--
+--  * The `extractions` rows, keyed `(source_id, model, prompt_version)` — `08` §3.4. `input_hash`
+--    is computed here from `content_text` rather than pasted, because `readCachedExtraction`
+--    refuses a row whose hash does not match `sha256(caption)` and a stale literal would turn a
+--    cache hit into a silent miss and a paid call. The candidates array is the one this exact
+--    caption produced, copied verbatim off the local database, including its `resolution` sibling:
+--    a COMPLETE set of resolutions is what makes the probe skip stage C, so this fixture costs no
+--    Google Places call either.
+--
+-- One row per extractor version, because the cache key names the model and CI does not pin one:
+-- `createPlaceExtractor` defaults to Anthropic and the local `.env` selects Gemini, so a
+-- single-row fixture would hit on exactly one of the two. `prompt_version` is `PROMPT_VERSION` from
+-- `src/integrations/llm/prompt.ts` and the model strings are `ANTHROPIC_EXTRACTOR_VERSION` and
+-- `geminiExtractorVersion('gemini-3.5-flash-lite')`. All three are literals here and none of them
+-- can be read from SQL: when the prompt version moves, this fixture stops hitting and the import
+-- spec starts paying for a model call — a thing to re-check whenever `PROMPT_VERSION` moves.
+-- ---------------------------------------------------------------------------------------------
+do $$
+declare
+  -- Fixed on a fresh reset, looked up rather than assumed otherwise: a developer's own database
+  -- may already hold this source under the id a real import gave it, in which case the insert
+  -- below is a no-op and the extraction has to hang off the row that is actually there. Writing
+  -- the literal into the FK instead is what the first draft did, and it failed exactly there.
+  v_source_id uuid := '5eed0000-0000-4000-8000-00000000e0e0';
+  v_caption   constant text := 'Resturants in Tel Aviv 📍Ha Kosem #foodie #restaurant #telaviv #israel';
+  v_prompt_version constant text := 'p17-s5';
+  v_candidates constant jsonb := '
+  [
+      {
+          "tags": [
+              "middle eastern"
+          ],
+          "whyGo": null,
+          "dishes": [
+          ],
+          "rawName": "Ha Kosem",
+          "areaHint": null,
+          "cityHint": "Tel Aviv",
+          "evidence": "📍Ha Kosem",
+          "resolution": {
+              "kind": "answered",
+              "result": {
+                  "shortlist": [
+                      {
+                          "place": {
+                              "lat": 32.0763896,
+                              "lng": 34.7766843,
+                              "name": "HaKosem",
+                              "altNames": [
+                              ],
+                              "locality": "Tel Aviv-Yafo",
+                              "provider": "google",
+                              "regionId": null,
+                              "addressLine": "Shlomo HaMelekh Street 1",
+                              "countryCode": "IL",
+                              "sourceDataset": "google-places",
+                              "providerPlaceId": "ChIJi1CK34BLHRURVsjf6-OGlo4",
+                              "providerCategory": "falafel_restaurant",
+                              "datasetConfidence": 0.5
+                          },
+                          "score": 1,
+                          "nameScore": 1,
+                          "matchedText": "HaKosem",
+                          "addressScore": null,
+                          "categoryScore": 1,
+                          "tokenCoverage": 1
+                      }
+                  ],
+                  "confidence": {
+                      "band": "preselect",
+                      "score": 1,
+                      "margin": null
+                  },
+                  "regionsSearched": [
+                      "global"
+                  ],
+                  "candidatesPrefiltered": 1
+              }
+          },
+          "addressHint": null,
+          "coordinates": {
+              "lat": 32.0722,
+              "lng": 34.7731
+          },
+          "countryHint": "Israel",
+          "categoryHint": "restaurant",
+          "nameVariants": [
+              "הקוסם"
+          ],
+          "identifiedName": "HaKosem",
+          "modelConfidence": 0.95
+      }
+  ]
+'::jsonb;
+begin
+  insert into public.sources (id, platform, platform_source_id, canonical_url, author_handle,
+                              author_name, content_text, thumbnail_url, fetch_status, fetched_at)
+  values (v_source_id, 'tiktok', '7259010845558983978',
+          'https://www.tiktok.com/@_/video/7259010845558983978',
+          'joelleuzyel', 'JOELLE', v_caption,
+          -- Null on purpose. The real value is a signed tiktokcdn URL that expires, and a fixture
+          -- that makes CI fetch an expired image is a fixture with an outage in it.
+          null,
+          'ok', now())
+  on conflict on constraint sources_platform_identity do nothing;
+
+  select id into v_source_id from public.sources
+  where platform = 'tiktok' and platform_source_id = '7259010845558983978';
+
+  insert into public.extractions (source_id, model, prompt_version, status, candidates,
+                                  candidate_count, input_hash)
+  select v_source_id, m.model, v_prompt_version, 'ok', v_candidates, 1,
+         encode(extensions.digest(v_caption, 'sha256'), 'hex')
+  from (values ('2026-08-anthropic-haiku-4-5'),
+               ('2026-08-gemini-gemini-3.5-flash-lite')) as m(model)
+  on conflict on constraint extractions_version_unique do nothing;
+end $$;

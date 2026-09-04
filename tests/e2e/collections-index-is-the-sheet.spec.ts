@@ -22,6 +22,13 @@ async function signIn(page: Page): Promise<void> {
 
 test.describe('the collections index', () => {
   test.skip(!PASSWORD, 'E2E_PASSWORD is required');
+  // The 30s default is not enough for this file's `beforeEach`, and that is the whole reason all
+  // five of its tests failed identically at commit c99db5e: the hook signs in (four attempts, per
+  // `_lib/sign-in.ts`) and then waits for `networkidle` on a MapLibre surface. Both artefacts in
+  // `test-results/` show the timeout firing while the page is still the sign-in screen. Every
+  // other signed-in spec in this directory already raises it to 180-300s; this file was the only
+  // one that never did. No assertion is changed.
+  test.describe.configure({ timeout: 180_000 });
 
   test.beforeEach(async ({ page }) => {
     await signIn(page);
@@ -45,7 +52,21 @@ test.describe('the collections index', () => {
   });
 
   test('carries none of the page chrome the ruling deleted', async ({ page }) => {
-    await expect(page.locator('h1')).toHaveCount(0);
+    // The heading rule is per-breakpoint, so the assertion has to be too. `collections-index-list.tsx`
+    // picks its tag from the stop it is rendered at — `h1` in the `lg+` panel, `h2` in the sheet —
+    // precisely so the sheet never creates a second `h1` beside the panel's. Both copies are always
+    // in the document; only one is displayed, which is why every locator here filters on visibility.
+    //
+    // So: the sheet is a sheet and carries no page title, and the panel is a page and carries
+    // exactly one. Asserting zero everywhere would have failed the panel for doing the right thing.
+    const visibleH1 = page.locator('h1').locator('visible=true');
+    const width = page.viewportSize()?.width ?? 0;
+    if (width >= 1024) {
+      await expect(visibleH1).toHaveCount(1);
+      await expect(visibleH1).toHaveText(/collections/i);
+    } else {
+      await expect(visibleH1).toHaveCount(0);
+    }
     await expect(page.getByRole('link', { name: /back to the map/i })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /go to your map/i })).toHaveCount(0);
   });

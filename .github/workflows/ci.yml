@@ -40,21 +40,15 @@ jobs:
       - run: npm run check:claude
       - run: npm run test
 
-  build:
-    name: next build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-
   e2e:
     name: playwright
     runs-on: ubuntu-latest
+    # PRs only. This job and `database` used to run on `push: [main]` as well, so every merge paid
+    # ~25 minutes re-proving what the pull request had proved minutes earlier — against a 2,000
+    # minute monthly allowance that a run of ~20 minutes exhausts in about a hundred runs. The
+    # merge commit is the PR head plus main, and `scripts/merge-pr.sh` already refuses a branch
+    # that does not contain current main, so the combination was tested before the button.
+    if: github.event_name == 'pull_request'
     # ## Why this job no longer runs inside mcr.microsoft.com/playwright
     #
     # It used to, and the reason was measured: `playwright install --with-deps` on a bare runner is
@@ -91,6 +85,25 @@ jobs:
       # in a repo secret would imply it guards something. tests/e2e/global-setup.ts fails the job if
       # it is missing, which is the whole point of that file.
       E2E_PASSWORD: local-dev-preview-1234
+      # A provider and a placeholder key, and the key is never spent.
+      #
+      # `probe/route.ts` builds the extractor *before* it reads the extraction cache, because the
+      # cache key is the extractor's own `version` and `promptVersion` — so `createPlaceExtractor`
+      # throws `ANTHROPIC_API_KEY is required` on a path that provably needs no credential, and the
+      # import spec died there rather than at anything it was testing. `supabase/seed.sql` seeds a
+      # cached extraction for that video under both extractor versions, with its `resolution`
+      # sibling, so the run hits the cache and skips the model and the places lookup alike.
+      #
+      # `anthropic` because it is the factory's default and therefore what an unset environment
+      # selects anyway; naming it makes the pairing with the seeded row explicit rather than
+      # incidental. If the cache ever misses — a moved `PROMPT_VERSION` is the likely reason — CI
+      # fails loudly with an auth error and still spends nothing, which is the failure we want.
+      #
+      # The real fix is to construct the extractor after the cache read, or to take the version
+      # constants without a key. That is a change to the import route and it is not worth making
+      # two days before a submission deadline; this is the seam that costs nothing.
+      LLM_PROVIDER: anthropic
+      ANTHROPIC_API_KEY: not-a-real-key-the-cache-is-hit-before-any-call
       # Read by src/domain/build-info.ts, and by the place-resolver factory: 'test' is one of its
       # non-production stages, so with no Google key configured here the factory selects the Overture
       # resolver for the honest reason ("no Google Places API key configured") rather than by
@@ -173,6 +186,8 @@ jobs:
   database:
     name: migrations · RLS policy tests
     runs-on: ubuntu-latest
+    # PRs only, for the reason given on `e2e` above.
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
