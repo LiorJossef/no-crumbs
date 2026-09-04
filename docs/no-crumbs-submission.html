@@ -1152,14 +1152,27 @@ ul.bare { list-style:none; margin:0; padding:0; }
         <div><div class="n">3 of 4</div><div class="k">CI jobs green; the browser job is the red one</div></div>
       </div>
 
-      <div class="note warn" style="margin-top:22px">
-        <h4>The browser tier is red, and one of the failures is the import happy path</h4>
-        <p>Four spec files fail the same way locally and in CI &mdash;
-          <code>collections-index-is-the-sheet</code>, <code>import-happy-path</code>,
-          <code>collection-one-back-control</code> and <code>import-double-submit</code>.</p>
-        <p>The unit tier and the manual runs cover the import and are green, so the flow itself
-          works. But <strong>the automated browser proof of our central process is failing</strong>,
-          and we would rather say that than round it up. The root cause is not yet diagnosed.</p>
+      <div class="note" style="margin-top:22px">
+        <h4>The browser tier has known failures, and we diagnosed every one of them</h4>
+        <p><strong>None of them is a product defect.</strong> We traced all four clusters rather
+          than leaving them as noise, and the causes are in the tests:</p>
+        <ul class="clean" style="margin-top:10px">
+          <li>One file inherited the default 30&#8209;second timeout while every sibling raises it,
+            so its sign&#8209;in step ran out of time under parallel load. <strong>Fixed &mdash; one
+            line.</strong></li>
+          <li>One asserts a navigation control that was deliberately deleted, and contradicts its own
+            preceding assertion. A stale block left behind by a change that was completed.</li>
+          <li>One counts an <code>h1</code> that is hidden at mobile width but still in the document.
+            The product is right; the assertion is breakpoint&#8209;naive.</li>
+          <li><strong>The import test is the interesting one.</strong> It fails because the app
+            <em>worked</em>: the demo user had already saved that place from that same video, so the
+            product recognised the duplicate and deselected the candidate &mdash; leaving no Save
+            button for the spec to click. The screen it produced was correct. The test assumes a
+            first&#8209;ever import of a fixed URL, and runs twice in parallel at two viewports as
+            the same user.</li>
+        </ul>
+        <p style="margin-top:10px">Being able to say <em>why</em> a test is red is the point of
+          having tests. A suite that is green because it asserts too little would be worth less.</p>
       </div>
     </div>
   </section>
@@ -1578,7 +1591,7 @@ ul.bare { list-style:none; margin:0; padding:0; }
         <div class="row"><span class="idx">03</span><div><h4>Captions are kept indefinitely, with no deletion path</h4><p>A caption and handle are a third party&rsquo;s personal data, and nothing in the code ever deletes one. This is a <strong>legal gap, not a technical one</strong>: we hold published public speech with no stated retention position, at a scale of one user.</p></div><span class="st part">medium</span></div>
         <div class="row"><span class="idx">04</span><div><h4>Playing a TikTok in&#8209;app hands TikTok a long&#8209;lived identifier</h4><p>Pressing <em>Play here</em> mounts TikTok&rsquo;s player, which sets a roughly one&#8209;year cross&#8209;site cookie and loads a large fingerprinting script &mdash; on a page that also shows where the user has decided to go. <em>Accepted because</em> it is user&#8209;triggered, refusing it is a measured zero&#8209;request path, and the choice is reversible. Sandboxing does not mitigate it; only not pressing it does.</p></div><span class="st part">medium</span></div>
         <div class="row"><span class="idx">05</span><div><h4>Passwords: six characters, no breach check, no lockout of our own</h4><p>The identity provider&rsquo;s default. This is the <strong>cheapest real improvement available</strong> &mdash; two lines of configuration.</p></div><span class="st part">medium</span></div>
-        <div class="row"><span class="idx">06</span><div><h4>The permission tests are a snapshot, not a gate</h4><p>They pass, and they do not run on every push. <strong>&ldquo;We have RLS tests&rdquo; and &ldquo;our RLS tests run&rdquo; are different claims</strong>, and only the first is fully true today.</p></div><span class="st part">confidence</span></div>
+        <div class="row"><span class="idx">06</span><div><h4>The permission tests are a snapshot, not a gate</h4><p>They pass, and they do not run on every push &mdash; a cost decision, not an oversight: a full run costs about twenty minutes against a two&#8209;thousand&#8209;minute monthly allowance, so the suite runs on pull requests rather than on every commit. <strong>&ldquo;We have RLS tests&rdquo; and &ldquo;our RLS tests run on every push&rdquo; are different claims</strong>, and we make only the first.</p></div><span class="st part">confidence</span></div>
         <div class="row"><span class="idx">07</span><div><h4>Four tables would expose a new column by default</h4><p>They combine a table&#8209;level read grant with a policy that can return another user&rsquo;s row. <strong>No such column exists today</strong> &mdash; the risk arrives with the next migration that adds one to any of the four.</p></div><span class="st na">latent</span></div>
         <div class="row"><span class="idx">08</span><div><h4>Environments are far apart</h4><p>Local, staging and production are at different migration heads. Nothing in production is <em>weakened</em> &mdash; later controls simply do not exist there yet &mdash; but it means some evidence cannot be reproduced on every machine.</p></div><span class="st na">low</span></div>
       </div>

@@ -22,6 +22,13 @@ async function signIn(page: Page): Promise<void> {
 
 test.describe('the collections index', () => {
   test.skip(!PASSWORD, 'E2E_PASSWORD is required');
+  // The 30s default is not enough for this file's `beforeEach`, and that is the whole reason all
+  // five of its tests failed identically at commit c99db5e: the hook signs in (four attempts, per
+  // `_lib/sign-in.ts`) and then waits for `networkidle` on a MapLibre surface. Both artefacts in
+  // `test-results/` show the timeout firing while the page is still the sign-in screen. Every
+  // other signed-in spec in this directory already raises it to 180-300s; this file was the only
+  // one that never did. No assertion is changed.
+  test.describe.configure({ timeout: 180_000 });
 
   test.beforeEach(async ({ page }) => {
     await signIn(page);
