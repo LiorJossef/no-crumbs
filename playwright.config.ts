@@ -86,7 +86,11 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: 'npm run build && npm run start',
+          // CI has already run `npm run build` as its own step ("build against the local stack"),
+          // so building again here paid for the same compile twice inside a 180s budget. Warm
+          // `.next/cache` made the second one incremental rather than free, which is why it went
+          // unnoticed. Locally there is no prior build, so the pair stays.
+          command: process.env.CI ? 'npm run start' : 'npm run build && npm run start',
           url: `http://127.0.0.1:${PORT}`,
           reuseExistingServer: !process.env.CI,
           timeout: 180_000,
