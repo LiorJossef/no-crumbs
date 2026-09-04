@@ -137,13 +137,31 @@ third category — a secret in a `NEXT_PUBLIC_` name is a published secret.
 | `ANTHROPIC_MODEL` | public-safe | unset | unset | unset | optional override; defaults to `claude-haiku-4-5` in code |
 | `GEMINI_API_KEY` | **secret** | **required** | **required** | **required** | read when `LLM_PROVIDER=gemini`, and **always** by the sentence-search route, which uses Gemini regardless of the provider setting |
 | `GEMINI_MODEL` | public-safe | unset | unset | unset | optional override |
-| `PLACE_RESOLVER` | public-safe | `google` | `google` | `overture` | which provider answers a lookup. `docs/06` §3.1 is why production differs |
+| `PLACE_RESOLVER` | public-safe | `google` | `google` | **`google`** | which provider answers a lookup. **This is the ToS-gated one** — see the note directly below the table |
 | `GOOGLE_PLACES_API_KEY` | **secret** | dev key | dev key | see note | **server-only.** `place-resolver-factory.ts` throws without it when `PLACE_RESOLVER=google` |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | publishable, billable | leave unset | leave unset | leave unset | A fallback read by `place-resolver-factory.ts` when the server key is absent. The prefix makes it **publishable, not published** — that module is `server-only`, so it cannot reach a client bundle as the code stands. The hazard is latent: the name invites a future client-side read. Prefer `GOOGLE_PLACES_API_KEY` |
 | `PLACE_LOOKUP_CACHE` | public-safe | unset | unset | unset | any value but `off` leaves the lookup cache on; `off` costs a paid lookup per candidate |
 | ~~`NEXT_PUBLIC_PROTOMAPS_API_KEY`~~ | — | — | — | — | **Dead.** Read only by `map-surface.live.tsx`, whose import is commented out in `map-surface.tsx`. Listed so nobody hunts for a key the product does not use |
 | `NEXT_PUBLIC_STAGE` | public | `local` | `preview` | `production` | `domain/build-info.ts`, `/healthz` |
 | `NEXT_PUBLIC_COMMIT_SHA` | public | `dev` | commit sha | commit sha | `/healthz`, so a deploy is identifiable |
+
+> ### `PLACE_RESOLVER=google` in production, and what `docs/06` §3.1 says about it
+>
+> Confirmed by the owner, 2026-09-04, answering what `current-state.md` carried as an open
+> question. It is recorded here rather than left in a table cell because the project's own research
+> rules on it.
+>
+> `docs/06` §3.1 is a table of which map/resolver pairings are legally viable, labelled VERIFIED.
+> The row for **MapLibre map + Google Places** reads: *"NO. Explicitly forbidden, Service Specific
+> Terms §5.3 + Places policies."* Production renders MapLibre over CARTO tiles and resolves with
+> Google, which is that row. The Overture fallback exists in `place-resolver-factory.ts` precisely
+> so the gate can be closed by changing one variable — the gate is code on purpose.
+>
+> Nothing here is ambiguous or unmeasured; the finding is the project's own and it stands. Whether
+> to run this way for a coursework submission with a single account and no third-party users is the
+> owner's call, and it has been made. Stated plainly so that a reader of this README is not misled
+> about it, and so that shipping it more widely is a decision someone takes deliberately rather than
+> inherits.
 
 The last two need **no entry in Vercel's env store**: `next.config.ts` derives them from the
 `VERCEL_ENV` and `VERCEL_GIT_COMMIT_SHA` system variables Vercel sets on every build, so preview and

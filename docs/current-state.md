@@ -296,5 +296,11 @@ transcript.
 4. OD-1: does the "info" boundary govern place facts only, or every stored field? Gates `user_tags`.
 5. Backfill the phantom duplicate rows?
 6. The TikTok data-export experiment — costs one request against the owner's own account.
-7. Is `PLACE_RESOLVER=google` set on production? If so, production is serving Google-resolved
-   coordinates on a MapLibre map, which is the pairing `06` §3.1 forbids.
+7. ~~Is `PLACE_RESOLVER=google` set on production?~~ **ANSWERED 2026-09-04: yes.** The owner,
+   asked directly: *"yes we are using google."* So production does serve Google-resolved
+   coordinates on a MapLibre/CARTO map, which is the row `06` §3.1 marks *"NO. Explicitly
+   forbidden, Service Specific Terms §5.3 + Places policies."* The question is closed; the
+   condition it was asking about is real and live. The Overture fallback is still in
+   `place-resolver-factory.ts`, so closing the gate is one variable. Recorded in `README.md`'s env
+   matrix so a reader is not misled, and left as the owner's decision for a submission with one
+   account and no third-party users.
