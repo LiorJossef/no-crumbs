@@ -36,6 +36,11 @@ export function logExtractionCost(
      *  `'measured'` (a real billed price) and `'zero-cost-local'` (genuinely free). */
     readonly costModel: 'measured' | 'zero-cost-local' | 'unmeasured';
     readonly elapsedMs: number;
+    /** How many HTTP calls this one extraction actually made. Defaults to 1 for the adapters that
+     *  do not retry. Token usage only ever describes the response that finally arrived, so on a
+     *  retried call it under-states what was spent against a per-request daily budget — this field
+     *  is the difference between the two, and the reason it is logged rather than inferred. */
+    readonly attempts?: number;
   },
 ): void {
   log.event('extraction.cost', {
@@ -46,5 +51,6 @@ export function logExtractionCost(
     costUsd: fields.costUsd,
     costModel: fields.costModel,
     elapsedMs: fields.elapsedMs,
+    attempts: fields.attempts ?? 1,
   });
 }

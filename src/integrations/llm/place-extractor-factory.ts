@@ -20,6 +20,11 @@ export interface PlaceExtractorEnv {
   readonly ANTHROPIC_MODEL?: string;
   readonly GEMINI_API_KEY?: string;
   readonly GEMINI_MODEL?: string;
+  /** The second Gemini model, tried once when the primary's retries are spent on a transient
+   *  status (`gemini.place-extractor.ts`'s `GEMINI_FALLBACK_MODEL_DEFAULT`). Env-driven for the
+   *  same reason `GEMINI_MODEL` is: an overloaded serving pool is an operational problem, and the
+   *  answer to it should be a variable change rather than a deploy. */
+  readonly GEMINI_FALLBACK_MODEL?: string;
 }
 
 function parseProvider(raw: string | undefined): LlmProvider {
@@ -47,6 +52,7 @@ export function createPlaceExtractor(env: PlaceExtractorEnv): PlaceExtractor {
     return geminiPlaceExtractor({
       apiKey: env.GEMINI_API_KEY,
       ...(env.GEMINI_MODEL !== undefined ? { model: env.GEMINI_MODEL } : {}),
+      ...(env.GEMINI_FALLBACK_MODEL !== undefined ? { fallbackModel: env.GEMINI_FALLBACK_MODEL } : {}),
     });
   }
 

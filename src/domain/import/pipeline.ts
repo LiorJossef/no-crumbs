@@ -299,7 +299,12 @@ export async function* runImport(ports: Ports, input: ImportInput, ctx: OpCtx): 
         ms: ports.clock.monotonicMs() - extractStartMs,
         extraction: {
           sourceId: source.id,
-          extractorVersion: ports.extractor.version,
+          // **The model that answered, not the one we asked first.** The Gemini adapter may fall
+          // back to a second model when the primary is overloaded, and `version` is a static
+          // property that cannot know which one replied. `extractions.model` is the only durable
+          // record of it, so reading `version` here would put a true-looking lie in the column
+          // whose whole job is to answer "which model found this place".
+          extractorVersion: extraction.modelUsed ?? ports.extractor.version,
           promptVersion: ports.extractor.promptVersion,
           candidates: extraction.candidates,
           cityHint,
