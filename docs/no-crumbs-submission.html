@@ -291,14 +291,15 @@ ul.bare { list-style:none; margin:0; padding:0; }
             and <strong>getting it back out is broken</strong>.</p>
           <p>No Crumbs takes one TikTok link, reads the post on the server, pulls out the places,
             matches them to real coordinates, and puts them on your own private map.</p>
-          <p>The honest headline: <strong>about three imports in four find no place at all</strong>,
-            because most videos never say the name in words. That is the most common outcome, so it
-            is a designed screen rather than an error.</p>
+          <p>The honest headline: <strong>not every video names its place in words.</strong> Plenty
+            say it out loud or show it on screen instead, and we read captions, not audio or frames.
+            So &ldquo;no places in this one&rdquo; is a normal outcome rather than an error &mdash;
+            which is why it is a designed screen with three ways forward.</p>
         </div>
         <div class="stats" style="grid-template-columns:repeat(2,minmax(0,1fr))">
           <div><div class="n">16/16</div><div class="k">public TikTok posts read server&#8209;side, no key or account</div></div>
-          <div><div class="n">15/16</div><div class="k">correct top&#8209;1 place matches, with <strong>zero</strong> wrong auto&#8209;matches</div></div>
-          <div><div class="n">~27%</div><div class="k">of real recommendations name a findable venue in the caption</div></div>
+          <div><div class="n">15/16</div><div class="k">correct top&#8209;1 place matches on the resolver benchmark</div></div>
+          <div><div class="n">0</div><div class="k">wrong auto&#8209;matches across the resolver benchmark</div></div>
           <div><div class="n">293</div><div class="k">database permission assertions, all green</div></div>
         </div>
       </div>
@@ -599,18 +600,16 @@ ul.bare { list-style:none; margin:0; padding:0; }
 
       <div class="note warn" style="margin-top:24px">
         <h4>The honest limitation, stated rather than buried</h4>
-        <p><strong>Most TikTok videos do not name the place in words.</strong> On hand&#8209;labelled
-          real posts, only about <strong>27%</strong> of genuine recommendations named a venue in the
-          caption that our resolver could find. The rest show the name on screen, or only say it out
-          loud. Reading the audio or the video frames is out of scope for this version.</p>
-        <p>So <strong>&ldquo;no places in this one&rdquo; is the <em>most common</em> outcome of an
-          import, not an error</strong> &mdash; roughly three imports in four. We designed for that:
-          it is a first&#8209;class screen with three ways forward, it never blames the user, it
-          never asks for the caption, and it never apologises for the number. A product that treated
-          its most frequent outcome as an exception would feel broken most of the time it was used.</p>
-        <p class="tiny" style="margin-top:10px">Sample caveat, stated if pressed: n&nbsp;=&nbsp;11
-          genuine recommendations inside a 16&#8209;post sample, skewed toward indexed high&#8209;reach
-          content, so the interval around 27% is wide.</p>
+        <p><strong>We read captions, not audio or video frames.</strong> A great many TikToks name
+          the place only on screen or only out loud, and those we cannot read. Extending to audio or
+          frames is out of scope for this version.</p>
+        <p>So <strong>&ldquo;no places in this one&rdquo; is a normal outcome, not an error.</strong>
+          We designed for it rather than treating it as an exception: it is a first&#8209;class screen
+          with three ways forward, it never blames the user, and it never asks for the caption.</p>
+        <p class="tiny" style="margin-top:10px">We are not quoting a hit&#8209;rate percentage. The
+          only figure we ever measured came from an eleven&#8209;post feasibility sample taken before
+          the extraction and resolution work existed, and it was never re&#8209;measured against the
+          finished product. A number that stale is worse than no number.</p>
       </div>
     </div>
   </section>
@@ -953,8 +952,8 @@ ul.bare { list-style:none; margin:0; padding:0; }
         </div>
         <div class="card accent">
           <h3>Finding nothing is a <em>success</em></h3>
-          <p>Because it is the most common outcome &mdash; roughly three captions in four name no
-            venue. It gets its own screen with two ways forward: type the name, or open the video.</p>
+          <p>Because it is a common outcome, not a rare one &mdash; plenty of captions name no venue
+            at all. It gets its own screen with two ways forward: type the name, or open the video.</p>
         </div>
       </div>
     </div>
@@ -1080,7 +1079,7 @@ ul.bare { list-style:none; margin:0; padding:0; }
         </div>
         <div class="card">
           <h3>Most common outcome</h3>
-          <p><strong>&ldquo;No places found&rdquo;</strong> &mdash; about three imports in four. So
+          <p><strong>&ldquo;No places found&rdquo;</strong> is a routine result, not a rare one. So
             the empty screen is a main surface with its own tests, not an error path.</p>
         </div>
       </div>
@@ -1357,7 +1356,7 @@ ul.bare { list-style:none; margin:0; padding:0; }
       <div class="sec-head"><p class="eyebrow">M8 &middot; what we would improve</p><h2>In order, and the order is the argument</h2></div>
       <div class="rows">
         <div class="row"><span class="idx">01</span><div><h4>Raise the Google quota, add a per&#8209;user daily import cap</h4><p>The index a limiter needs already exists and nothing uses it. This is the actual ceiling, so it goes first.</p></div><span class="st no">ceiling</span></div>
-        <div class="row"><span class="idx">02</span><div><h4>Cut the model bill</h4><p>Most of every call is our own long prompt &mdash; and roughly three imports in four find nothing and pay for it anyway.</p></div><span class="st part">cost</span></div>
+        <div class="row"><span class="idx">02</span><div><h4>Cut the model bill</h4><p>Most of every call is our own long prompt &mdash; and an import that finds nothing pays the same as one that finds five.</p></div><span class="st part">cost</span></div>
         <div class="row"><span class="idx">03</span><div><h4>Set a maximum duration and finish the streaming import</h4><p>So a long import shows progress instead of timing out.</p></div><span class="st part">reliability</span></div>
         <div class="row"><span class="idx">04</span><div><h4>Paginate the library, add a viewport query</h4><p>Only once a real library passes a few hundred places &mdash; and keep a separate &ldquo;where is everything&rdquo; query so the map can still frame the whole set.</p></div><span class="st na">later</span></div>
         <div class="row"><span class="idx">05</span><div><h4>Make the collections query an aggregate</h4><p>Return a count and a few labels instead of every item. Then add the missing invites index and drop the tags index that serves nothing.</p></div><span class="st na">later</span></div>
