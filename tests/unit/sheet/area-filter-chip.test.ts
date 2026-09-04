@@ -85,9 +85,12 @@ describe('the area has a chip of its own', () => {
   });
 
   it('is named for what pressing it does, with the name isolated for bidi', () => {
-    // `Clear the ⁨תל אביב-יפו⁩ area filter` — without the isolate the English tail is dragged into
+    // `Clear the ⁨תל אביב-יפו⁩ filter` — without the isolate the English tail is dragged into
     // the Hebrew run and reversed, which `isolate()` was written for and measured on.
-    expect(render({}, CHIP)).toContain(`aria-label="Clear the ${ISOLATED_TEL_AVIV} area filter"`);
+    // No axis word: the same cell now holds a country, and `Clear the Israel area filter` was
+    // wrong from the day a sentence could resolve one.
+    expect(render({}, CHIP)).toContain(`aria-label="Clear the ${ISOLATED_TEL_AVIV} filter"`);
+    expect(render({}, CHIP)).not.toContain('area filter');
   });
 
   it('is a 44 px target that the sheet will not read as the start of a drag', () => {

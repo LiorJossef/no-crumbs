@@ -174,7 +174,9 @@ const AxisCloseContext = createContext<() => void>(() => {});
  */
 export interface AreaFilterChip {
   /** The library's own plurality spelling — `areaLabel(area)` — never a canonical name this
-   *  product picked (`nls-plan.md` §5.3). */
+   *  product picked (`nls-plan.md` §5.3). Since 2026-09-04 it may also be a **country** name, which
+   *  is why nothing here or on the chip says "area": the cell is one place filter with two shapes,
+   *  and a label is the only thing this row needs from either. */
   readonly label: string;
   /** Clears **only** the area. Every other axis is left exactly where it is: this row's grammar is
    *  one clear per axis, and the area is now an axis. */
@@ -472,8 +474,12 @@ export function LibraryFilterBar({
             type="button"
             data-vaul-no-drag
             // Named for what pressing it does, not for the axis — the label is already on screen.
+            // **No axis word**, and that is a correctness fix rather than brevity: it read `Clear
+            // the Israel area filter` from the day a sentence could resolve a country, and Israel
+            // is not an area. `filter` covers a city and a country without the chip having to
+            // carry a `kind` it needs for nothing else.
             // `isolate` because a Hebrew city name with English words after it renders reversed.
-            aria-label={`Clear the ${isolate(area.label)} area filter`}
+            aria-label={`Clear the ${isolate(area.label)} filter`}
             onClick={area.onClear}
             className={cn(TRIGGER_TARGET, PRESS_CHIP)}
           >
