@@ -52,7 +52,10 @@ test.describe('the collections index', () => {
   });
 
   test('carries none of the page chrome the ruling deleted', async ({ page }) => {
-    await expect(page.locator('h1')).toHaveCount(0);
+    // `visible=true` because the assertion is about the *sheet*, not the document. The `lg+` panel
+    // in `collections-index-list.tsx` renders its own <h1> by design and is `display: none` at this
+    // width — still in the DOM, so a bare `locator('h1')` counts chrome that is not on screen.
+    await expect(page.locator('h1').locator('visible=true')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /back to the map/i })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /go to your map/i })).toHaveCount(0);
   });

@@ -151,21 +151,14 @@ test.describe('one back control, at every step inside a collection', () => {
     // so the escape route survives the row's deletion and layer 0 owes nothing.
     const onList = await backShaped(page);
     expect(onList, 'layer 0 carries no back control of its own').toEqual([]);
-    // Scoped outside both navigation landmarks: the drawer's `Collections` segment shares this
-    // name by design, and is a destination rather than a back control. (The bar carried a
-    // `Collections` tab until 2026-08-31 and was excluded here for the same reason; it now holds
-    // Map and Profile, so that half of the selector is belt to the switch's braces.)
-    const upLink = page
-      .locator(
-        'a[aria-label="Collections"]:not(nav[aria-label="Main"] a):not(nav[aria-label="Places and collections"] a)',
-      )
-      .locator('visible=true');
-    await expect(upLink).toHaveAttribute('href', '/map?view=collections');
-    // ≥44 px, and leading: it stands where the deleted arrow stood.
-    const upLinkBox = await upLink.boundingBox();
-    expect(upLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    // The up-link that used to be asserted here was deleted on 2026-09-02 along with the kicker
+    // row, and the assertion outlived it: nothing in `src/` carries `aria-label="Collections"` as
+    // a link any more. It also contradicted the expectation directly above — layer 0 cannot both
+    // carry no back control and carry an up-link. The escape route is the drawer's `Collections`
+    // segment, which is a destination rather than a back control and is therefore excluded from
+    // `backShaped` by design.
 
-    // 2. A place. The up-link is *replaced* by the pane's back, not joined by it.
+    // 2. A place. The pane draws its own back control, and it is the only one on screen.
     await press(page, /^Open /, 'label');
     await page.waitForTimeout(1500);
     expect(await backShaped(page)).toEqual(['Back to the collection']);
