@@ -1,14 +1,21 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import {
+  EMPTY_APPLICATION,
   SENTENCE_COPY,
+  SentenceApplied,
   clampToLibrary,
   interpretationChips,
   interpretationSentence,
   isEmptyApplication,
   placesCountText,
   previewCount,
+  primaryAction,
+  sentenceStillApplied,
   type LibraryFacets,
+  type PanelState,
   type SentenceApplication,
 } from '@/components/sheet/sentence-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
@@ -219,5 +226,134 @@ describe('what the panel says', () => {
     expect(SENTENCE_COPY.nothing).toBe('Nothing in your places matches that.');
     expect(SENTENCE_COPY.failed).toBe('Couldn’t do that just now.');
     expect(SENTENCE_COPY.retry).toBe('Try again');
+  });
+});
+
+/**
+ * **The `Undo` notice must not outlive the filters it would undo** — owner-reported, 2026-09-04.
+ *
+ * Reproduced in a browser at 390×844 and 1280×900 before this was written: after `Show these`,
+ * pressing the filter row's own `Clear` left `Filtered from what you typed. Undo` on screen over
+ * an unfiltered library, and pressing `Undo` then restored the filters the user had just cleared.
+ *
+ * The rule under test is *derived*, not hooked: the notice is offered while the four cells still
+ * hold exactly what the sentence wrote, so every route out — the row's `Clear`, a tag chip's ×,
+ * the empty-list escape, the search field, a category chip — drops it without any of them knowing
+ * this feature exists.
+ */
+describe('the undo offer expires with the state it would undo', () => {
+  const applied: SentenceApplication = {
+    category: 'restaurant',
+    tags: ['italian'],
+    visit: 'not-been',
+    query: 'pasta',
+  };
+
+  it('stands while the cells still hold what the sentence wrote', () => {
+    expect(sentenceStillApplied(applied, { ...applied })).toBe(true);
+  });
+
+  it('ignores tag order and tag spelling, which are not user changes', () => {
+    const two: SentenceApplication = { ...applied, tags: ['italian', 'brunch'] };
+    expect(sentenceStillApplied(two, { ...two, tags: ['brunch', 'italian'] })).toBe(true);
+    expect(sentenceStillApplied(applied, { ...applied, tags: ['Italian'] })).toBe(true);
+  });
+
+  it.each<[string, SentenceApplication]>([
+    ['the row’s Clear, or the empty-list escape', EMPTY_APPLICATION],
+    ['a tag chip’s ×', { ...applied, tags: [] }],
+    ['the category chip', { ...applied, category: null }],
+    ['the visit axis', { ...applied, visit: 'all' }],
+    ['the search field', { ...applied, query: '' }],
+    ['a tag added by hand', { ...applied, tags: ['italian', 'brunch'] }],
+  ])('drops when the user changes the cells by another route: %s', (_name, current) => {
+    expect(sentenceStillApplied(applied, current)).toBe(false);
+  });
+
+  it('renders nothing once the cells have moved on, and the notice otherwise', () => {
+    const gone = renderToStaticMarkup(
+      createElement(SentenceApplied, {
+        onUndo: () => {},
+        applied,
+        current: EMPTY_APPLICATION,
+      }),
+    );
+    expect(gone).toBe('');
+
+    const shown = renderToStaticMarkup(
+      createElement(SentenceApplied, { onUndo: () => {}, applied, current: { ...applied } }),
+    );
+    expect(shown).toContain(SENTENCE_COPY.applied);
+    expect(shown).toContain(SENTENCE_COPY.undo);
+  });
+
+  it('still renders for a host that has not passed the two applications yet', () => {
+    const markup = renderToStaticMarkup(createElement(SentenceApplied, { onUndo: () => {} }));
+    expect(markup).toContain(SENTENCE_COPY.applied);
+  });
+});
+
+/**
+ * **One button, and it becomes the next step** — the answer to the owner's 2026-09-04 note that
+ * two presses to run one search is a cost.
+ *
+ * The two presses stay: the preview between them is the only moment the user sees what the model
+ * decided before it reshapes their library, and §4.3 grades the feature on that count. What these
+ * tests pin is that the *second* press has nowhere else to go — after an interpretation there is
+ * no separate `Find places` still sitting there in primary paint, wearing the loudest colour on
+ * the panel while doing the least useful thing.
+ */
+describe('the one control that becomes the next step', () => {
+  const application: SentenceApplication = {
+    category: 'cafe',
+    tags: ['brunch'],
+    visit: 'not-been',
+    query: '',
+  };
+  const result: PanelState = { kind: 'result', application, count: 5 };
+
+  it('submits, and says so, until there is something to apply', () => {
+    for (const state of [
+      { kind: 'idle' },
+      { kind: 'nothing' },
+      { kind: 'failed' },
+    ] as PanelState[]) {
+      const action = primaryAction(state, 'brunch spots');
+      expect(action.kind).toBe('submit');
+      expect(action.label).toBe(SENTENCE_COPY.submit);
+      expect(action.count).toBeNull();
+      expect(action.disabled).toBe(false);
+    }
+  });
+
+  it('becomes the apply, carrying the count, the moment an interpretation is on screen', () => {
+    const action = primaryAction(result, 'brunch spots');
+    expect(action.kind).toBe('apply');
+    expect(action.label).toBe(SENTENCE_COPY.show);
+    expect(action.count).toBe(5);
+    expect(action.disabled).toBe(false);
+  });
+
+  it('is dead while the call is in the air, so an impatient second press cannot apply', () => {
+    const action = primaryAction({ kind: 'loading' }, 'brunch spots');
+    expect(action.label).toBe(SENTENCE_COPY.inFlight);
+    expect(action.disabled).toBe(true);
+  });
+
+  it('is dead on an empty sentence — no text, no call', () => {
+    expect(primaryAction({ kind: 'idle' }, '   ').disabled).toBe(true);
+  });
+
+  it('says nothing the plan has not already ruled on', () => {
+    const said = ([
+      { kind: 'idle' },
+      { kind: 'loading' },
+      { kind: 'nothing' },
+      { kind: 'failed' },
+      result,
+    ] as PanelState[]).map((state) => primaryAction(state, 'x').label);
+    for (const label of said) {
+      expect(Object.values(SENTENCE_COPY)).toContain(label);
+    }
   });
 });

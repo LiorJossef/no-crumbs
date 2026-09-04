@@ -6,7 +6,15 @@
  * The model proposes; only the user changes the result set. This surface is the whole of that
  * sentence: an entry control, one input with **no live behaviour at all**, one explicit submit, a
  * preview of the filters the sentence resolved to with a count of what they would leave, and a
- * single `Show these` that writes the four filter cells `map-page-client.tsx` already owns.
+ * `Show these` that writes the four filter cells `map-page-client.tsx` already owns.
+ *
+ * **There is one button, and it becomes the next step.** `Find places` turns into
+ * `Show these · {n} places` in the same place at the same size once an answer is back, and turns
+ * back the moment the sentence is edited — the input's `onChange` already returns the panel to
+ * `idle`, so re-running needs no control of its own and no string that §3.4 does not have. Two
+ * presses are still two presses, deliberately: the preview between them is the only moment the
+ * user sees what the model decided before it reshapes their library, and §4.3 grades the feature
+ * on it. What was removed is the second press's cost, not the press.
  *
  * ## Why it is a separate surface rather than a mode on the search field
  *
@@ -277,12 +285,41 @@ export function interpretationSentence(
 }
 
 /** What the panel is doing right now. Five states, exactly the five §3 names. */
-type PanelState =
+export type PanelState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'loading' }
   | { readonly kind: 'result'; readonly application: SentenceApplication; readonly count: number }
   | { readonly kind: 'nothing' }
   | { readonly kind: 'failed' };
+
+/**
+ * **What the panel's one button is right now.**
+ *
+ * Pure, because the property that matters is a property of the states rather than of the markup:
+ * there is exactly one control, and it is the apply iff an interpretation is on screen. Held to
+ * that in `tests/unit/sheet/sentence-panel.test.ts`, which cannot press a button.
+ */
+export function primaryAction(
+  state: PanelState,
+  sentence: string,
+): {
+  readonly kind: 'submit' | 'apply';
+  readonly label: string;
+  readonly count: number | null;
+  readonly disabled: boolean;
+} {
+  if (state.kind === 'result') {
+    return { kind: 'apply', label: SENTENCE_COPY.show, count: state.count, disabled: false };
+  }
+  return {
+    kind: 'submit',
+    label: state.kind === 'loading' ? SENTENCE_COPY.inFlight : SENTENCE_COPY.submit,
+    count: null,
+    // Disabled while the call is in the air, which is also what makes an impatient second press
+    // on the same pixel harmless: it cannot reach the apply, because the apply does not exist yet.
+    disabled: sentence.trim() === '' || state.kind === 'loading',
+  };
+}
 
 export interface SentencePanelProps {
   /** Where this host draws floating things. Constant per host, never a `matchMedia` read at render
@@ -505,6 +542,9 @@ export function SentencePanel({
     return () => node.removeEventListener('keydown', onKeyDown);
   }, [open, close, bodyNode]);
 
+  /** The one button, decided in one place. */
+  const action = primaryAction(state, sentence);
+
   const body = (
     <div
       ref={setBodyNode}
@@ -523,8 +563,14 @@ export function SentencePanel({
            * design in §7.4 was not. On the phone the keyboard's key is left alone: `Find places`
            * is a real button, and a `Search`-labelled key that means "interpret my sentence" is
            * the lie that ruling was made against.
+           *
+           * It does whatever the one button below currently is — so a desktop user who reads the
+           * interpretation and presses Return again applies it rather than paying for the same
+           * call twice. One control, one key, one meaning at a time.
            */
-          if (surface === 'popover') void submit();
+          if (surface !== 'popover') return;
+          if (state.kind === 'result') apply(state.application);
+          else void submit();
         }}
       >
         <Input
@@ -547,22 +593,75 @@ export function SentencePanel({
           placeholder={SENTENCE_COPY.placeholder}
           className="h-11 rounded-lg px-3 text-start text-sm font-medium"
         />
+        {state.kind === 'result' && (
+          /* Plain outline chips (§3.1), **directly above the control they explain** — the reading
+             order is the sentence you typed, what it became, and the one thing to do about it.
+             Never the active filter pill: that pill means "this is on", and an offer wearing it
+             would be lying about state before the user agreed to anything (§7.5 rule 3). */
+          <ul className="flex flex-wrap gap-1.5 px-0.5">
+            {interpretationChips(state.application).map((chip) => (
+              <li
+                key={chip.key}
+                dir="auto"
+                className="flex h-7 items-center rounded-full border border-border/70 px-2.5 text-xs font-medium text-foreground"
+              >
+                {chip.label}
+              </li>
+            ))}
+          </ul>
+        )}
+
         <Button
           /**
-           * **`type="button"`, and that is what keeps Return off this surface on a phone.**
+           * **One control that becomes the next step, rather than two controls to choose between.**
            *
-           * As `type="submit"` the browser fires a *click* on it for an implicit form submission,
-           * so Return in the input reached this handler and submitted — measured at 390×844, past
-           * the `surface === 'popover'` guard on the form, which is exactly the behaviour §3.3
+           * Owner, 2026-09-04: *"im not sure that the fact the user should click 2 times (one find,
+           * one apply) is a good behavior."* The two presses stay — the preview between them is
+           * what stops a wrong interpretation silently reshaping the library, and §4.3 grades this
+           * feature on it. What was removed is the *cost* of the second one. Until now `Find
+           * places` stayed filled and primary after an answer came back and `Show these` was added
+           * below it as an outline button, so the loudest control on the panel was the one that
+           * would merely re-run the same call, and the finger had to travel past it to a weaker
+           * target. Now the same button, in the same place, at the same size, becomes
+           * `Show these · {n} places`: the second press lands where the first one left.
+           *
+           * **`type="button"`, and that is what keeps Return off this surface on a phone.** As
+           * `type="submit"` the browser fires a *click* on it for an implicit form submission, so
+           * Return in the input reached this handler and submitted — measured at 390×844, past the
+           * `surface === 'popover'` guard on the form, which is exactly the behaviour §3.3
            * forbids. As a plain button the implicit submission still raises the form's `submit`
            * event, where the guard is, and nothing else runs.
            */
           type="button"
-          onClick={() => void submit()}
-          disabled={sentence.trim() === '' || state.kind === 'loading'}
-          className="h-11 w-full rounded-lg text-sm font-bold"
+          onClick={() => (state.kind === 'result' ? apply(state.application) : void submit())}
+          disabled={action.disabled}
+          // The whole interpretation, so label-in-name holds: the visible `Show these` is the
+          // first thing in the spoken name. Idle needs none — its visible text is its name.
+          {...(state.kind === 'result'
+            ? {
+                'aria-label': `${SENTENCE_COPY.show}: ${interpretationSentence(
+                  state.application,
+                  state.count,
+                )}`,
+              }
+            : {})}
+          className={cn(
+            'h-11 w-full rounded-lg text-sm font-bold',
+            action.count !== null && 'justify-between',
+          )}
         >
-          {state.kind === 'loading' ? SENTENCE_COPY.inFlight : SENTENCE_COPY.submit}
+          {action.count === null ? (
+            action.label
+          ) : (
+            <>
+              <span>{action.label}</span>
+              {/* `text-primary-foreground/70`, not `text-muted-foreground`: on a filled button the
+                  muted token is a light grey on mint and fails contrast in the light theme. */}
+              <span className="text-xs font-medium text-primary-foreground/70">
+                {placesCountText(action.count)}
+              </span>
+            </>
+          )}
         </Button>
       </form>
 
@@ -576,42 +675,6 @@ export function SentencePanel({
             ? SENTENCE_COPY.nothing
             : ''}
       </div>
-
-      {state.kind === 'result' && (
-        <div className="flex flex-col gap-2">
-          {/* Plain outline chips (§3.1). **Never the active filter pill** — that pill means "this
-              is on", and an offer wearing it would be lying about state before the user agreed to
-              anything (§7.5 rule 3). */}
-          <ul className="flex flex-wrap gap-1.5">
-            {interpretationChips(state.application).map((chip) => (
-              <li
-                key={chip.key}
-                dir="auto"
-                className="flex h-7 items-center rounded-full border border-border/70 px-2.5 text-xs font-medium text-foreground"
-              >
-                {chip.label}
-              </li>
-            ))}
-          </ul>
-          <Button
-            type="button"
-            variant="outline"
-            // The whole interpretation, so label-in-name holds: the visible `Show these` is the
-            // first thing in the spoken name.
-            aria-label={`${SENTENCE_COPY.show}: ${interpretationSentence(
-              state.application,
-              state.count,
-            )}`}
-            onClick={() => apply(state.application)}
-            className="h-11 w-full justify-between rounded-lg text-sm font-semibold"
-          >
-            <span>{SENTENCE_COPY.show}</span>
-            <span className="text-xs font-medium text-muted-foreground">
-              {placesCountText(state.count)}
-            </span>
-          </Button>
-        </div>
-      )}
 
       {state.kind === 'nothing' && (
         <p className="px-1 text-sm font-medium text-muted-foreground">{SENTENCE_COPY.nothing}</p>
