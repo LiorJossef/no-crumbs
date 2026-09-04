@@ -1148,15 +1148,15 @@ ul.bare { list-style:none; margin:0; padding:0; }
       <div class="stats">
         <div><div class="n ok">4,087</div><div class="k">unit tests passing, 0 failing, across 250 files &mdash; in 5.6 seconds</div></div>
         <div><div class="n ok">293</div><div class="k">database permission assertions, all passing in CI</div></div>
-        <div><div class="n">50/58</div><div class="k">browser tests passing &mdash; 6 failing, 2 skipped</div></div>
+        <div><div class="n ok">52/58</div><div class="k">browser tests passing &mdash; 4 failing, 2 skipped</div></div>
         <div><div class="n">3 of 4</div><div class="k">CI jobs green; the browser job is the red one</div></div>
       </div>
 
       <div class="note" style="margin-top:22px">
         <h4>The browser tier has known failures, and we diagnosed every one of them</h4>
         <p><strong>None of them is a product defect.</strong> We traced all four clusters rather
-          than leaving them as noise, and fixing two of the causes took the suite from
-          <strong>12 failures to 6</strong>:</p>
+          than leaving them as noise, and fixing three of the causes took the suite from
+          <strong>12 failures to 4</strong>:</p>
         <ul class="clean" style="margin-top:10px">
           <li>One file inherited the default 30&#8209;second timeout while every sibling raises it,
             so its sign&#8209;in step ran out of time under parallel load. <strong>Fixed &mdash; one
@@ -1167,12 +1167,13 @@ ul.bare { list-style:none; margin:0; padding:0; }
             document. The product is right; the assertion was breakpoint&#8209;naive.
             <strong>Scoped to visible elements</strong> &mdash; and it now shows that the same
             assertion needs a different answer at desktop width, where that heading is intended.</li>
-          <li><strong>The import test is the interesting one.</strong> It fails because the app
+          <li><strong>The import test was the interesting one.</strong> It failed because the app
             <em>worked</em>: the demo user had already saved that place from that same video, so the
             product recognised the duplicate and deselected the candidate &mdash; leaving no Save
-            button for the spec to click. The screen it produced was correct. The test assumes a
-            first&#8209;ever import of a fixed URL, and runs twice in parallel at two viewports as
-            the same user.</li>
+            button for the spec to click. The screen it produced was correct; the test assumed a
+            first&#8209;ever import. <strong>Fixed by driving the fixture rather than assuming it</strong>
+            &mdash; which also covers the prior&#8209;save path no other spec reached, and runs in
+            13 seconds instead of spending two 90&#8209;second timeouts.</li>
         </ul>
         <p style="margin-top:10px">Being able to say <em>why</em> a test is red is the point of
           having tests. A suite that is green because it asserts too little would be worth less.</p>
