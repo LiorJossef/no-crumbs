@@ -527,7 +527,9 @@ function PlaceList({
   );
 
   /** Nothing at all to show — the scope's places *and* the continuation under `Everywhere else`
-   *  are both empty, which is the only state in which a filter's own empty line is the truth. */
+   *  are both empty, which is the only state in which a filter's own empty line is the truth. It
+   *  gates the `Been there` sentence inside the empty state: with rows still listed under
+   *  `Everywhere else`, "no places you have been to yet" would be contradicted by the screen. */
   const listIsEmpty = places.length + otherPlaces.length === 0;
   /** Whether any of the three narrowing axes is on — the same three `Clear` resets, and
    *  deliberately not the sort or the search, neither of which can empty the list in a way
@@ -859,20 +861,16 @@ function PlaceList({
               rather than inside it, so it sits with the heading it explains rather than where the
               first row would have been.
 
-              **`Been` with nothing to show gets its own line**, because that empty result only
-              became reachable when the visit filter grew a third state: the area heading is built
-              from `notBeenOnly`, which `been` is not, so without this the screen would go quiet
-              about the one filter that emptied it. The control that undoes it is above this line,
-              which is the rule the whole header already holds itself to. */}
-          {!libraryIsEmpty && listIsEmpty && visitFilter === "been" ? (
-            <p className="text-sm font-medium text-muted-foreground">
-              {NO_BEEN_PLACES_LINE}
-            </p>
-          ) : (
+              **`Been` no longer gets a paragraph here.** It had one because that empty result only
+              became reachable when the visit filter grew a third state, and without it the screen
+              went quiet about the filter that emptied it. It is not quiet any more: the empty state
+              below says it *and* carries the control that undoes it, so a paragraph here made two
+              absence sentences on one screen — see `NothingHereEscape`'s `line`. */}
+          {
             /* **The heading does not explain an empty list.** Owner, 2026-09-02. `heading.note`
                still carries the notes that are *about the scope* rather than about a filter having
                emptied it, so it is kept — but when filters are on and nothing matched, the
-               sentence belongs in the list, where `ClearFiltersEscape` puts it with the button
+               sentence belongs in the list, where `NothingHereEscape` puts it with the button
                that undoes it. Rendering both would say it twice, a control row apart. */
             !libraryIsEmpty &&
             heading.note !== null &&
@@ -881,7 +879,7 @@ function PlaceList({
                 {heading.note}
               </p>
             )
-          )}
+          }
 
           {libraryIsEmpty ? (
             <NoPlacesYet onAddTikTok={onAddTikTok} />
@@ -922,6 +920,9 @@ function PlaceList({
                   places.length === 0 && (
                     <NothingHereEscape
                       searchQuery={query}
+                      {...(visitFilter === "been" && listIsEmpty
+                        ? { line: NO_BEEN_PLACES_LINE }
+                        : {})}
                       onClear={() => {
                         if (query !== "") onQueryChange("");
                         if (activeCategory !== null)
@@ -1982,15 +1983,14 @@ export function PlaceSearchField({
           variant="ghost"
           size="icon"
           // **Two controls carried the identical accessible name.** This icon × clears the
-          // *field*; `ClearSearchEscape` further down clears the search **and** the scope, and its
-          // visible text is `Clear search`. Both can be on screen at once, so a screen-reader user
-          // tabbing heard "Clear search, button" twice with nothing to tell them apart — and the
-          // two do different things. It also cost another agent two build cycles when its own
-          // Playwright locator silently resolved to the wrong one.
+          // *field*; the list's own escape clears every axis. They were both named `Clear search`,
+          // so a screen-reader user tabbing heard the same name twice with nothing to tell them
+          // apart, and a Playwright locator silently resolved to whichever came first — it cost
+          // another agent two build cycles.
           //
-          // Only the `aria-label` is changed here. The visible string is `product-lead`'s call and
-          // is not in `overnight-copy-deck.md` yet, so inventing one would be putting words in the
-          // product's mouth to fix an accessibility bug that the label alone fixes.
+          // The label fixed it, and 2026-09-04 removed the collision at its root: the list's escape
+          // is `NothingHereEscape`, visibly `Clear all`. This label stays distinct anyway, because
+          // the two still do different things and the ×'s only name is this one.
           aria-label="Clear the search field"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => onChange("")}
@@ -2021,8 +2021,8 @@ export function PlaceSearchField({
  *
  * The button is the whole point: `active-area.ts:79` records that an empty state without the
  * clearing affordance *in it* is a dead end, and the filter row's own `Clear` is above the fold
- * only sometimes. This is the same escape hatch `ClearSearchEscape` gives the search case, in the
- * same place, so the two empty results behave alike.
+ * only sometimes. The search case gets the same escape in the same place — since 2026-09-04 it is
+ * literally the same component, `NothingHereEscape`, so the two empty results cannot drift.
  */
 /**
  * **One empty list, one way out** — owner, 2026-09-04: *"it should clear the same not? search is
@@ -2045,11 +2045,20 @@ export function PlaceSearchField({
  */
 export function NothingHereEscape({
   searchQuery,
+  line,
   onClear,
 }: {
   /** The live query, or `''`. Decides the sentence and nothing else — the control clears the same
    *  four axes either way. */
   searchQuery: string;
+  /**
+   * A more specific first line than the generic filter sentence, where one axis has earned its own
+   * words. Only `Been there` has: `No places you have been to yet.` used to be a separate paragraph
+   * above the list, which put **two** absence sentences on one screen — the exact duplication this
+   * component was created to end, one control row apart. A query always wins over it, because
+   * quoting what the reader typed is more specific still.
+   */
+  line?: string;
   onClear: () => void;
 }) {
   const searching = searchQuery !== '';
@@ -2058,7 +2067,7 @@ export function NothingHereEscape({
       <CrumbMascot mood="nothingFound" className="size-16 shrink-0" />
       <div className="flex flex-col gap-1">
         <p className="font-heading text-base font-extrabold text-foreground">
-          {searching ? nothingMatchesLine(searchQuery) : NO_FILTER_MATCHES_LINE}
+          {searching ? nothingMatchesLine(searchQuery) : (line ?? NO_FILTER_MATCHES_LINE)}
         </p>
         <p className="text-sm font-medium text-muted-foreground">
           {searching ? NO_SEARCH_MATCHES_HINT : NO_FILTER_MATCHES_HINT}

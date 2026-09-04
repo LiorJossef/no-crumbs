@@ -87,9 +87,9 @@ export const UNNAMED_AREA_LABEL = 'this area';
  * is added. It carries no count, because the only count it could carry is zero and a bare zero in a
  * heading is the state this whole family exists to avoid.
  *
- * The two headings that survive beside it are the two that say something the generic line cannot:
- * `Nothing matches "momos"` quotes what the reader typed and owns the `Clear search` control, and
- * `ALL_BEEN_HEADING` reports an achievement rather than a failed query.
+ * One heading survives beside it: `ALL_BEEN_HEADING`, which reports an achievement rather than a
+ * failed query. The search's own `Nothing matches "momos"` used to be the other, and moved into the
+ * list on 2026-09-04 — the list was already saying it, and the heading counts and scopes.
  */
 export const LIBRARY_HEADING = 'Your places';
 
@@ -433,9 +433,10 @@ export interface AreaHeading {
  * `12 places in London` · `1 place in London` · `12 places in this area`
  * `3 matches in London` · `1 match in London` · `3 matches in this area`
  * `No matches in London` — the filters match somewhere, just not here; the rows below say where.
- * `Nothing matches "momos"` — the search matches nowhere in the library. Offers `Clear search`.
- * `Your places` — the filters match nowhere. The *list* explains that, with the button that undoes
- *   it; see `LIBRARY_HEADING`. This is the branch `Nothing tagged "Momos"` used to hold.
+ * `Your places` — nothing matches, whatever emptied it. The *list* explains that and offers the one
+ *   control that undoes it; see `LIBRARY_HEADING` and `NothingHereEscape`. `escape` still says
+ *   which case it is. This is the branch `Nothing tagged "Momos"` and `Nothing matches "momos"`
+ *   both used to hold.
  *
  * **The nowhere branch is no longer gated on `filtering`**, and that is a fix rather than a
  * widening. A category or a `Been there` filter matching nothing anywhere reaches this function as
@@ -570,14 +571,10 @@ export function mapAccessibleName(heading: AreaHeading, area: string | null): st
  * only thing the reader needs, which is that the filters, not the library, are why the space is
  * empty. `voice-and-vocabulary.md`: plain, no apology, no exclamation.
  *
- * It is rendered *in the list*, by `ClearFiltersEscape`, with the button that undoes it — never in
+ * It is rendered *in the list*, by `NothingHereEscape`, with the button that undoes it — never in
  * the heading. The heading counts and scopes; it does not explain an absence a control row away.
  */
 export const NO_FILTER_MATCHES_LINE = 'No places match these filters.';
-
-/** The way out, beside the line above. Names what it clears, because the row's own `Clear` sits in
- *  a group of three triggers where a bare `Clear` takes its meaning from its neighbours. */
-export const CLEAR_FILTERS_LABEL = 'Clear filters';
 
 /** The second line of the empty filter state — what to do, under what happened. Plain, no apology,
  *  and it names the action the button performs rather than describing the miss again. */

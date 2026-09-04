@@ -296,18 +296,14 @@ export function PlaceDesktopPanel({
         )}
         {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
               does not. */}
-        {/* `Been` with nothing to show gets its own line — the same rule and the same string the
-            sheet uses, because that empty result only became reachable when the visit filter grew
-            a third state and the area heading is built from the old boolean. */}
-        {!libraryIsEmpty && places.length + otherPlaces.length === 0 && visitFilter === 'been' ? (
-          <p className="text-sm font-medium text-muted-foreground">{NO_BEEN_PLACES_LINE}</p>
-        ) : (
-          !libraryIsEmpty &&
+        {/* `Been` no longer gets its own line here — the same change the sheet made, for the same
+            reason: the empty state below says it and carries the control that undoes it, so a
+            paragraph here put two absence sentences on one screen. */}
+        {!libraryIsEmpty &&
           heading.note !== null &&
           !(filtersAreOn && places.length === 0) && (
             <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
-          )
-        )}
+          )}
       </div>
 
       {libraryIsEmpty ? null : (
@@ -327,6 +323,9 @@ export function PlaceDesktopPanel({
             {(heading.escape === 'clear-search' || filtersAreOn) && places.length === 0 && (
               <NothingHereEscape
                 searchQuery={query}
+                {...(visitFilter === 'been' && places.length + otherPlaces.length === 0
+                  ? { line: NO_BEEN_PLACES_LINE }
+                  : {})}
                 onClear={() => {
                   if (query !== '') onQueryChange('');
                   if (activeCategory !== null) onToggleCategory(activeCategory);
