@@ -69,7 +69,6 @@ import { ChevronRight, LogOut } from 'lucide-react';
 import { signOut } from '@/app/actions/sign-out';
 import { loadProfileMenu, type ProfileMenuData } from '@/app/actions/profile';
 import { ThemeChoice } from '@/app/profile/theme-choice';
-import { Button } from '@/components/ui/button';
 import { MENU_ROW, MENU_ROW_PAINT } from '@/components/ui/inline-menu';
 import { SECTION_LABEL } from '@/ui/place/section-label';
 import { cn } from '@/lib/utils';
@@ -363,22 +362,25 @@ export function ProfileMenu({
                   none. Not `destructive` — it destroys nothing, and this product reserves that role
                   for the controls that do. */}
               <form action={signOut}>
-                {/* **`w-full`, owner 2026-09-04**, reversing the mis-tap argument this comment
-                    used to make. That argument was about the phone, where the popup grows upward
-                    from the bar and its bottom edge is nearest the thumb. What the owner was
-                    looking at is the desktop menu, which grows *downward* from the account chip —
-                    and there the narrow button was visibly wrong: `Your library` and `Account
-                    settings` span the card, so a hover ground that stops after the label draws a
-                    box misaligned with every row above it. The row is the unit here, and this is a
-                    row. `justify-start` keeps the label on the column's line. */}
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  className="h-11 w-full justify-start px-2 -ms-2 text-sm"
-                >
-                  <LogOut className="size-4" aria-hidden />
-                  {COPY.signOut}
-                </Button>
+                {/* **The menu's own row material, owner 2026-09-04: *"should be same size
+                    button"*.** It was a `ghost` `Button` with `px-2 -ms-2`, which put its ground
+                    8 px left of the column and 8 px short of the right edge — a highlight visibly
+                    off-axis from the two rows above it, at a different height and a different
+                    radius. Widening it to `w-full` fixed the width and not the alignment, which is
+                    what the owner was still looking at.
+                    So it stops being a button that approximates a row and becomes one:
+                    `MENU_ROW` + `MENU_ROW_PAINT`, exactly as `MenuLink` above, so all three rows in
+                    this card share one target box, one paint box, one radius and one ground. It
+                    stays a `<button type="submit">` inside the form — the material is classes, not
+                    an element, and this control still has to work with JavaScript off.
+                    `/account` keeps its `ghost` button: that page has no menu rows, and matching
+                    the surface you are on is the rule both changes follow. */}
+                <button type="submit" className={cn(MENU_ROW, PRESS_ROW, 'w-full')}>
+                  <span className={cn(MENU_ROW_PAINT, 'text-sm')}>
+                    <LogOut className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="font-bold text-foreground">{COPY.signOut}</span>
+                  </span>
+                </button>
               </form>
 
               {/* **No delete-my-data here — owner, 2026-09-03.** Deleting your account is not a

@@ -420,22 +420,25 @@ describe('the density of `Account settings`', () => {
     // directly on a `text-xs` muted disclosure row — two controls doing the same kind of job in two
     // visual vocabularies, the louder one at the bottom of a settings page. These are exits rather
     // than the page's work; the only bordered boxes on it are the two name cards.
-    // **One sign-out, character for character** — that is the invariant this guards, and the
-    // string it holds them to changed on 2026-09-04. It was `h-8 -ms-2.5` here and
-    // `h-11 w-full justify-start px-2` in the account menu — different size, different padding,
-    // one full width — for the single most consequential press on either surface.
+    // **Each sign-out matches the surface it is on** — which replaced "character for character,
+    // both surfaces" on 2026-09-04, and is the same principle read one level up. The identical
+    // class string existed to stop the two being different objects; it stopped being the way to
+    // get that once the menu grew a row material the button was only approximating.
     //
-    // `w-full` came back on the owner's call. The mis-tap argument it replaces was about the phone,
-    // where the popup grows upward from the bar; the desktop menu grows downward from the account
-    // chip, and there a `ghost` ground that stopped after the label drew a box narrower than the
-    // two link rows above it. `h-11` is still the 44 px floor, and `justify-start` still puts the
-    // label on the column's line.
-    const SIGN_OUT =
-      'className="h-11 w-full justify-start px-2 -ms-2 text-sm"';
-    expect(SETTINGS).toContain(SIGN_OUT);
-    expect(MENU).toContain(SIGN_OUT);
+    // In the menu, `px-2 -ms-2` put the button's ground 8 px left of the column and 8 px short of
+    // the right edge, at a different height and radius from the two rows above it — off-axis, which
+    // is what the owner saw (*"should be same size button"*) and what `w-full` alone did not fix.
+    // So the menu's sign-out is `MENU_ROW` + `MENU_ROW_PAINT`, exactly what `MenuLink` draws.
+    // `/account` has no menu rows on it, so it keeps the full-width `ghost` button that matches
+    // the delete row under it. Neither is `outline`, and neither is `destructive`.
+    expect(MENU).toContain('className={cn(MENU_ROW, PRESS_ROW, \'w-full\')}');
+    expect(MENU).toContain('MENU_ROW_PAINT');
+    // The old approximation is gone, not merely joined: no `Button` and no hand-tuned box.
+    expect(MENU).not.toContain('className="h-11 w-full justify-start px-2 -ms-2 text-sm"');
+    expect(MENU).not.toContain("from '@/components/ui/button'");
+    expect(SETTINGS).toContain('className="h-11 w-full justify-start px-2 -ms-2 text-sm"');
     expect(SETTINGS).toContain('variant="ghost"');
-    expect(MENU).toContain('variant="ghost"');
+    expect(MENU).not.toContain('variant="destructive"');
     expect(SETTINGS).not.toContain('variant="outline"');
     expect(SETTINGS).not.toContain('h-12 w-full text-base');
     // Still a plain form posting to the server action: the one control here that has to work with
