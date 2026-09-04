@@ -74,8 +74,24 @@ see §4, the minimised variants buy nothing the code cannot already do locally.
 
 The shipped intent model is `gemma-4-26b-a4b-it` (`query-intent.ts:DEFAULT_INTENT_MODEL`, the run-C
 configuration accepted by `docs/evidence/extraction/nls-stage1-gate-2026-09-04.md`), served on the
-Gemini API. Note it is a **different provider from extraction**, whose production default is
-Anthropic (`place-extractor-factory.ts:36`) — the caption precedent does not carry over.
+Gemini API.
+
+> **CORRECTION, same day, from the owner.** This paragraph originally read that extraction is a
+> *different provider*, "whose production default is Anthropic (`place-extractor-factory.ts:36`)".
+> That is the **code** default and it is not what production runs: asked directly, the owner said
+> *"in prod we use the same gemini we use on local"*. So captions already go to the Gemini API in
+> production, and the claim that "the caption precedent does not carry over" was wrong on its facts.
+>
+> **The ruling does not change, and the reason is worth stating rather than assuming.** It never
+> rested on extraction using a different vendor; it rested on *what* would be sent. A caption is
+> public content the user chose to import, one item at a time. A list of the user's own localities
+> is a standing location profile attached to every request, and it is what turns an unlinkable
+> stream of sentences into a near-unique fingerprint — the pseudonymous-user-id argument in §1,
+> which is untouched by who else the project already talks to.
+>
+> What the correction *does* change is the free-tier terms finding: it now applies to the caption
+> path too, which is a wider surface than this ruling was scoped to examine. That is not a
+> conclusion, it is an open question, and it belongs to whoever next reviews the extraction path.
 
 **VERIFIED (read 2026-09-04, no quota spent):**
 
