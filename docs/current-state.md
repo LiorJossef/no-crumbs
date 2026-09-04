@@ -259,6 +259,34 @@ grouping is 2 km OR (50 km AND same normalised locality), and three fixes in tha
 measured-and-rejected · TikTok only; Instagram and YouTube are a recognised redirect to manual add ·
 no return triggers of any kind · caption pipeline first, before new inputs.
 
+## Owner rulings, 2026-09-04
+
+Taken at the morning handoff of the overnight run, and recorded here rather than lost in a
+transcript.
+
+1. **The geography backfill is applied on local only.** 8 rows, 0 skipped — four Prague localities
+   and four missing Israeli country codes. Production is deferred until the four adapter fixes are
+   on `main`, because until they are the next import recreates the defect. Product-level proof: the
+   map now reads `60 in 4 countries` with Prague as one pill of 5, and no countryless row.
+2. **The duplicate-places migration is deferred past the deadline.** ~14 saves that should be 6
+   venues — 14% of the library, all `llm-guess`, none Google-resolved. It needs a `SECURITY DEFINER`
+   change plus a backfill, and the failure mode if done wrong is two genuinely different places
+   collapsing into one. Owner: *"not before the deadline."* The multi-source place card already
+   works when two TikToks land on one row, so what is left is a visible but survivable duplication.
+   **This is a deferral, not a cancellation** — it is the largest known data defect in the library.
+3. **The share panel keeps its `What people can see` disclosure**, against
+   `ux-card-and-share-2026-09-03.md` §S4, which wanted all three privacy sentences unconditional.
+   3.1 took the panel from 551 to 436 px and 66 to 29 words and that was the point. §S4 is amended
+   by this ruling, not violated. The sentence governing whether you share at all still renders
+   unconditionally.
+4. **The `half` stop**: owner was unsure, so `ux-interaction` ruled. It rejects raising the stop,
+   dropping the tags row, and accepting the clip, and takes a fourth option — the source still
+   becomes `h-28` (112 px) on every host, deleting the `compact` prop. The lever was rejected once
+   before as "48 px against a 53–92 px deficit"; that deficit was measured while the Places/
+   Collections view switch was still taking 56 px from the card's column, and `8a74801` gave those
+   back. The residual is 6 px at 844 and 23 px at 812. **Not yet applied** — it is folded into the
+   place-card compaction pass.
+
 ## Open questions for the owner
 
 1. Do we accept a lower hit rate as the price of staying inside official APIs? (Recommendation: yes,
