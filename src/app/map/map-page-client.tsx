@@ -538,13 +538,22 @@ export function MapPageClient({
    *     scope and moves no camera; narrowing must never navigate, and un-narrowing must not either.
    *     The list is still **nine** movers: a sentence does not move the camera in a way none of
    *     these describe, it pulls this one.
-   *     **A grouped area pill also eases the camera, and it is this mover rather than a tenth**
-   *     (`617af6e`). `area-band-layout.ts` may absorb one pill into another, which made the count
-   *     and the tap target different sets — the pill said 13 and opened 6. A tap on a pill standing
-   *     for several areas now eases to the first zoom that separates them, from inside
-   *     `summary-marker-layer.tsx`. It writes no scope and selects nothing, so it is a refinement
-   *     of this mover and not a new one; it is listed here because a list of who may move the
-   *     camera is worthless if a move happens somewhere it does not mention.
+   *     **A pill that the band drew in front of other pills is not a special case, and for one day
+   *     it was** (`617af6e`, reversed 2026-09-04 by the owner). `area-band-layout.ts` may leave one
+   *     pill undrawn behind another; while the surviving pill also carried the undrawn one's
+   *     *count*, it showed a number this mover would not open — 13 on the pill, `6 matches in
+   *     תל אביב-יפו` in the header — so a tap on it was diverted into a camera-only "expand"
+   *     issued from `summary-marker-layer.tsx`. The owner used it and rejected it: *"when you click
+   *     on 'tel aviv' cluster the reposition of the map isn't good why? it was better"*, and then,
+   *     naming the control, *"like when you click on ראשון — the zoom is good... or any other
+   *     city"*. `ראשון לציון` is an ordinary undrawn-nothing pill, so what he was calling good is
+   *     this mover — a fit over the area's own matching places, under the sheet's padding, which
+   *     lands in the pin band because a city's places are close together. The diversion took that
+   *     away from one city.
+   *     So there is **one** area gesture again: every pill calls `selectArea`, sets an area scope,
+   *     and is framed by this mover. The count mismatch is fixed where it belonged, on the pill,
+   *     which now shows its own area's number; `area-band-layout.ts` holds that argument and the
+   *     arithmetic it costs. **This list is nine movers, and it was never ten.**
    *  5. Tapping a country marker frames the places the filters left in that country, clamped inside
    *     the area band, and sets a **country** scope. See `focusCountry`. **§5.2 also promises this
    *     one a sentence trigger and it does not have one yet**: Stage 2's first slice resolves
@@ -2065,6 +2074,18 @@ export function MapPageClient({
                             // `Undo` sends the panel back to rest by remounting it — see
                             // `sentenceEpoch`.
                             key={sentenceEpoch}
+                            // **`-mb-1.5` cancels the trigger's own bottom padding when it is the
+                            // last thing in the group.** `TRIGGER_TARGET` is a 32 px pill inside a
+                            // 44 px target (`py-1.5`), so its box ends 6 px below the ink and the
+                            // column's gap is added on top: the reader saw 12 px above the pill and
+                            // 26 px below it, which is the hole the owner was still looking at
+                            // after the first pass. The 44 px target is untouched — only the box's
+                            // effect on its neighbour is, the same trick `-ms-2` plays elsewhere.
+                            //
+                            // Not applied when the notice follows: that is a bordered card whose
+                            // border *is* its edge, so it has no dead space to cancel and doing it
+                            // anyway would jam it against the filter row.
+                            {...(sentenceUndo === null ? { className: '-mb-1.5' } : {})}
                             surface="inline"
                             {...(stop === 'full' ? {} : { onPanelOpen: () => shell.sheet.goTo('full') })}
                             places={places}
@@ -2135,6 +2156,10 @@ export function MapPageClient({
                           <SentencePanel
                             // The same remount `Undo` uses on the sheet — see `sentenceEpoch`.
                             key={sentenceEpoch}
+                            // The same cancel as the sheet, and here it lands on the trigger button
+                            // itself — the popover surface puts `className` on the control rather
+                            // than on a wrapper. See the sheet's copy above for the arithmetic.
+                            {...(sentenceUndo === null ? { className: '-mb-1.5' } : {})}
                             surface="popover"
                             places={places}
                             facets={sentenceFacets}
