@@ -838,14 +838,39 @@ export function MapPageClient({
     readonly visitFilter: VisitFilter;
     readonly activeCategory: ProductCategory | null;
     readonly scope: ListScope | null;
+    /** What the sentence wrote, kept beside what it replaced. `SentenceApplied` compares this to
+     *  the live cells and withdraws itself the moment they differ — see `currentApplication`. */
+    readonly applied: SentenceApplication;
   } | null>(null);
+
+  /**
+   * **The four cells as the panel's own shape, so the notice can tell whether it is still true.**
+   *
+   * Owner bug, 2026-09-04: *"when you clear filter the button stays."* The snapshot was cleared by
+   * `undoSentence` and by nothing else, while at least eight routes write these cells — the tag
+   * chips, the axis clears, the filter row's `Clear`, the search field, the empty-list escape, and
+   * the two that blank filters on their way elsewhere. So `Undo` outlived what it would undo, and
+   * pressing it wrote the old filters back over a library the user had just deliberately cleared.
+   *
+   * Derived rather than subscribed, so a ninth route cannot miss the hook: the offer stands while
+   * the cells still hold what the sentence put in them, and is withdrawn when they differ. `Undo`
+   * never sees its own write, because it clears the snapshot in the same handler.
+   */
+  const currentApplication = useMemo<SentenceApplication>(
+    () => ({ category: activeCategory, tags: activeTags, visit: visitFilter, query }),
+    [activeCategory, activeTags, visitFilter, query],
+  );
+
+  /** Stable, because `SentenceApplied` calls it from an effect keyed on it — an inline arrow would
+   *  re-run that effect every render. */
+  const forgetSentenceUndo = useCallback(() => setSentenceUndo(null), []);
 
   /** Writes the four cells the panel interpreted into, having first recorded what was there. The
    *  panel closes itself; the page's existing results live region announces the new count, which
    *  is why nothing here announces anything. */
   const applySentence = useCallback(
     (application: SentenceApplication) => {
-      setSentenceUndo({ query, activeTags, visitFilter, activeCategory, scope });
+      setSentenceUndo({ query, activeTags, visitFilter, activeCategory, scope, applied: application });
       setQuery(application.query);
       setActiveTags(application.tags);
       setVisitFilter(application.visit);
@@ -1786,7 +1811,14 @@ export function MapPageClient({
                             facets={sentenceFacets}
                             onApply={applySentence}
                           />
-                          {sentenceUndo !== null && <SentenceApplied onUndo={undoSentence} />}
+                          {sentenceUndo !== null && (
+                            <SentenceApplied
+                              onUndo={undoSentence}
+                              applied={sentenceUndo.applied}
+                              current={currentApplication}
+                              onStale={forgetSentenceUndo}
+                            />
+                          )}
                         </>
                       }
                       activeTags={activeTags}
@@ -1846,7 +1878,14 @@ export function MapPageClient({
                             facets={sentenceFacets}
                             onApply={applySentence}
                           />
-                          {sentenceUndo !== null && <SentenceApplied onUndo={undoSentence} />}
+                          {sentenceUndo !== null && (
+                            <SentenceApplied
+                              onUndo={undoSentence}
+                              applied={sentenceUndo.applied}
+                              current={currentApplication}
+                              onStale={forgetSentenceUndo}
+                            />
+                          )}
                         </>
                       }
                       activeTags={activeTags}
