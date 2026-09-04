@@ -381,7 +381,11 @@ describe('areaHeading', () => {
       searchQuery: 'momos',
       matchesAnywhere: 0,
     });
-    expect(heading.text).toBe('Nothing matches "momos"');
+    // The heading names the library and the *list* quotes the query — 2026-09-04, when the
+    // search miss and the filter miss became one empty state. The heading used to carry
+    // `Nothing matches "momos"` and the state under it said the same sentence again. `escape` is
+    // what still distinguishes the two, and it is what the list reads.
+    expect(heading.text).toBe(LIBRARY_HEADING);
     expect(heading.escape).toBe('clear-search');
   });
 
@@ -557,7 +561,9 @@ describe('areaHeading with the not-been-yet filter', () => {
       searchQuery: 'momos',
       matchesAnywhere: 0,
     });
-    expect(heading.text).toBe('Nothing matches "momos"');
+    // Same rule with the visit filter also on: the sentence is the list's, the escape is the
+    // heading's, and `Not been yet` does not take the search's control away.
+    expect(heading.text).toBe(LIBRARY_HEADING);
     expect(heading.escape).toBe('clear-search');
   });
 

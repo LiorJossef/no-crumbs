@@ -24,8 +24,7 @@ import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  ClearFiltersEscape,
-  ClearSearchEscape,
+  NothingHereEscape,
   EMPTY_LIBRARY_HEADING,
   EmptyLibraryLine,
   EverywhereElse,
@@ -318,17 +317,18 @@ export function PlaceDesktopPanel({
                 the selected rule and the hover ground sit *outside* the text rather than under it.
                 The list is the one child of this column whose content has its own inset. */}
           <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-4">
-            {heading.escape === 'clear-search' && (
-              <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
-            )}
-            {/* Same rule as the sheet: the filters emptied the list, so the *list* says so, with
-                the button that undoes it. This host is the one that gets forgotten — the Been
-                badge and the no-matches line were both built in `place-sheet.tsx` alone — so it is
-                worth saying plainly that these two files each render their own column and a fix to
-                one is not a fix to the other. */}
-            {filtersAreOn && heading.escape !== 'clear-search' && places.length === 0 && (
-              <ClearFiltersEscape
-                onClearFilters={() => {
+
+            {/* Same rule as the sheet, and the same single control: whatever emptied the list —
+                a search or a filter — the *list* says so and offers one way out that clears every
+                axis. This host is the one that gets forgotten: the Been badge and the no-matches
+                line were both built in `place-sheet.tsx` alone, so it is worth saying plainly that
+                these two files each render their own column and a fix to one is not a fix to the
+                other. */}
+            {(heading.escape === 'clear-search' || filtersAreOn) && places.length === 0 && (
+              <NothingHereEscape
+                searchQuery={query}
+                onClear={() => {
+                  if (query !== '') onQueryChange('');
                   if (activeCategory !== null) onToggleCategory(activeCategory);
                   if (visitFilter !== 'all') onChangeVisitFilter('all');
                   if (activeTags.length > 0) onClearTags();

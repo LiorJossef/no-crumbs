@@ -716,7 +716,8 @@ describe('scopeHeading', () => {
 
   it('keeps every harder state `areaHeading` already owns', () => {
     const nowhere = headingFor(GLOBAL_SCOPE, 0, { searchQuery: 'momos', matchesAnywhere: 0 });
-    expect(nowhere.text).toBe('Nothing matches "momos"');
+    // The list quotes the query now; the heading names the library and keeps the escape.
+    expect(nowhere.text).toBe('Your places');
     expect(nowhere.escape).toBe('clear-search');
 
     const notHere = headingFor(scopeForCountryTap('IL'), 0, {

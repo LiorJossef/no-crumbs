@@ -483,13 +483,14 @@ export function areaHeading(input: {
   const visitOnly = notBeenOnly && searchQuery === '' && tagLabel === null;
 
   if (matchesAnywhere === 0 && countInArea === 0) {
-    // Search wins the sentence when both are on: it is the thing the user typed, and it is the one
-    // state with a control of its own up here.
-    const text = visitOnly
-      ? ALL_BEEN_HEADING
-      : searchQuery !== ''
-        ? `Nothing matches "${searchQuery}"`
-        : LIBRARY_HEADING;
+    // **The heading no longer carries the miss; the list does** — 2026-09-04, when the search miss
+    // and the filter miss became one empty state that quotes the query itself. The heading said
+    // `Nothing matches "momos"` and the state under it said the same sentence again, twice on one
+    // screen. The filter branch has always deferred to the list for exactly this reason
+    // (`LIBRARY_HEADING`, and see `NothingHereEscape`); the search branch now does too, so the
+    // heading counts and scopes and never explains an absence. `escape` still says which control
+    // the list should offer — that is what it is for.
+    const text = visitOnly ? ALL_BEEN_HEADING : LIBRARY_HEADING;
     return {
       text,
       count: null,
@@ -581,3 +582,28 @@ export const CLEAR_FILTERS_LABEL = 'Clear filters';
 /** The second line of the empty filter state — what to do, under what happened. Plain, no apology,
  *  and it names the action the button performs rather than describing the miss again. */
 export const NO_FILTER_MATCHES_HINT = 'Try removing one of them.';
+
+/**
+ * **The empty list is one state with one way out** — owner, 2026-09-04: *"it should clear the same
+ * not? search is also a filter."*
+ *
+ * It was two. A search that matched nothing drew a bare `Clear search` that cleared the query and
+ * left the tags on; filters that matched nothing drew a composed state with the mascot that cleared
+ * the filters and left the query on. So the reader met two different objects for one event, and
+ * either escape could return them to a list that was still empty for the other reason.
+ *
+ * One control now clears every axis, the search among them. `Clear all` rather than `Clear
+ * filters`: the row's own `Clear` already means "every axis in this row", and this one takes the
+ * search with it, which is more than the row does and has to say so.
+ */
+export const CLEAR_EVERYTHING_LABEL = 'Clear all';
+
+/** The line quoting what was typed, drawn *in the list* under the mark. The heading carries the
+ *  same sentence; this is the one the reader is looking at when the rows are missing. */
+export function nothingMatchesLine(searchQuery: string): string {
+  return `Nothing matches "${searchQuery}"`;
+}
+
+/** What to do, when a search is what emptied the list. The filter hint names removing one of
+ *  several; a query is one thing, so the advice is to make it smaller rather than fewer. */
+export const NO_SEARCH_MATCHES_HINT = 'Try a shorter word, or clear it.';

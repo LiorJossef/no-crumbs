@@ -156,9 +156,11 @@ import {
 } from "@/ui/place/caption-quote";
 import { SECTION_LABEL } from "@/ui/place/section-label";
 import {
-  CLEAR_FILTERS_LABEL,
+  CLEAR_EVERYTHING_LABEL,
   NO_FILTER_MATCHES_HINT,
+  NO_SEARCH_MATCHES_HINT,
   NO_FILTER_MATCHES_LINE,
+  nothingMatchesLine,
   isolate,
   type AreaHeading,
 } from "@/ui/place/active-area";
@@ -909,19 +911,19 @@ function PlaceList({
                   } as CSSProperties
                 }
               >
-                {heading.escape === "clear-search" && (
-                  <ClearSearchEscape onClearSearch={() => onQueryChange("")} />
-                )}
-                {/* **The filters emptied the list, so the list says so** — owner, 2026-09-02. This
-                    sits where the first row would have been, not in the heading: the reader is
-                    looking at the space that has nothing in it, and an explanation a control row
-                    above it is an explanation somewhere else. Search already worked this way one
-                    line up; the two empty results now behave alike. */}
-                {filtersAreOn &&
-                  heading.escape !== "clear-search" &&
+                {/* **Whatever emptied the list, the list says so and offers one way out** —
+                    owner, 2026-09-04. This sits where the first row would have been, not in the
+                    heading: the reader is looking at the space that has nothing in it, and an
+                    explanation a control row above it is an explanation somewhere else. The
+                    condition is one condition now — a search *or* a filter, because clearing one
+                    and leaving the other is how you land back on an empty list with the button you
+                    just pressed gone. */}
+                {(heading.escape === "clear-search" || filtersAreOn) &&
                   places.length === 0 && (
-                    <ClearFiltersEscape
-                      onClearFilters={() => {
+                    <NothingHereEscape
+                      searchQuery={query}
+                      onClear={() => {
+                        if (query !== "") onQueryChange("");
                         if (activeCategory !== null)
                           onToggleCategory(activeCategory);
                         if (visitFilter !== "all") onChangeVisitFilter("all");
@@ -2022,59 +2024,53 @@ export function PlaceSearchField({
  * only sometimes. This is the same escape hatch `ClearSearchEscape` gives the search case, in the
  * same place, so the two empty results behave alike.
  */
-export function ClearFiltersEscape({
-  onClearFilters,
+/**
+ * **One empty list, one way out** — owner, 2026-09-04: *"it should clear the same not? search is
+ * also a filter"*, and *"should show Informative text"*.
+ *
+ * This was two components. `ClearFiltersEscape` was a composed state — mark, what happened, what to
+ * do — and `ClearSearchEscape` was a bare left-aligned button with no mark and no sentence, so one
+ * event drew two different objects depending on which axis emptied the list. Worse, each escape
+ * cleared only its own axis: clearing the search could return you to a list still emptied by a tag,
+ * and the button you had just pressed would be gone with nothing to press instead.
+ *
+ * So there is one state and one control, and the control clears **every** axis. What changes
+ * between the two cases is only the sentence, because quoting what the reader typed is the most
+ * informative thing this screen can say and a filter has nothing to quote.
+ *
+ * `nothingFound` is flat-eyed and flat-mouthed — neutral, not sad. This state is common and
+ * self-inflicted, so the mascot must not read as the product being disappointed at you. `size-16`
+ * because it anchors the composition, and §11.21 bans bare margin utilities on it, so the column's
+ * `gap` does every bit of the spacing.
+ */
+export function NothingHereEscape({
+  searchQuery,
+  onClear,
 }: {
-  onClearFilters: () => void;
+  /** The live query, or `''`. Decides the sentence and nothing else — the control clears the same
+   *  four axes either way. */
+  searchQuery: string;
+  onClear: () => void;
 }) {
+  const searching = searchQuery !== '';
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-      {/* **A composed empty state, not a sentence with a face next to it** — owner, 2026-09-02:
-          *"do something like the 'page not working' but for filter."* So it takes the shape that
-          pattern has everywhere: mark, then what happened, then what to do, stacked and centred in
-          the space that has nothing in it.
-
-          `nothingFound` is flat-eyed and flat-mouthed — neutral, not sad. That matters more here
-          than on the import screen `no-places-screen.tsx` borrows it from: this state is common
-          and self-inflicted (you ticked two tags), so the mascot must not read as the product
-          being disappointed *at* you. It is `size-16` rather than that screen's `size-12` because
-          here it is the composition's anchor rather than a kicker beside a caption, and §11.21
-          bans bare margin utilities on it, so the column's `gap` does every bit of the spacing. */}
       <CrumbMascot mood="nothingFound" className="size-16 shrink-0" />
       <div className="flex flex-col gap-1">
         <p className="font-heading text-base font-extrabold text-foreground">
-          {NO_FILTER_MATCHES_LINE}
+          {searching ? nothingMatchesLine(searchQuery) : NO_FILTER_MATCHES_LINE}
         </p>
         <p className="text-sm font-medium text-muted-foreground">
-          {NO_FILTER_MATCHES_HINT}
+          {searching ? NO_SEARCH_MATCHES_HINT : NO_FILTER_MATCHES_HINT}
         </p>
       </div>
       <Button
         type="button"
         variant="outline"
-        onClick={onClearFilters}
+        onClick={onClear}
         className="h-11 rounded-lg px-4 text-sm font-bold"
       >
-        {CLEAR_FILTERS_LABEL}
-      </Button>
-    </div>
-  );
-}
-
-export function ClearSearchEscape({
-  onClearSearch,
-}: {
-  onClearSearch: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-start py-6">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={onClearSearch}
-        className="h-11 rounded-lg px-4 text-sm font-bold"
-      >
-        Clear search
+        {CLEAR_EVERYTHING_LABEL}
       </Button>
     </div>
   );
