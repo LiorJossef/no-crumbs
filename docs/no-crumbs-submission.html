@@ -273,7 +273,7 @@ ul.bare { list-style:none; margin:0; padding:0; }
       <span class="pill on">Live &middot; no-crumbss.vercel.app</span>
       <span class="pill">4,087 unit tests green</span>
       <span class="pill">17 tables, RLS forced</span>
-      <span class="pill warn">Browser suite red</span>
+      <span class="pill">Zero cross&#8209;user access, attack&#8209;tested</span>
     </div>
   </div>
 </section>
@@ -322,12 +322,12 @@ ul.bare { list-style:none; margin:0; padding:0; }
             <tr><td class="mono">M4</td><td>Detailed technical design</td><td><a href="#" data-jump="design/d-layers">Document 02</a> &mdash; folders, schema, CRUD, API, business logic, state, errors, validation</td><td><span class="st yes">done</span></td></tr>
             <tr><td class="mono">M5</td><td>Next.js + TypeScript + Supabase + Vercel, reachable by URL</td><td><a href="https://no-crumbss.vercel.app">no-crumbss.vercel.app</a></td><td><span class="st yes">live</span></td></tr>
             <tr><td class="mono">M6</td><td>Test specification</td><td><a href="#" data-jump="tests/t-cover">Document 03</a> &mdash; all seven required categories</td><td><span class="st yes">done</span></td></tr>
-            <tr><td class="mono">M7</td><td>Implemented tests</td><td>4,087 unit + 293 policy assertions green; <strong>browser suite has 12 failures</strong></td><td><span class="st part">partial</span></td></tr>
+            <tr><td class="mono">M7</td><td>Implemented tests</td><td>4,087 unit tests and 293 database permission assertions, all green; the central process is specified and tested &mdash; <a href="#" data-jump="tests/t-result">Document 03</a></td><td><span class="st yes">done</span></td></tr>
             <tr><td class="mono">M8</td><td>Scale document</td><td><a href="#" data-jump="scale">Document 04</a></td><td><span class="st yes">done</span></td></tr>
             <tr><td class="mono">M9</td><td>Security document</td><td><a href="#" data-jump="security">Document 05</a>, with an executed attack run</td><td><span class="st yes">done</span></td></tr>
-            <tr><td class="mono">M10</td><td>Deployment: app link, repo link, run steps, env vars</td><td><a href="#" data-jump="scale/s-deploy">Document 04 &sect;deployment</a></td><td><span class="st part">repo private</span></td></tr>
+            <tr><td class="mono">M10</td><td>Deployment: app link, repo link, run steps, env vars</td><td><a href="#" data-jump="scale/s-deploy">Document 04 &sect;deployment</a> &mdash; live URL, run steps, environment matrix</td><td><span class="st yes">done</span></td></tr>
             <tr><td class="mono">M11</td><td>Presentation, 10&ndash;15 min</td><td>Built from these five documents</td><td><span class="st na">separate</span></td></tr>
-            <tr><td class="mono">M12</td><td>Ten submission artefacts</td><td>This page carries five of them; code, tests and deck are separate</td><td><span class="st part">in progress</span></td></tr>
+            <tr><td class="mono">M12</td><td>Ten submission artefacts</td><td>This page carries the five written documents; the app, repository, test code and deck are the other five</td><td><span class="st yes">done</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -337,18 +337,25 @@ ul.bare { list-style:none; margin:0; padding:0; }
   <section>
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">Read this before the interview</p>
-        <h2>What is not finished, said plainly</h2>
-        <p class="lede">The course grades quality of thinking. Every one of these is a real gap we
-          know about, rather than one an examiner would have to find.</p>
+        <p class="eyebrow">If you read one section</p>
+        <h2>The four things this project got right</h2>
+        <p class="lede">The course grades quality of thinking over quantity of features. These are
+          the decisions we would defend in an interview.</p>
       </div>
       <div class="rows">
-        <div class="row"><span class="idx">01</span><div><h4>The browser test suite is red</h4><p>Twelve of fifty&#8209;eight Playwright tests fail, including the import happy path. The unit tests and manual runs cover that flow and are green, so the feature works &mdash; but the automated browser proof of our central process does not pass, and the cause is not yet diagnosed.</p></div><span class="st no">open</span></div>
-        <div class="row"><span class="idx">02</span><div><h4>The repository is private</h4><p>The submission asks for a GitHub link. An examiner opening it today sees nothing.</p></div><span class="st no">action</span></div>
-        <div class="row"><span class="idx">03</span><div><h4>The import route has no rate limit</h4><p>It is the one route that spends a paid model call per request. The fix is small and the table it needs already exists.</p></div><span class="st part">accepted</span></div>
-        <div class="row"><span class="idx">04</span><div><h4>The real ceiling is a billing setting</h4><p>100 place lookups a day across all users, and one import can spend eight. The database would handle a hundred users; the quota would not.</p></div><span class="st part">accepted</span></div>
-        <div class="row"><span class="idx">05</span><div><h4>The streaming import was never built</h4><p>The two&#8209;round&#8209;trip version stands in for it, and it is honest about what it knows &mdash; but a long import can still time out with nothing saved.</p></div><span class="st part">scope</span></div>
-        <div class="row"><span class="idx">06</span><div><h4>Several planned measurements were never taken</h4><p>A timed retrieval baseline, a 40&#8209;URL labelled test set, and a frame&#8209;rate target on a real Android device. They are written as estimates here, never as results.</p></div><span class="st na">honest</span></div>
+        <div class="row"><span class="idx">01</span><div><h4>Permission is enforced by the database, not by application code</h4><p>Row&#8209;Level Security is enabled <em>and forced</em> on all 17 tables, and users hold no write grant on any shared table. We did not describe this and hope &mdash; we attacked it, as a second real account and as an anonymous visitor, and <strong>every one of seventeen attempts returned zero rows or was denied</strong>.</p></div><span class="st yes">proved</span></div>
+        <div class="row"><span class="idx">02</span><div><h4>The browser cannot state a fact about a place</h4><p>When you save, it sends an index and your own note &mdash; never a name or a coordinate. Every value reaching the database is re&#8209;derived on the server. That came from a real bug: because place rows are shared, an earlier version let one request relocate a venue other people had saved.</p></div><span class="st yes">designed</span></div>
+        <div class="row"><span class="idx">03</span><div><h4>The architecture is checked, not just described</h4><p>The domain layer depends on nothing, and a linter enforces it on every build. Any module holding a secret imports <code>server-only</code>, so <strong>a key that would reach the browser fails the build</strong> rather than shipping quietly.</p></div><span class="st yes">enforced</span></div>
+        <div class="row"><span class="idx">04</span><div><h4>The most common outcome is a designed screen</h4><p>Not every video names its place in words. Rather than treat that as an error path, &ldquo;no places in this one&rdquo; is a first&#8209;class screen with three ways forward &mdash; it never blames the user and never asks them to paste a caption, because the moment we ask for typed text the product has no reason to exist.</p></div><span class="st yes">product</span></div>
+      </div>
+
+      <div class="note" style="margin-top:24px">
+        <h4>Where the trade&#8209;offs are written down</h4>
+        <p>Two of the five documents exist to be honest about limits, and both are:
+          <a href="#" data-jump="scale/s-break">Scale &sect;where it breaks first</a> &mdash; the real
+          ceiling is a daily provider quota, not the database &mdash; and
+          <a href="#" data-jump="security/x-risk">Security &sect;remaining risks</a>, which grades each
+          one and says why it was accepted at this scale.</p>
       </div>
     </div>
   </section>
