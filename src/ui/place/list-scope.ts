@@ -448,6 +448,70 @@ function unionMemberIds<T>(areas: readonly Area<T>[]): ReadonlySet<string> {
 }
 
 /**
+ * A country of the global scope, **as the filters left it**: the country itself, and the areas of
+ * it that still hold a match.
+ *
+ * `matchIds` is the whole filter chain collapsed into the one thing a label needs — the set of
+ * places the list is about to render — so this stays correct when a fifth or a sixth filter axis
+ * is added. It never learns what a tag, a search, a visit state or an area filter is.
+ */
+interface MatchingCountry<T> {
+  readonly country: CountrySummary<T>;
+  readonly countryCode: string | null;
+  /** The country's areas that hold at least one match. Narrowed, so the single-country shortcut
+   *  below still asks "does this label speak for everything under it" about the *matches*. */
+  readonly areas: readonly Area<T>[];
+}
+
+/**
+ * The countries the heading may count: every one of them when nothing is filtered, and only the
+ * ones holding a match when something is.
+ *
+ * ## The defect
+ *
+ * Reported by the owner on 2026-09-04 and reproduced against the local library: under the `brunch`
+ * chip the sidebar read `15 matches in 4 countries` while the 15 matches lie in two — Israel and
+ * Hungary — and the map, since `bc7d1ea`, correctly drew two country pills. The heading was
+ * counting `resolved.countries`, which is built from the whole library, while its *number* came
+ * from the filtered list. One sentence, two questions, and the four is contradicted by the pills
+ * directly beside it.
+ *
+ * ## Why it narrows here and not in `resolveScope`
+ *
+ * The same boundary `summary-matches.ts` draws for the bands, for the same reason. `ResolvedScope`
+ * resolves the list scope, `preferredAreaId`, `defaultScope` and `initialBounds`; a filter that
+ * could empty its `countries` would let a keystroke invalidate the scope and move the camera —
+ * **narrowing must never navigate**. Nothing here reaches those. It changes one noun phrase in one
+ * sentence.
+ *
+ * `matchIds` absent or `null` means "no narrowing" and reproduces the previous behaviour exactly,
+ * which is what keeps every other caller — and the unfiltered library — unchanged by construction
+ * rather than by a flag.
+ */
+function countriesWithMatches<T>(
+  countries: readonly CountrySummary<T>[],
+  matchIds: ReadonlySet<string> | null | undefined,
+): readonly MatchingCountry<T>[] {
+  if (!matchIds) {
+    return countries.map((country) => ({
+      country,
+      countryCode: country.countryCode,
+      areas: country.areas,
+    }));
+  }
+  const narrowed: MatchingCountry<T>[] = [];
+  for (const country of countries) {
+    const areas = country.areas.filter((area) =>
+      [...area.memberIds].some((id) => matchIds.has(id)),
+    );
+    if (areas.length > 0) {
+      narrowed.push({ country, countryCode: country.countryCode, areas });
+    }
+  }
+  return narrowed;
+}
+
+/**
  * What the heading calls this scope — the `in ___` half of every line, and the same string the
  * map's accessible name uses.
  *
@@ -464,6 +528,11 @@ function unionMemberIds<T>(areas: readonly Area<T>[]): ReadonlySet<string> {
  * | global, 1 countryless bucket over 2+ areas | `your library` — see below |
  * | global, empty library | `your library` |
  *
+ * **`matchIds` narrows every one of those global rows to the countries that still hold a match**
+ * (2026-09-04), so a filtered library reads `15 matches in 2 countries` rather than naming the
+ * four its unfiltered self spans. It is optional and defaults to no narrowing; see
+ * `countriesWithMatches` for the defect and for why the narrowing stops at the label.
+ *
  * **The single-country shortcut cannot be taken for the countryless bucket with more than one area
  * in it**, and that was a real sentence until it was tested. The bucket's label is
  * `library-summary.ts`'s "name it after the place it actually contains" rule, which reads the
@@ -473,19 +542,22 @@ function unionMemberIds<T>(areas: readonly Area<T>[]): ReadonlySet<string> {
  * areas by construction, and a one-area bucket is that one area. Neither holds here, and
  * `1 countries` is not the repair, so the honest answer is the one the empty library already gives.
  */
-export function scopeLabel<T>(resolved: ResolvedScope<T>): string | null {
+export function scopeLabel<T>(
+  resolved: ResolvedScope<T>,
+  matchIds?: ReadonlySet<string> | null,
+): string | null {
   switch (resolved.kind) {
     case 'area':
       return resolved.area.label;
     case 'country':
       return countryLabel(resolved.country);
     case 'global': {
-      const countries = resolved.countries;
+      const countries = countriesWithMatches(resolved.countries, matchIds);
       if (countries.length === 0) return 'your library';
       const only = countries[0];
       if (countries.length === 1 && only !== undefined) {
         return only.countryCode !== null || only.areas.length === 1
-          ? countryLabel(only)
+          ? countryLabel(only.country)
           : 'your library';
       }
       // Buckets are not countries. `library-summary.ts` puts every place whose country we could
@@ -580,10 +652,23 @@ export function scopeHeading<T>(input: {
   /** Matches anywhere in the library, not just in scope. Distinguishes "not here" from "nowhere",
    *  which are different sentences with different ways out. */
   readonly matchesAnywhere: number;
+  /**
+   * The places the filters left, library-wide — **the whole filter chain, collapsed to a set of
+   * ids** (2026-09-04).
+   *
+   * Only the global scope's label reads it, and only to stop `15 matches in 4 countries` being
+   * said over matches that lie in two (`countriesWithMatches`). Deliberately a set of ids rather
+   * than a filter description, so a fifth axis — the area filter now being wired into the page —
+   * needs no change here and cannot be forgotten here.
+   *
+   * Omit it and the heading counts the library's countries, which is what it did before and is
+   * still right when nothing is filtered.
+   */
+  readonly matchIds?: ReadonlySet<string> | null;
 }): AreaHeading {
   return areaHeading({
     countInArea: input.countInScope,
-    area: scopeLabel(input.scope),
+    area: scopeLabel(input.scope, input.matchIds),
     searchQuery: input.searchQuery,
     tagLabel: input.tagLabel,
     ...(input.notBeenOnly === undefined ? {} : { notBeenOnly: input.notBeenOnly }),
