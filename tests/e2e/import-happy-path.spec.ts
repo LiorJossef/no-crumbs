@@ -55,30 +55,39 @@ test.describe('the import core loop', () => {
     await page.getByPlaceholder('Paste a TikTok link').fill(CACHED);
     await page.getByRole('button', { name: 'Add →' }).click();
 
-    // The first candidate card is what "the review screen is up" means. Two weaker signals were
-    // tried first and both encode a variant rather than the state:
+    // `Add a note` belongs to a candidate card, so it exists once and only once extraction has
+    // produced something to review — in every variant, and on no other screen. Four weaker signals
+    // were tried first, and each encoded one variant rather than the state:
     //
     //  - the Save button is absent whenever nothing is selected, which is legitimate;
-    //  - `N places found` changes *element* between the two variants. On a first import the count
-    //    is a paragraph and the `h1` is the place name; on a re-import of a place already saved
-    //    from this video the count is itself the `h1`. A `getByRole('heading')` therefore passed
-    //    on the owner's machine, where the fixture had been saved before, and timed out in CI,
-    //    where the seed is fresh. Matching the text alone is no better: the rail narrates the same
-    //    words while extraction is still running, so it would pass too early.
+    //  - `N places found` changes element between variants — a paragraph on a first import, where
+    //    the `h1` is the place name, and the `h1` itself on a re-import of a place already saved
+    //    from this video. Matching the text without the role is worse still: the rail narrates the
+    //    same words while extraction is running, so it passes before there is anything to review;
+    //  - the candidate card is not always a `checkbox`. A single confident candidate renders with
+    //    no selection control at all — there is nothing to choose between — so the checkbox exists
+    //    only in the multi-candidate and already-saved shapes;
+    //  - `Nothing is saved yet.` sits inside the same branch as the Save button, despite the
+    //    comment above it calling itself unconditional, so it is absent for exactly as long as
+    //    the Save button is.
     //
-    // The checkbox exists in both variants, only after extraction, and is what the next lines act
-    // on anyway.
-    //
-    // Candidates render as `role="checkbox"` (`candidate-card.tsx`). One of two things is true
-    // here: this is a first import and the confident candidate is pre-selected, or the place is
-    // already on the map from this same video and it is deliberately deselected. Both are correct
-    // product behaviour, and both must end with exactly one candidate selected.
+    // The first three passed on the owner's machine, where this fixture had been saved before,
+    // and failed in CI, where the seed is fresh; the fourth failed the other way round.
+    await expect(page.getByRole('button', { name: /add a note/i }).first()).toBeVisible({
+      timeout: 90_000,
+    });
+
+    // Selection, where there is any to make. One of three things is true, all of them correct
+    // product behaviour: a single confident candidate is already implicit and draws no control; a
+    // candidate is pre-selected; or the place is already on the map from this same video and is
+    // deliberately deselected. All three must end with something to save.
     const candidates = page.getByRole('checkbox');
-    await expect(candidates.first()).toBeVisible({ timeout: 90_000 });
-    const selectedAlready = await page.getByRole('checkbox', { checked: true }).count();
-    if (selectedAlready === 0) {
-      await candidates.first().click();
-      await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(1);
+    if ((await candidates.count()) > 0) {
+      const selectedAlready = await page.getByRole('checkbox', { checked: true }).count();
+      if (selectedAlready === 0) {
+        await candidates.first().click();
+        await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(1);
+      }
     }
 
     const saveButton = page.getByRole('button', { name: /^Save (this place|\d+ places) →$/ });
@@ -91,7 +100,6 @@ test.describe('the import core loop', () => {
     await page.waitForURL('**/map', { timeout: 60_000 });
     console.log(JSON.stringify({
       reviewHeadline,
-      selectedAlready,
       confirms,
       landedOn: page.url(),
       review: cardText.replace(/\n+/g, ' | ').slice(0, 400),
