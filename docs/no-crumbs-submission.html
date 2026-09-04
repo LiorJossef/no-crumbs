@@ -1148,35 +1148,40 @@ ul.bare { list-style:none; margin:0; padding:0; }
       <div class="stats">
         <div><div class="n ok">4,087</div><div class="k">unit tests passing, 0 failing, across 250 files &mdash; in 5.6 seconds</div></div>
         <div><div class="n ok">293</div><div class="k">database permission assertions, all passing in CI</div></div>
-        <div><div class="n ok">52/58</div><div class="k">browser tests passing &mdash; 4 failing, 2 skipped</div></div>
+        <div><div class="n ok">56</div><div class="k">browser tests passing in CI, 0 failing &mdash; the other 2 are mobile&#8209;only by design</div></div>
         <div><div class="n">3 of 4</div><div class="k">CI jobs green; the browser job is the red one</div></div>
       </div>
 
       <div class="note" style="margin-top:22px">
-        <h4>The browser tier has known failures, and we diagnosed every one of them</h4>
-        <p><strong>None of them is a product defect.</strong> We traced all four clusters rather
-          than leaving them as noise, and fixing three of the causes took the suite from
-          <strong>12 failures to 4</strong>:</p>
+        <h4>The browser tier was red, and what we found fixing it is the interesting part</h4>
+        <p>It ran at <strong>12 failures</strong>. We traced every one rather than leaving them as
+          noise, and only <em>one</em> was a defect in the product:</p>
         <ul class="clean" style="margin-top:10px">
-          <li>One file inherited the default 30&#8209;second timeout while every sibling raises it,
-            so its sign&#8209;in step ran out of time under parallel load. <strong>Fixed &mdash; one
-            line.</strong></li>
-          <li>One asserted a navigation control deliberately deleted in September, and contradicted
-            its own preceding assertion. <strong>Removed.</strong></li>
-          <li>One counted an <code>h1</code> that is hidden at mobile width but still in the
-            document. The product is right; the assertion was breakpoint&#8209;naive.
-            <strong>Scoped to visible elements</strong> &mdash; and it now shows that the same
-            assertion needs a different answer at desktop width, where that heading is intended.</li>
-          <li><strong>The import test was the interesting one.</strong> It failed because the app
-            <em>worked</em>: the demo user had already saved that place from that same video, so the
-            product recognised the duplicate and deselected the candidate &mdash; leaving no Save
-            button for the spec to click. The screen it produced was correct; the test assumed a
-            first&#8209;ever import. <strong>Fixed by driving the fixture rather than assuming it</strong>
-            &mdash; which also covers the prior&#8209;save path no other spec reached, and runs in
-            13 seconds instead of spending two 90&#8209;second timeouts.</li>
+          <li><strong>A real bug, found by the suite.</strong> On desktop, double&#8209;clicking
+            <em>Add</em> started an import and then cancelled it &mdash; firing zero imports rather
+            than one. The guard was never at fault: <em>Cancel</em> renders within half a pixel of
+            where <em>Add</em> just was, so the second click of the pair pressed it. On a phone the
+            two sit 150&nbsp;px apart, which is why it never showed there. <em>Cancel</em> now
+            ignores a press within 500&nbsp;ms of the rail appearing.</li>
+          <li><strong>Three specs needed data that only existed on one machine.</strong> They passed
+            locally because the developer&rsquo;s database happened to hold a collection and a
+            cached extraction; the seed created neither, so in CI they had nothing to render. The
+            seed now provides both &mdash; which also means the import test spends no model call.</li>
+          <li><strong>Assertions that outlived their code.</strong> One waited on a navigation link
+            deleted in September and contradicted the expectation above it. One counted an
+            <code>h1</code> the design intends at desktop width. One inherited a 30&#8209;second
+            timeout that every sibling had already raised.</li>
+          <li><strong>And one lesson about what a test should key on.</strong> The import spec
+            failed four times on four different signals &mdash; a heading, a checkbox, a footer, a
+            button &mdash; each of which existed in one shape of the review screen and not another.
+            The screen legitimately differs between a first import and a re&#8209;import of a place
+            already saved from that video. A test has to key on the <em>state</em>, not on one of
+            its shapes.</li>
         </ul>
-        <p style="margin-top:10px">Being able to say <em>why</em> a test is red is the point of
-          having tests. A suite that is green because it asserts too little would be worth less.</p>
+        <p style="margin-top:10px">The suite now runs <strong>56 passed, 0 failed</strong> in CI.
+          Being able to say <em>why</em> a test was red is the point of having tests &mdash; a suite
+          that goes green by asserting less would be worth nothing.</p>
+      </div>
       </div>
     </div>
   </section>
