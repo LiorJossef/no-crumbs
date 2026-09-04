@@ -62,7 +62,7 @@ begin
   end if;
 end $$;
 
--- ── 1. RLS is enabled AND forced on all fifteen tables ──────────────────────────────────────
+-- ── 1. RLS is enabled AND forced on all sixteen tables ──────────────────────────────────────
 do $$
 declare v text;
 begin
@@ -75,15 +75,16 @@ begin
     raise exception 'FAIL 1: RLS not enabled+forced on: %', v;
   end if;
   -- 9 through 0009; 11 from 0010 (poi_regions, poi_index); 15 from 0024 (collections,
-  -- collection_members, collection_items, collection_invites). The count is asserted, not just the
-  -- flags: a table nobody designed is exactly the thing this check exists to notice.
+  -- collection_members, collection_items, collection_invites); 16 from 0027 (rate_limit_events).
+  -- The count is asserted, not just the flags: a table nobody designed is exactly the thing this
+  -- check exists to notice.
   if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public' and c.relkind = 'r') <> 15 then
-    raise exception 'FAIL 1: expected 15 tables in public, found %',
+       where n.nspname = 'public' and c.relkind = 'r') <> 16 then
+    raise exception 'FAIL 1: expected 16 tables in public, found %',
       (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r');
   end if;
-  raise notice 'PASS 1  fifteen tables, RLS enabled and forced on every one';
+  raise notice 'PASS 1  sixteen tables, RLS enabled and forced on every one';
 end $$;
 
 -- ── 2. the policy set is exactly the designed one, in both directions ───────────────────────
@@ -237,7 +238,10 @@ begin
        'place_is_in_my_collection(id)',''),
     ('profiles','profiles_select_collection_peers','SELECT','authenticated',
        'shares_a_collection_with(id)','')
-    -- place_lookups deliberately has no policy at all: deny-all server-side cache (R11)
+    -- place_lookups deliberately has no policy at all: deny-all server-side cache (R11).
+    -- rate_limit_events (0027) is the same posture for the same reason: a counter a client can
+    -- read is an oracle, and one it can write is not a counter. Reachable only through
+    -- import_rate_limit_check / import_usage_record, which are service_role-only definers.
   )
   select string_agg(msg, '; ' order by msg) into v from (
     select format('UNEXPECTED %s.%s', a.t, a.pol) msg from actual a
@@ -252,7 +256,7 @@ begin
      where a.cmd <> e.cmd or a.roles <> e.roles or a.q <> e.q or a.w <> e.w
   ) d;
   if v is not null then raise exception 'FAIL 2: policy drift: %', v; end if;
-  raise notice 'PASS 2  thirty-three policies, exact name/command/role/qual/with_check match (place_lookups, poi_regions and poi_index deliberately have none)';
+  raise notice 'PASS 2  thirty-three policies, exact name/command/role/qual/with_check match (place_lookups, poi_regions, poi_index and rate_limit_events deliberately have none)';
 end $$;
 
 -- ── 3. anon holds nothing at all (08 §5.1) ──────────────────────────────────────────────────
