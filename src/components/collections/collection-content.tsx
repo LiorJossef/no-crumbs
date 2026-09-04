@@ -1653,7 +1653,7 @@ function AddPlacesPanel({
           </h2>
         </div>
         <div className="mt-2">
-          <PlaceSearchField value={query} onChange={setQuery} label="Search your places" />
+          <PlaceSearchField value={query} onChange={setQuery} />
         </div>
       </div>
 

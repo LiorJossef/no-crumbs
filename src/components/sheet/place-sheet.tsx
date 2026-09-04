@@ -1898,6 +1898,19 @@ function RowMedia({
  * suppressed (`[&::-webkit-search-cancel-button]:hidden`) in favour of the button below: the native
  * one is a 12px grey glyph that fails a touch target on every phone, and it is invisible in dark
  * mode on WebKit. `Escape` clears too, which is what a keyboard user reaches for first.
+ *
+ * **The × is centred with `inset-y-0 my-auto`, never `top-1/2 -translate-y-1/2`.** Owner bug,
+ * 2026-09-04: *"you typed something and click the X, it slips away the first time and only the
+ * second time it works."* `buttonVariants` carries `active:not-aria-[haspopup]:translate-y-px`,
+ * and in Tailwind v4 both that and `-translate-y-1/2` write the same `--tw-translate-y`, so
+ * pressing the button replaced `-50%` with `1px` and the × fell by half its own height. Measured
+ * at 1280x900: `y` 242 at rest, 261.9 while held — 19px down, out from under the cursor, so
+ * `mouseup` landed on the input and no `click` ever fired on the button. Centring by margin does
+ * not use the transform, so the press beat can no longer move the target it is a beat for.
+ *
+ * `onMouseDown` preventing default is the other half of "one press clears": without it the press
+ * pulls focus out of the input, which on a phone closes the keyboard and re-lays out the sheet
+ * around the finger mid-tap. Focus stays in the field, so the user can keep typing after clearing.
  */
 export function PlaceSearchField({
   value,
@@ -1906,7 +1919,18 @@ export function PlaceSearchField({
   // What this field searches, used as both the visible placeholder and the accessible name so the
   // two can never disagree. A collection's own list passes its own wording; everywhere else the
   // library is what is being searched.
-  label = "Search your places",
+  //
+  // **It says three of the six fields, not one.** `Search your places` described a name search,
+  // and the field has matched the user's own note, tags, dishes, category and locality since
+  // `domain/places/search.ts` widened — owner, 2026-09-04: *"it's not that intuitive people can
+  // search notes and stuff."* `note` and `tag` are the ratified words for two of them
+  // (`voice-and-vocabulary.md` §3), and `city` is the third — `locality` is searchable and a city
+  // is what people type when they cannot remember a name. `tag` was in the list and came out on
+  // the owner's call (*"tags not that important"*): the field still matches them, and a placeholder
+  // is a hint about what to type rather than an index of the six fields. `category` and `dishes`
+  // are left out for the same reason. The possessive is dropped because `Search your places, …`
+  // reads as a list of things you own.
+  label = "Search places, cities and notes",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -1937,7 +1961,16 @@ export function PlaceSearchField({
         aria-label={label}
         placeholder={label}
         className={cn(
-          "h-12 rounded-lg pl-10 text-sm font-medium [&::-webkit-search-cancel-button]:hidden",
+          // `bg-card`, and the `dark:` copy of it only to drop `Input`'s own `dark:bg-input/30`
+          // in `cn`. Owner, 2026-09-04: *"we should have a background to the search"*, then
+          // *"the search place background should be white"*. `Input` ships `bg-transparent`, and
+          // the desktop panel's ground is white at 85% over the map — so the map was showing
+          // through the field and a 1px `--border` was the only thing saying a field was there.
+          // `--card` is white in light and `#201F1C` in dark, so "white" holds without a literal
+          // `bg-white` that would paint a white box on a dark screen. On the sheet, whose ground is
+          // also `--card`, the border is what separates them; on the panel the solid fill is what
+          // stops the map showing through.
+          "h-12 rounded-lg bg-card pl-10 text-sm font-medium dark:bg-card [&::-webkit-search-cancel-button]:hidden",
           filtering && "pr-12",
         )}
       />
@@ -1957,8 +1990,9 @@ export function PlaceSearchField({
           // is not in `overnight-copy-deck.md` yet, so inventing one would be putting words in the
           // product's mouth to fix an accessibility bug that the label alone fixes.
           aria-label="Clear the search field"
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => onChange("")}
-          className="absolute right-1.5 top-1/2 size-9 -translate-y-1/2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="absolute inset-y-0 right-1.5 my-auto size-9 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <X className="size-4" aria-hidden />
         </Button>
