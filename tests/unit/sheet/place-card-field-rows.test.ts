@@ -40,7 +40,7 @@ vi.mock('@/app/actions/collections', () => ({
 
 const { PlaceDetail } = await import('@/components/sheet/place-sheet');
 const { CollectionsContext } = await import('@/ui/place/collections-context');
-const { DETAIL_FIELD_ROW } = await import('@/components/sheet/saved-place-edits');
+const { DETAIL_FIELD_ROW, DETAIL_FIELD_OPEN } = await import('@/components/sheet/saved-place-edits');
 const { SECTION_LABEL } = await import('@/ui/place/section-label');
 
 import type { DetailPlace } from '@/components/sheet/place-sheet';
@@ -192,10 +192,19 @@ describe('the field row — one shape for every field of your own record (H-2)',
     expect(empty).not.toContain('border-dashed');
   });
 
-  it('keeps every row above the touch floor', () => {
-    // 48 px, and the spec's floor is 44. `min-h-12` is what makes a run of rows read as a list
-    // rather than as four things that happen to be near each other.
-    expect(DETAIL_FIELD_ROW).toContain('min-h-12');
+  it('sits on the product\'s one touch floor, and on no other number', () => {
+    // 44 px. It was 48 until 2026-09-04, and 48 was derived for a two-line row that
+    // `ux-card-and-share-2026-09-03.md` R4 deleted while keeping the number. What makes a run of
+    // these read as a list is that they are flush, borderless and share one inset — the card's
+    // nearby run and its extra-source run already prove that at 44, four blocks away.
+    //
+    // `min-h-12` is asserted absent rather than merely `min-h-11` present, because the failure
+    // this guards is a second target height re-appearing on the one card that had the product's
+    // only exception to the floor.
+    expect(DETAIL_FIELD_ROW).toContain('min-h-11');
+    expect(DETAIL_FIELD_ROW).not.toContain('min-h-12');
+    expect(DETAIL_FIELD_OPEN).toContain('min-h-11');
+    expect(DETAIL_FIELD_OPEN).not.toContain('min-h-12');
     expect(DETAIL_FIELD_ROW).not.toContain('border');
   });
 

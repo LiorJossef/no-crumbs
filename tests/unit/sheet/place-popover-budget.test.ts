@@ -27,16 +27,22 @@
  * 720 → 360. The old constant at 1366x768 put the card's top at **`y -22`**; this one puts it at
  * `y 10`. That second half is a defect nobody had filed.
  *
- * ## Why the still shrinks
+ * ## Why the still shrinks — and why it shrinks everywhere, not just here
  *
  * The recoverable *height* was ~32 px, not the ~210 px a viewport-reading of the cap suggests, so
  * height was never the lever — content was. The map-popover thumbnail landed two days before the
- * review and put 160 px, 38 % of a 416 px card, above every control on it. `compact` is the
- * ruling: the still keeps its position (a place saved from a video is recognised by its frame
- * faster than by its name) and gives up its size. Measured with 112 px and the new cap, `Been
- * here` is **fully on screen with the card unscrolled** on all three of the longest cards in this
- * database — `435 / 437 / 399` against a 448 px card, `0 / 5` hit points blocked, where before it
- * was `483 / 501 / 447` against 416 and `5 / 5`, `5 / 5`, `3 / 5` blocked.
+ * review and put 160 px, 38 % of a 416 px card, above every control on it. The still keeps its
+ * position (a place saved from a video is recognised by its frame faster than by its name) and
+ * gives up its size. Measured with 112 px and the new cap, `Been here` is **fully on screen with
+ * the card unscrolled** on all three of the longest cards in this database — `435 / 437 / 399`
+ * against a 448 px card, `0 / 5` hit points blocked, where before it was `483 / 501 / 447` against
+ * 416 and `5 / 5`, `5 / 5`, `3 / 5` blocked.
+ *
+ * That was a `compact` prop only the popover passed, because a phone "is scrolled by a thumb that
+ * already knows there is more below". **Measured 2026-09-04 across all 60 of the demo library's
+ * saved places, sheet at `half`, that was false**: at 160 px, 41 of 60 rows clipped `Been here` at
+ * 390x812 and the worst hid all 48 px of it. At 112 px, one row does. The prop is gone and 112 is
+ * every host's number.
  *
  * ## What this file cannot claim
  *
@@ -47,9 +53,16 @@
  *
  * The Server Action modules are mocked exactly as `place-media-band.test.ts` mocks them.
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
+const SOURCE = readFileSync(`${repoRoot}src/components/sheet/place-sheet.tsx`, 'utf8');
+const GLOBALS = readFileSync(`${repoRoot}src/app/globals.css`, 'utf8');
 
 vi.mock('@/app/_lib/supabase/server', () => ({ createClient: vi.fn() }));
 vi.mock('@/app/actions/saved-places', () => ({
@@ -157,22 +170,84 @@ describe('the popover says that it scrolls', () => {
   });
 });
 
-describe('the source still spends the budget it is given, and only in the popover', () => {
-  it('draws a 112 px band inside the popover', () => {
-    // 160 px was 38 % of a 416 px card, above every control on it, and it is what pushed `Been
-    // here` off the screen between round 3 and round 4. The picture stays first; it stops being
-    // this big.
-    expect(imageOf(detail({ variant: 'popover' }))).toContain('h-28');
-  });
-
-  it('keeps the 160 px band everywhere else', () => {
-    for (const variant of [undefined, 'panel', 'hosted']) {
-      const image = imageOf(detail(variant === undefined ? {} : { variant }));
-      expect(image).toContain('h-40');
-      expect(image).not.toContain('h-28');
+describe('the source still is 112 px in every host, not only in the popover', () => {
+  it('draws a 112 px band on all four variants', () => {
+    // 160 px was 38 % of a 416 px popover, above every control on it. It was `compact` — a
+    // popover-only prop — until 2026-09-04, on the reasoning that a sheet "is scrolled by a thumb
+    // that already knows there is more below". Measured across all 60 of the demo library's saved
+    // places at 390x812 with the sheet at `half`, that reasoning was wrong: **41 of 60 rows clipped
+    // `Been here`**, the worst hiding all 48 px of it. At 112 px one row still clips. So the band
+    // is one number with no host arm, and there is no `compact` prop to pass.
+    for (const props of [{}, { variant: 'popover' }, { variant: 'panel' }, { variant: 'hosted' }]) {
+      const image = imageOf(detail(props));
+      expect(image).toContain('h-28');
+      expect(image).not.toContain('h-40');
     }
   });
 
+  it('has no host arm left to pass', () => {
+    // The regression this guards is the prop coming back under another name for a fourth host.
+    // `compact` may still appear in prose above; it may not appear as a prop or a class arm.
+    expect(SOURCE).not.toMatch(/compact[=:?]/);
+    expect(SOURCE).not.toContain('h-40');
+  });
+});
+
+describe('the card is set in the product\'s own face, in every host', () => {
+  it('resets the popup\'s font-family, which MapLibre sets on the map container', () => {
+    // `maplibre-gl.css` line 1: `.maplibregl-map{font:12px/20px Helvetica Neue,Arial,...}`. The
+    // popup is a child of that container, so the whole `lg+` card inherited it. Measured at
+    // 1280x900 before this rule: 36 of 37 text nodes Helvetica Neue (only the `<h2>`, which
+    // carries `font-heading`); after: 38 of 38 Manrope.
+    //
+    // `font-sans`, not `font: inherit` — measured, inherit resolves to `.maplibregl-map`'s own
+    // Helvetica and changes nothing. That is the mistake this assertion exists to catch.
+    const rule = GLOBALS.slice(GLOBALS.indexOf('.maplibregl-popup-content'));
+    const body = rule.slice(0, rule.indexOf('}'));
+    expect(body).toContain('font-sans!');
+    expect(body).not.toContain('inherit');
+  });
+
+  it('leaves the map\'s own attribution alone', () => {
+    // The CARTO/OSM credit is a licence condition, not our typography. It is a sibling of the
+    // popup, not a child, so it keeps MapLibre's font — verified at 1280x900, still Helvetica
+    // Neue 12px after the rule above. The reset must stay scoped to `-popup-content`.
+    const popupRule = GLOBALS.slice(GLOBALS.indexOf('.maplibregl-popup-content {'));
+    expect(popupRule.slice(0, popupRule.indexOf('}'))).not.toContain('maplibregl-map');
+    expect(GLOBALS).not.toContain('.maplibregl-map {');
+  });
+});
+
+describe('one vertical vocabulary, with no host-conditional numbers in it', () => {
+  const BAND = 'mt-4 flex flex-col gap-3 border-t border-border/60 pt-4';
+
+  it('gives both bands the same 16 px step, with no popover arm', () => {
+    // This was `mt-5 pt-5` with an `isPopover && "mt-4 pt-4"` override — one rule carried by two
+    // hand-tuned numbers and no token, and the phone got the larger half. Band 2 and band 3 are
+    // the only two, so the count is the assertion: a third band, or one of these two drifting,
+    // both fail here.
+    expect(SOURCE.split(BAND).length - 1).toBe(2);
+    expect(SOURCE).not.toContain('mt-5 flex flex-col gap-3 border-t');
+    expect(SOURCE).not.toMatch(/isPopover && ['"]mt-4 pt-4/);
+  });
+
+  it('keeps the card column on the 4 px grid', () => {
+    // `pt-3.5` (14) was the card's only off-grid spacing value. Scoped to the detail column's own
+    // class string: the *list* header above uses `pt-3.5` for its own reasons and is not this card.
+    const column = SOURCE.slice(SOURCE.indexOf('flex min-h-0 flex-1 flex-col overflow-y-auto'));
+    expect(column.slice(0, 120)).toContain('pt-3');
+    expect(column.slice(0, 120)).not.toContain('pt-3.5');
+  });
+
+  it('sets the name at display leading, not body leading', () => {
+    // `text-2xl`'s own line-height is 32 px on 24 px type. `leading-tight` is 30 — 4 px on a
+    // one-line name, 9 on a two-line one, all of it above the fold.
+    const heading = SOURCE.slice(SOURCE.indexOf('break-words font-heading text-2xl'));
+    expect(heading.slice(0, 160)).toContain('leading-tight');
+  });
+});
+
+describe('the source still, and the referrer policy that rides on it', () => {
   it('keeps the referrer policy on every host', () => {
     // Not this task's subject, and exactly why it is asserted beside a change to the same element:
     // without it the browser tells TikTok's CDN which of our users asked for which signed URL.

@@ -1673,8 +1673,21 @@
     cursor: grabbing;
     }
 
+  /*
+   * The popup is the desktop map's *only* detail surface, and it was set in Helvetica Neue.
+   *
+   * `maplibre-gl.css` line 1 fonts the whole map container —
+   * `.maplibregl-map{font:12px/20px Helvetica Neue,Arial,Helvetica,sans-serif}` — and the popup
+   * is a child of it, so every text node inside `PlaceDetail variant="popover"` inherited a face
+   * the product does not own. Measured at 1280x900 before this rule: **36 Helvetica nodes against
+   * 1 Manrope** (only the `<h2>`, which carries `font-heading` explicitly).
+   *
+   * `font-sans`, not `font: inherit`: inherit resolves to `.maplibregl-map`'s Helvetica and
+   * changes nothing. Measured. The CARTO attribution is untouched — `.maplibregl-ctrl-attrib` is
+   * a sibling of the popup, not inside it, and its licence text stays where MapLibre put it.
+   */
   .maplibregl-popup-content {
-    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+    @apply bg-transparent! shadow-none! p-0! rounded-none! font-sans!;
     }
   .maplibregl-popup-tip {
     @apply hidden!;

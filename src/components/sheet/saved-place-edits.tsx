@@ -101,22 +101,32 @@ const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
  * underneath (`DisclosureChevron`). Empty is the *same row* with a muted value (`Not set`,
  * `Add a note`), never a different component, so filling a field never swaps the thing you pressed.
  *
- * `min-h-12` is 48 px, above the 44 px touch floor, because these rows stack flush against each
- * other and a run of them has to read as a list. **No border, no fill, no radius at rest** — the
- * radius and the tint arrive on hover and focus only. That is what lets four of them sit together
- * without the card turning into a form.
+ * `min-h-11` is 44 px — the product's one touch floor (`sheet-geometry.ts`, "not negotiable").
+ * **What makes a run of these read as a list is not their height**: it is that they are flush,
+ * borderless and share one inset, which the card's nearby run and its extra-source run already
+ * prove at 44. **No border, no fill, no radius at rest** — the radius and the tint arrive on hover
+ * and focus only. That is what lets four of them sit together without the card turning into a form.
+ *
+ * It was `min-h-12` (48) until 2026-09-04, and the number outlived its derivation:
+ * `ux-place-card-unification-2026-09-02.md` §4.2 derived 48 for a **two-line** row — an 11 px label
+ * stacked over a 14 px value with a 4 px gap — and `ux-card-and-share-2026-09-03.md` R4 then deleted
+ * that second line while keeping the number in a clause listing what does not change. The row is one
+ * centred 14 px line now, so 48 was pure padding and it was the only target height in the product
+ * that was not 44. This is a vocabulary change, not a spacing one: it buys **0 px above the fold**
+ * on all 60 of the demo library's rows, and anyone taking it for the fold has taken it for the wrong
+ * reason (`ux-interaction`, CARD-3 ruling 1).
  *
  * This deliberately replaces `ADD_NOTE_PILL`, deleted here. That constant existed so the private
  * note and the shared note would look like one object — a real goal it solved by inventing an
  * eighth shape. This solves it, and the category row, and the collection row, with one.
  */
 export const DETAIL_FIELD_ROW =
-  'flex min-h-12 w-full cursor-pointer items-center gap-2 rounded-lg px-1 text-start outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50';
+  'flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg px-1 text-start outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /** The same row with its editor open: same inset, same minimum height, still no border and no
  *  fill. An open field must not become a panel — that is how the shared note ended up looking like
  *  a different object from the private one. */
-export const DETAIL_FIELD_OPEN = 'flex min-h-12 w-full flex-col justify-center gap-1 px-1 py-1.5';
+export const DETAIL_FIELD_OPEN = 'flex min-h-11 w-full flex-col justify-center gap-1 px-1 py-1.5';
 
 /** The value line inside a field row. Muted when it is an offer, foreground when it is a value. */
 export const DETAIL_FIELD_VALUE = 'text-sm leading-snug';

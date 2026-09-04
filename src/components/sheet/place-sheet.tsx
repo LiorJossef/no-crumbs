@@ -2623,7 +2623,10 @@ export function PlaceDetail({
         } as CSSProperties
       }
       className={cn(
-        "mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-5 pt-3.5",
+        // `pt-3`, not `pt-3.5`: 14 px was the card's only value off the 4 px grid, and the step it
+        // names — sheet chrome to first content — is the same 12 px step every other group-to-group
+        // gap in band 1 already uses.
+        "mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-5 pt-3",
         // ## The popover's height is set by the *pin*, not by the viewport — measured, 2026-09-01
         //
         // `MapPopup` is a MapLibre `Popup` anchored to the selected place's lng/lat, and the map
@@ -2641,12 +2644,10 @@ export function PlaceDetail({
         // What this means for the height argument, and it is the part worth writing down: the
         // recoverable height here was ~30 px, never the ~210 px a viewport-based reading of the
         // cap suggests. **Height is not the lever on this surface — content and affordance are.**
-        // Hence the two changes beside this one: `w-80` rather than `w-72` (measured, a 288 px
-        // column wraps `Old North Espresso Bar` onto two lines and its tags onto two rows, a
-        // 170 px identity header against 114 px at 320 px) and a 112 px source still rather than
-        // 160 px (`compact`, below). Together those put `Been here` — the first control on the
-        // card — fully above the fold on all three of the longest saved places in this database,
-        // where before it was 5–85 px below it.
+        // Hence `w-80` rather than `w-72` (measured, a 288 px column wraps `Old North Espresso
+        // Bar` onto two lines and its tags onto two rows, a 170 px identity header against 114 px
+        // at 320 px). The 112 px source still that used to be the second half of this argument is
+        // no longer a popover-only measure — it is every host's, see `SourceMediaThumbnail`.
         //
         // `scroll-fade-b` is the sign that there is more, and it is the repo's own utility rather
         // than a gradient invented here (`library-filter-bar.tsx` uses `scroll-fade-x` for the
@@ -2695,9 +2696,6 @@ export function PlaceDetail({
           // The popover's shell supplies the gutter and the radius; every other host gives this
           // column a 20 px gutter of its own and wants a rounded block inside it.
           fullBleed={isPopover}
-          // …and the popover is also the one host whose height is decided by something other than
-          // the content — see the `max-h` argument on the column above.
-          compact={isPopover}
           playLabel={playSourceLabel}
           {...(onPlaySource ? { onPlay: onPlaySource } : {})}
           {...(sourcePlayer === undefined ? {} : { player: sourcePlayer })}
@@ -2735,7 +2733,13 @@ export function PlaceDetail({
                 // the *box* shrink, and an unbreakable word simply overflows whatever box it is
                 // given. A 288 px popover is the narrowest column this heading is ever drawn in,
                 // so it is where the defect surfaces first, not where it is unique.
-                "min-w-0 break-words font-heading text-2xl font-extrabold tracking-tight text-foreground",
+                // `leading-tight` (1.25) rather than `text-2xl`'s own 32 px: 32 px of leading on
+                // 24 px of display type is body leading applied to a heading, and it costs 4 px on
+                // a one-line name and 9 px on a two-line one — all of it above the fold, which is
+                // where the card had none to spare. Checked against Hebrew names at 390: the
+                // heading's own descenders and the `<bdi>`'s reordering are unaffected, leading
+                // clips a glyph only well below 1.
+                "min-w-0 break-words font-heading text-2xl leading-tight font-extrabold tracking-tight text-foreground",
                 isPopover && "text-lg",
               )}
             >
@@ -2883,14 +2887,21 @@ export function PlaceDetail({
                 Saved from {authorLabel}
               </p>
             )}
-            {/* **Two flex children, not three, and that is what makes the wrap deliberate.**
-                  Measured 2026-09-03: the primary is 124 px, the two links 72 and 93, so with
-                  `gap-x-3` the row wants 313 px. A 390 px phone gives this card 350 and it is one
-                  band; the `lg+` panel is `w-80` and gives 288, so it must wrap. Left as three
-                  peers it wrapped between the two links and dropped `Google Maps` alone onto a
-                  second line, which reads as an accident. Grouped, the break falls in the one
-                  place that means something — the primary on its own line, the two ways out
-                  together underneath. */}
+            {/* **Two flex children, not three, so that if the row ever wraps it wraps somewhere
+                  that means something.**
+
+                  Measured 2026-09-03: the primary is 124 px and the two links 72 and 93, so with
+                  `gap-x-3` the row wanted 313 px against the `lg+` popover's 288 and had to wrap.
+                  Left as three peers it broke between the two links and dropped `Google Maps`
+                  alone onto a second line, which reads as an accident; grouped, the break falls
+                  between the primary and the two ways out.
+
+                  **Those widths were measured in Helvetica Neue, and that is no longer the face.**
+                  MapLibre fonted the popup's container and `globals.css` did not reset it; it does
+                  now. Re-measured 2026-09-04 at 1280x900: the row fits on **one line** in the
+                  popover, and the card's `scrollHeight` fell 1148 → 998. So the grouping is not
+                  currently buying a wrap — it is insurance for a longer label or a narrower
+                  column, which is the reason to keep it rather than to unwind it. */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               {/* The primary leads the row. The one control the product wants the user to come
                     back and use — see `saved-place-edits.tsx`. `key` on the saved place's id so a
@@ -2957,14 +2968,15 @@ export function PlaceDetail({
         {/* **Band 2 — from the post**, and it disappears whole, hairline included, for a place
             added by hand. A rule with nothing under it is the floating fragment this change
             exists to remove. The rule is this band's own top border rather than a sibling
-            element, so 20 px above and 20 px below cannot drift apart (16 at the popover). */}
+            element, so 16 px above and 16 px below cannot drift apart.
+
+            **One band step, not one per host.** This was `mt-5 pt-5` with an `isPopover` arm
+            overriding it to `mt-4 pt-4` — one rule carried by two hand-tuned numbers and no token,
+            and the phone's 20 px was the larger half of the card's total height. 16 px is the
+            popover's number adopted everywhere: it is the same step as `gap-4` elsewhere, it costs
+            8 px per band and 16 px per card, and none of it is above the fold. */}
         {hasBand2 && (
-          <div
-            className={cn(
-              "mt-5 flex flex-col gap-3 border-t border-border/60 pt-5",
-              isPopover && "mt-4 pt-4",
-            )}
-          >
+          <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4">
             {/* What the creator actually wrote, as a quotation rather than as a labelled field.
                 A rule and a pair of quote marks say "someone else's words" faster than the kicker
                 reading FROM THE POST did, and they leave the model's own sentence below free to be
@@ -3092,20 +3104,16 @@ export function PlaceDetail({
         )}
 
         {/* **Band 3 — yours.** The fields you can edit, what is near it in your library, the two
-            record lines, and the way out. Same rule, same 20 px, same disappearing act: a place
+            record lines, and the way out. Same rule, same 16 px, same disappearing act: a place
             you have not saved, seen inside a collection, shows no band 3 at all. */}
         {hasBand3 && (
-          <div
-            className={cn(
-              "mt-5 flex flex-col gap-3 border-t border-border/60 pt-5",
-              isPopover && "mt-4 pt-4",
-            )}
-          >
+          <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4">
             {/* **The field rows, flush.** `Add to a collection`, `Category`, `Your note` and the
                 host's own fields are one shape (`DETAIL_FIELD_ROW`) and they stack with no gap and
-                no separator: a run of 48 px rows reads as a structured list, where 20 px between
-                each is what made them read as floating fragments. Nothing else in this column is
-                spaced at 0. */}
+                no separator: a flush, borderless run sharing one inset reads as a structured list,
+                where 20 px between each is what made them read as floating fragments. Nothing else
+                in this column is spaced at 0. (The rows are 44 px, the product's one touch floor,
+                since 2026-09-04 — the height was never what made the run a list.) */}
             {/* The panel channel wraps exactly the rows that can open one — nothing above this
                 list has a disclosure. `undefined` for every host that passed no `onPanelOpen`,
                 which is the current behaviour spelled out rather than a new default. */}
@@ -3304,17 +3312,26 @@ export function PlaceDetail({
  * that caps this column's height would reproduce it, and the picture is never the thing that should
  * give way.
  *
- * ## The band's height is a claim on a fixed budget, so the popover gets a smaller one
+ * ## The band's height is a claim on a fixed budget, and it is 112 px in every host
  *
- * Measured 2026-09-01 at 1440x900: this band is **160 px of a 416 px popover** — 38 % of the only
- * detail surface the desktop map has — and it sits above every control on the card. It landed two
- * days before that measurement and it is what pushed `Been here` from visible to 5–85 px below the
- * fold on the three longest cards in this database. That is the whole of the argument for
- * `compact`, and the argument was not *drop the picture*: a place saved from a video is recognised
- * by its still faster than by its name, so the still keeps its position at the top of the card and
- * gives up its size. 112 px is the largest band that leaves `Been here` above the fold on all
- * three (measured: 435 / 437 / 399 against a 448 px card). Nothing outside the popover changes —
- * a sheet and a hosted column are scrolled by a thumb that already knows there is more below.
+ * Measured 2026-09-01 at 1440x900: at 160 px this band was **38 % of a 416 px popover** — the only
+ * detail surface the desktop map has — and it sits above every control on the card. It pushed
+ * `Been here` from visible to 5–85 px below the fold on the three longest cards. The argument was
+ * never *drop the picture*: a place saved from a video is recognised by its still faster than by
+ * its name, so the still keeps its position at the top of the card and gives up its size. 112 px
+ * is the largest band that clears the fold (measured: 435 / 437 / 399 against a 448 px card).
+ *
+ * **This used to be a `compact` prop the popover alone passed, on the reasoning that "nothing
+ * outside the popover changes — a sheet and a hosted column are scrolled by a thumb that already
+ * knows there is more below". That reasoning was wrong and the measurement is what disproved it**
+ * (`ux-interaction` MORN-4, re-measured 2026-09-04 across all 60 of the demo library's saved
+ * places rather than a sample). At 160 px, with the sheet at `half` on a 390x812 phone,
+ * **41 of 60 rows clipped `Been here`** — the worst hid all 48 px of it, so the card's primary
+ * control was not on screen at all. At 112 px, **one** row still clips, by 23 px at 812 and 6 px
+ * at 844: `Kohi בית קפה יפני`, the library's only four-tag row, whose chips wrap to a second
+ * line. That tail is a content question (capping the tag list) and it is not answered here.
+ *
+ * So: one height, no prop, no host arm. The thumb does not save the phone, it just hides the miss.
  *
  * ## The seam for playback — a callback and a slot, and deliberately nothing else
  *
@@ -3337,7 +3354,6 @@ export function PlaceDetail({
 function SourceMediaThumbnail({
   thumb,
   fullBleed = false,
-  compact = false,
   visited = false,
   onPlay,
   playLabel,
@@ -3352,12 +3368,6 @@ function SourceMediaThumbnail({
    * gutter and the picture is a rounded block inside it.
    */
   fullBleed?: boolean;
-  /**
-   * A 112 px band rather than 160 px, for the one host whose total height is fixed by something
-   * other than its content. See the `## The band's height is a claim on a fixed budget` paragraph
-   * above for why the still shrinks rather than moves or goes.
-   */
-  compact?: boolean;
   /** See the seam paragraph above. Undefined ⇒ no glyph at all, not a disabled one. */
   onPlay?: () => void;
   /** The glyph's accessible name. Required alongside `onPlay` so no wording is invented here. */
@@ -3410,7 +3420,7 @@ function SourceMediaThumbnail({
               if (node?.complete === true && node.naturalWidth === 0)
                 onFailure();
             }}
-            className={cn("w-full object-cover", compact ? "h-28" : "h-40")}
+            className="h-28 w-full object-cover"
           />
           {onPlay !== undefined && playLabel !== undefined && (
             <button
