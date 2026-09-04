@@ -57,6 +57,32 @@
  * a 52 × 24 px marker still collides with Tel Aviv's pill until z7.9 — and it spends the label,
  * which is the only thing that makes the band a *named* geography.
  *
+ * ## What a grouped pill's tap means (2026-09-04)
+ *
+ * Absorption left the pill saying two different things. `תל אביב-יפו 13` counted a **group** while
+ * its tap carried the **absorber's** id alone, so the tap opened `6 matches in תל אביב-יפו` — "the
+ * pill said 13 and I got 6", the same confidently-wrong number as the pre-`bc7d1ea` bands, one
+ * gesture over. A pill is a count and a tap target, and those two were describing different sets.
+ *
+ * Three ways to make them one set, and the third is what shipped:
+ *
+ *  1. **Carry the absorbed ids and open all of them.** It needs a list scope that is a *set of
+ *     areas*, and that scope would be a **pixel accident**: the same city tapped at z5 and at z7
+ *     would produce different lists, and the scope also resolves `preferredAreaId`, `defaultScope`
+ *     and `initialBounds`. A layout artefact must not become navigation state.
+ *  2. **Show the absorber's own count and drop the absorbed one.** That is the collision index
+ *     again — 18 of 58 places invisible and uncounted — which is the defect this whole file exists
+ *     to end. Rejected outright.
+ *  3. **Stop the pill standing for several areas at all, by taking the user to a zoom where it does
+ *     not.** A tap on a grouped pill is an *expand*: the camera eases to `expandZoom`, the first
+ *     zoom at which this area is drawn on its own, and the group visibly separates into the pills
+ *     it was standing for — each of which then opens exactly what it counts. Nothing is uncounted,
+ *     no scope is invented, and the count and the tap finally answer one question: *these are the
+ *     13, here they are*.
+ *
+ * It is the ordinary cluster gesture, and it terminates: a group that never separates inside the
+ * band expands into the pin band, where every place is its own marker.
+ *
  * ## Why it costs no zoom listener
  *
  * The layout depends on zoom, and §2.1's whole design is that **MapLibre owns the swap**: no zoom
@@ -74,7 +100,7 @@
 
 import { SUMMARY_PILL, summaryPillFitAllowance } from './country-flag-image';
 import type { AreaFeatureCollection, AreaFeatureProperties } from './summary-features';
-import { AREA_BAND_MAX, AREA_BAND_MIN } from './zoom-bands';
+import { AREA_BAND_MAX, AREA_BAND_MIN, BAND_EDGE_GUARD, PIN_BAND_MIN } from './zoom-bands';
 
 /**
  * The zoom each step is computed at, and the range it is drawn over: `[floor, next floor)`, the
@@ -123,8 +149,28 @@ export interface AreaBandFeatureProperties extends AreaFeatureProperties {
   /** Which of `AREA_BAND_STEPS` this variant is drawn in. */
   readonly step: number;
   /** How many areas this pill stands for — 1 for an area drawn as itself. Not rendered today; it
-   *  is what a "there is more inside" treatment would read, and what the tests assert against. */
+   *  is what a "there is more inside" treatment would read, what the tests assert against, and —
+   *  since 2026-09-04 — **what decides which of the two things a tap on this pill means**. */
   readonly groupSize: number;
+  /**
+   * **The zoom a tap on this pill goes to when it stands for more than one area**, and `null` when
+   * it stands for itself.
+   *
+   * The first zoom at which this pill stops speaking for anybody else: the floor of the earliest
+   * later step where this same area is laid out with `groupSize === 1`, or, for a group that never
+   * separates inside the band, a hair into the pin band (`PIN_BAND_MIN + BAND_EDGE_GUARD` — the
+   * one place a camera is allowed to read a band boundary from, and clear of the rounding window
+   * `settleZoom` documents). Pins are the ultimate separation: every place is its own marker there,
+   * so the expansion always terminates.
+   *
+   * The camera keeps the tapped pill in the centre rather than framing a group bounding box, and
+   * the measurement that makes that sound is the real library's worst case: the ten-area Sharon
+   * group Tel Aviv carries at z4.5 never separates inside the band, so it expands to 8.65, where a
+   * 390 px-wide phone shows about 63 km across and 165 km down and the group spans 14 km by 34 km.
+   * It arrives whole. A future library that breaks that would want the bounding box, and the
+   * absorbed features are what it would be built from.
+   */
+  readonly expandZoom: number | null;
 }
 
 export type AreaBandFeatureCollection = GeoJSON.FeatureCollection<
@@ -236,13 +282,15 @@ function layoutStep(
  * The absorbing pill keeps **its own coordinate and its own label**, never the group's weighted
  * mean: a pill reading `תל אביב-יפו` belongs over Tel Aviv, and a marker that drifts toward the
  * places it has absorbed is the same lie the displacement design was rejected for. What it does
- * carry is the whole group's count, and the group's id is the absorber's id — so tapping it frames
- * the area it names, exactly as before.
+ * carry is the whole group's count — and, since 2026-09-04, the zoom that takes the user to the
+ * places that count is about. The id stays the absorber's, and it is only read where the pill
+ * stands for one area; see the header for why a grouped pill no longer opens it.
  */
 export function layoutAreaBand(areas: AreaFeatureCollection): AreaBandFeatureCollection {
+  const steps = AREA_BAND_STEPS.map((step) => layoutStep(areas.features, step.minzoom));
   const features: GeoJSON.Feature<GeoJSON.Point, AreaBandFeatureProperties>[] = [];
-  AREA_BAND_STEPS.forEach((step, index) => {
-    for (const candidate of layoutStep(areas.features, step.minzoom)) {
+  steps.forEach((placed, index) => {
+    for (const candidate of placed) {
       features.push({
         type: 'Feature',
         geometry: candidate.feature.geometry,
@@ -251,9 +299,28 @@ export function layoutAreaBand(areas: AreaFeatureCollection): AreaBandFeatureCol
           count: candidate.count,
           step: index,
           groupSize: candidate.groupSize,
+          expandZoom:
+            candidate.groupSize > 1
+              ? expandZoomFor(candidate.feature.properties.id, index, steps)
+              : null,
         },
       });
     }
   });
   return { type: 'FeatureCollection', features };
+}
+
+/** See `AreaBandFeatureProperties.expandZoom`. Reads the layouts that were computed for the finer
+ *  steps rather than re-deriving a separation zoom, so the zoom a tap goes to is by construction a
+ *  zoom at which this layout draws the area on its own. */
+function expandZoomFor(id: string, step: number, steps: readonly Candidate[][]): number {
+  for (let later = step + 1; later < steps.length; later += 1) {
+    const drawn = (steps[later] as Candidate[]).find(
+      (candidate) => candidate.feature.properties.id === id,
+    );
+    if (drawn && drawn.groupSize === 1) {
+      return (AREA_BAND_STEPS[later] as { minzoom: number }).minzoom;
+    }
+  }
+  return PIN_BAND_MIN + BAND_EDGE_GUARD;
 }
