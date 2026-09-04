@@ -355,7 +355,7 @@ export function ProfileMenu({
               <h2 id="menu-appearance" className={cn('px-2', SECTION_LABEL)}>
                 {COPY.appearance}
               </h2>
-              <ThemeChoice labelledBy="menu-appearance" captionVisible={false} />
+              <ThemeChoice labelledBy="menu-appearance" />
             </section>
 
             <div className="mt-3 border-t border-border/60 pt-3">
@@ -363,12 +363,19 @@ export function ProfileMenu({
                   none. Not `destructive` — it destroys nothing, and this product reserves that role
                   for the controls that do. */}
               <form action={signOut}>
-                {/* Not `w-full`. The popup grows upward from the bar, so its bottom edge is the
-                    closest thing to the thumb — and a full-width bar there made the easiest target
-                    in a menu people open to reach `Account settings` the one press that ends the
-                    session. It keeps its position, its hairline and its 44 px of height; what it
-                    gives up is 250 px of width it was never using. */}
-                <Button type="submit" variant="ghost" className="h-11 justify-start px-2 -ms-2 text-sm">
+                {/* **`w-full`, owner 2026-09-04**, reversing the mis-tap argument this comment
+                    used to make. That argument was about the phone, where the popup grows upward
+                    from the bar and its bottom edge is nearest the thumb. What the owner was
+                    looking at is the desktop menu, which grows *downward* from the account chip —
+                    and there the narrow button was visibly wrong: `Your library` and `Account
+                    settings` span the card, so a hover ground that stops after the label draws a
+                    box misaligned with every row above it. The row is the unit here, and this is a
+                    row. `justify-start` keeps the label on the column's line. */}
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  className="h-11 w-full justify-start px-2 -ms-2 text-sm"
+                >
                   <LogOut className="size-4" aria-hidden />
                   {COPY.signOut}
                 </Button>

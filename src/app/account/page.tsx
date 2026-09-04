@@ -150,12 +150,14 @@ export default async function AccountPage() {
             they cost. The only bordered boxes on the page are the two name cards above, which is
             the distinction being drawn.
 
-            **The class string is character-for-character the account menu's.** The two sign-outs
-            were an `h-8` `-ms-2.5` button here and an `h-11 w-full` one there — different size,
-            different padding, one full width — for the single most consequential press on either
-            surface. `h-11` is the 44 px floor every target in this product is built to; `-ms-2`
-            cancels the `px-2` so the label starts on the same line as everything else in the
-            column, including the delete row under it, which has no padding of its own.
+            **The class string is character-for-character the account menu's**, and that is the
+            point of it: the single most consequential press on either surface should not be two
+            different controls. It went full width on 2026-09-04 with the menu's, on the owner's
+            call — a `ghost` button's ground only appears under the pointer, and one that stopped
+            after its label drew a box narrower than every row above it. `h-11` is the 44 px floor
+            every target in this product is built to; `-ms-2` cancels the `px-2` so the label starts
+            on the same line as everything else in the column, including the delete row under it,
+            which has no padding of its own.
 
             Still a plain `<form>` posting to the server action: this is the one control on the page
             that has to work with JavaScript off. */}
@@ -167,7 +169,11 @@ export default async function AccountPage() {
             under the fields, one separating the two exits. */}
         <section aria-label="Your account" className="mt-6">
           <form action={signOut}>
-            <Button type="submit" variant="ghost" className="h-11 justify-start px-2 -ms-2 text-sm">
+            <Button
+              type="submit"
+              variant="ghost"
+              className="h-11 w-full justify-start px-2 -ms-2 text-sm"
+            >
               <LogOut className="size-4" aria-hidden />
               Sign out
             </Button>

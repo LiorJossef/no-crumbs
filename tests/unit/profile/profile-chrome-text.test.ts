@@ -62,14 +62,17 @@ describe('the account menu', () => {
     expect(body(MENU)).not.toContain('{data.joined}');
   });
 
-  it('draws the `Appearance` kicker and hides the caption instead', () => {
-    // Reversed on 2026-09-03, round 4 §4.3. The kicker was `sr-only`, so a sighted user met a
-    // bordered three-segment track between two link rows with nothing naming it, under a caption
-    // (`Follows your device.`) that was a sentence with no subject. One 11 px muted line costs far
-    // less than three unlabelled controls. The caption stays in the accessibility tree —
-    // `aria-describedby` points at it — via the one prop this pass added anywhere.
+  it('draws the `Appearance` kicker AND the caption', () => {
+    // Two reversals, and they do not cancel. 2026-09-03 made the kicker visible, because three
+    // unlabelled segments between two link rows named nothing. It also hid the caption, on the
+    // argument that a kicker plus a caption is two lines of chrome — and the owner asked for the
+    // caption back on 2026-09-04: `Follows your device.` is the line that says what `System`
+    // means, and the kicker names the group without answering that. So both are drawn, and
+    // `ThemeChoice` has one appearance on every surface again — the `captionVisible` prop that
+    // existed only for this call site is gone rather than left dead.
     expect(MENU).toContain('<h2 id="menu-appearance"');
-    expect(MENU).toContain('<ThemeChoice labelledBy="menu-appearance" captionVisible={false} />');
+    expect(MENU).toContain('<ThemeChoice labelledBy="menu-appearance" />');
+    expect(MENU).not.toContain('captionVisible');
     expect(MENU).not.toContain('visuallyHidden');
   });
 
@@ -98,8 +101,8 @@ describe('the account settings page', () => {
 
   it('keeps `Appearance` drawn on the page, where it separates two real sections', () => {
     expect(SETTINGS).toContain('<h2 id="appearance" className={SECTION_LABEL}>');
-    // The page keeps its caption: it has the room, and `captionVisible` defaults to `true` so the
-    // call site says nothing. Only the menu passes `false`.
+    // Both surfaces keep the caption, and neither call site says anything about it: there is one
+    // `ThemeChoice` and it looks the same wherever it is drawn.
     expect(SETTINGS).toContain('<ThemeChoice labelledBy="appearance" />');
   });
 });
@@ -417,15 +420,22 @@ describe('the density of `Account settings`', () => {
     // directly on a `text-xs` muted disclosure row — two controls doing the same kind of job in two
     // visual vocabularies, the louder one at the bottom of a settings page. These are exits rather
     // than the page's work; the only bordered boxes on it are the two name cards.
-    // **One sign-out, character for character.** It was `h-8 -ms-2.5` here and
-    // `h-11 w-full justify-start px-2` in the account menu — different size, different padding, one
-    // full width — for the single most consequential press on either surface. `h-11` is the 44 px
-    // floor; not `w-full`, because the popup grows upward from the bar and a full-width bar at its
-    // bottom edge is the easiest target in a menu people open to reach `Account settings`.
-    const SIGN_OUT = '<Button type="submit" variant="ghost" className="h-11 justify-start px-2 -ms-2 text-sm">';
+    // **One sign-out, character for character** — that is the invariant this guards, and the
+    // string it holds them to changed on 2026-09-04. It was `h-8 -ms-2.5` here and
+    // `h-11 w-full justify-start px-2` in the account menu — different size, different padding,
+    // one full width — for the single most consequential press on either surface.
+    //
+    // `w-full` came back on the owner's call. The mis-tap argument it replaces was about the phone,
+    // where the popup grows upward from the bar; the desktop menu grows downward from the account
+    // chip, and there a `ghost` ground that stopped after the label drew a box narrower than the
+    // two link rows above it. `h-11` is still the 44 px floor, and `justify-start` still puts the
+    // label on the column's line.
+    const SIGN_OUT =
+      'className="h-11 w-full justify-start px-2 -ms-2 text-sm"';
     expect(SETTINGS).toContain(SIGN_OUT);
     expect(MENU).toContain(SIGN_OUT);
-    expect(MENU).not.toContain('w-full justify-start');
+    expect(SETTINGS).toContain('variant="ghost"');
+    expect(MENU).toContain('variant="ghost"');
     expect(SETTINGS).not.toContain('variant="outline"');
     expect(SETTINGS).not.toContain('h-12 w-full text-base');
     // Still a plain form posting to the server action: the one control here that has to work with

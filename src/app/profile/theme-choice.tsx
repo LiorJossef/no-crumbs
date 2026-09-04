@@ -115,22 +115,7 @@ function useHydrated(): boolean {
  * copy of its type, and this island holds only the part that genuinely needs a browser. `labelledBy`
  * is that heading's id; the caller owns it because the caller owns the element.
  */
-export function ThemeChoice({
-  labelledBy,
-  captionVisible = true,
-}: {
-  labelledBy: string;
-  /**
-   * Whether the caption under the track is drawn.
-   *
-   * `false` renders it `sr-only` rather than dropping it: `aria-describedby` points at this element
-   * and a description that resolves to nothing is worse than no description. The account menu is
-   * the one surface that passes `false` — it gained a visible `Appearance` kicker, and a kicker
-   * plus a caption is two lines of chrome around three segments in a card that is already ten rows
-   * tall. `/account` has room for both and keeps them.
-   */
-  captionVisible?: boolean;
-}) {
+export function ThemeChoice({ labelledBy }: { labelledBy: string }) {
   const captionId = useId();
   const { preference, setPreference } = useTheme();
   const hydrated = useHydrated();
@@ -202,11 +187,7 @@ export function ThemeChoice({
           caption would otherwise state `Follows your device.` at a user who chose dark. */}
       <p
         id={captionId}
-        className={
-          captionVisible
-            ? cn('mt-2 text-xs text-muted-foreground', hydrated ? undefined : 'invisible')
-            : 'sr-only'
-        }
+        className={cn('mt-2 text-xs text-muted-foreground', hydrated ? undefined : 'invisible')}
       >
         {CHOICES[preference].caption}
       </p>
