@@ -136,6 +136,7 @@ import {
   type SentenceApplication,
 } from '@/components/sheet/sentence-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
+import { filterByArea, type SentenceArea } from '@/domain/search/locality-match';
 import {
   matchingBoundsInCountry,
   summariesForMatches,
@@ -150,6 +151,7 @@ import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/plac
 import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
 import { buildAreas, mapAccessibleName } from '@/ui/place/active-area';
 import {
+  GLOBAL_SCOPE,
   activeCountryKey as ringedCountryKeyFor,
   defaultScope,
   resolveScopeOrFallback,
@@ -523,8 +525,18 @@ export function MapPageClient({
    *  4. Tapping an `Elsewhere` row — or the map's own area marker, which is the same gesture — flies
    *     to that area, and sets an **area** scope by hand. It frames the places the filters left, and
    *     since 2026-09-04 the marker itself is drawn only where there are some — see `summaries`.
+   *     **It gained a second trigger the same day**: applying a sentence whose keyword resolved to
+   *     one of the user's own areas is this mover, with this mover's pair of writes — the flight
+   *     and the scope — issued from `applySentence` (`nls-plan.md` §5.2). A resolved area that
+   *     spans more than one of `areas` sets `GLOBAL_SCOPE` instead of picking one, and `Undo`
+   *     flies back in the same transaction. The list is still **nine** movers: a sentence does not
+   *     move the camera in a way none of these describe, it pulls this one.
    *  5. Tapping a country marker frames the places the filters left in that country, clamped inside
-   *     the area band, and sets a **country** scope. See `focusCountry`.
+   *     the area band, and sets a **country** scope. See `focusCountry`. **§5.2 also promises this
+   *     one a sentence trigger and it does not have one yet**: Stage 2's first slice resolves
+   *     cities against the user's own localities and nothing else, so an intent still carries no
+   *     country. Said here rather than left as a silence, because a list of who may move the
+   *     camera is only worth having if what is *not* on it is true too.
    *  6. Selecting a place raises the sheet to `half`, so the camera offsets itself by the fraction
    *     of the viewport the sheet is about to cover — otherwise the pin just tapped comes to rest
    *     behind it. It lives in the surface (`map-surface.mapcn.tsx`, `selectedOcclusionFraction`)
@@ -586,6 +598,23 @@ export function MapPageClient({
    *  reason the other three are: it narrows the **pins** as well as the rows, and a list of four
    *  cafés over a map of thirty-one everything is worse than no filter at all. */
   const [activeCategory, setActiveCategory] = useState<ProductCategory | null>(null);
+
+  /**
+   * **The fifth filter: one of the user's own areas, resolved from a sentence** (`nls-plan.md` §5).
+   *
+   * Written by `applySentence` and by nothing else — there is no control that sets it directly,
+   * because the only thing that knows a keyword was a place name is the sentence panel's clamp.
+   * Every route that clears a filter clears this one too (`clearAreaFilter`), and that is not
+   * tidiness: an area has no chip of its own in the filter row, so a copy of it left behind by a
+   * route that cleared the others would be a narrowing with no visible cause and no way out.
+   *
+   * **A filter and not a scope, deliberately.** The scope narrows the list only; the pins ignore
+   * it, and the preview count the panel showed is the library narrowed by every filter and no
+   * scope. Expressing the area as a scope would have made that count describe neither surface,
+   * which is exactly the mismatch §4.3 calls the feature lying. It sets a scope *as well*, below,
+   * for the same reason mover 4 does — but the narrowing is here.
+   */
+  const [areaFilter, setAreaFilter] = useState<SentenceArea | null>(null);
 
   /** Every cluster in the library. Keyed on `places`, so an import re-clusters once rather than on
    *  every render. */
@@ -746,10 +775,15 @@ export function MapPageClient({
    *  listed at once and there is no single one for `Elsewhere` to subtract. */
   const activeAreaId = scopeAreaId(listScope);
 
+  /** **The first pass**: the library narrowed to a resolved area, or untouched when there is none.
+   *  First rather than anywhere else only so the five passes read in one order everywhere they are
+   *  written — they compose as AND, so the order cannot change the result. */
+  const areaMatches = useMemo(() => filterByArea(places, areaFilter), [places, areaFilter]);
+
   /** The library narrowed by the active tag chip, before the search box sees it. Its own `useMemo`
    *  rather than one fused expression so that typing does not re-run the tag pass and tapping a
    *  chip does not re-run it per keystroke. */
-  const tagMatches = useMemo(() => filterByTag(places, activeTags), [places, activeTags]);
+  const tagMatches = useMemo(() => filterByTag(areaMatches, activeTags), [areaMatches, activeTags]);
 
   /** The tag-narrowed library, narrowed again to what is still outstanding. Before the search box
    *  and after the chip purely so each pass memoises on its own input; the three compose as AND and
@@ -827,17 +861,27 @@ export function MapPageClient({
    * what puts `Filtered from what you typed.` on screen, so the notice and the ability to undo it
    * can never disagree.
    *
-   * **The camera is not in here, and Stage 1 is why.** The intent shape carries no city and no
-   * country, so applying a sentence moves nothing — `map-page-client.tsx`'s own rule is that
-   * typing is not a camera mover, and there is no geography here for one to frame. Stage 2 adds
-   * movers 4 and 5 on apply and amends the enumeration in the same commit (§5.2).
+   * **The camera is in here now, and only as a flag.** Stage 2's first slice landed on 2026-09-04:
+   * a sentence whose keyword resolved to one of the user's own areas pulls camera mover 4 on
+   * apply, so `Undo` has to put the camera back as part of the same transaction (§5.2). What is
+   * stored is `movedCamera` and not a viewport — an undo that flew to a *remembered rectangle*
+   * would be a tenth mover and would fight the eight ways the camera legitimately moved in
+   * between. Undo re-frames what the **restored** filters leave, which is where the user was
+   * looking, computed rather than remembered.
+   *
+   * A sentence with no area still moves nothing: narrowing must never navigate, and typing is
+   * still not a camera mover.
    */
   const [sentenceUndo, setSentenceUndo] = useState<{
     readonly query: string;
     readonly activeTags: readonly string[];
     readonly visitFilter: VisitFilter;
     readonly activeCategory: ProductCategory | null;
+    readonly areaFilter: SentenceArea | null;
     readonly scope: ListScope | null;
+    /** Whether applying this sentence flew the camera. Undo only flies back if it did — an undo
+     *  that moves a camera the apply never moved is a mover nobody asked for. */
+    readonly movedCamera: boolean;
     /** What the sentence wrote, kept beside what it replaced. `SentenceApplied` compares this to
      *  the live cells and withdraws itself the moment they differ — see `currentApplication`. */
     readonly applied: SentenceApplication;
@@ -857,39 +901,133 @@ export function MapPageClient({
    * never sees its own write, because it clears the snapshot in the same handler.
    */
   const currentApplication = useMemo<SentenceApplication>(
-    () => ({ category: activeCategory, tags: activeTags, visit: visitFilter, query }),
-    [activeCategory, activeTags, visitFilter, query],
+    () => ({
+      category: activeCategory,
+      tags: activeTags,
+      visit: visitFilter,
+      query,
+      area: areaFilter,
+    }),
+    [activeCategory, activeTags, visitFilter, query, areaFilter],
   );
 
   /** Stable, because `SentenceApplied` calls it from an effect keyed on it — an inline arrow would
    *  re-run that effect every render. */
   const forgetSentenceUndo = useCallback(() => setSentenceUndo(null), []);
 
-  /** Writes the four cells the panel interpreted into, having first recorded what was there. The
-   *  panel closes itself; the page's existing results live region announces the new count, which
-   *  is why nothing here announces anything. */
+  /**
+   * **The five passes the panel previewed, run here on the values it is handing over.**
+   *
+   * Not an optimisation and not a second opinion: it is the only way to know *which* rows the
+   * apply will leave before React has committed the cells, and both the camera and the scope below
+   * need that set rather than its size. It is the same five functions in the same order as the
+   * chain above and as `previewCount`, so its **length is the number the panel just showed** —
+   * §4.3's identity, which `tests/unit/sheet/sentence-panel.test.ts` and
+   * `tests/unit/map/sentence-apply-matches-preview.test.ts` both pin.
+   */
+  const matchesAfter = useCallback(
+    (application: SentenceApplication): readonly MapPlace[] => {
+      const byArea = filterByArea(places, application.area);
+      const byTag = filterByTag(byArea, application.tags);
+      const byVisit = filterByVisit(byTag, application.visit);
+      const byCategory = filterByCategory(byVisit, application.category, (place) => place.category);
+      return filterPlaces(byCategory, application.query);
+    },
+    [places],
+  );
+
+  /**
+   * Writes the five cells the panel interpreted into, having first recorded what was there.
+   *
+   * The panel closes itself; the page's existing results live region announces the new count,
+   * which is why nothing here announces anything.
+   *
+   * **Camera mover 4, on its second trigger** (`nls-plan.md` §5.2). A sentence that resolved to one
+   * of the user's own areas flies there and takes the list's scope with it, which is mover 4's own
+   * pair of writes — see the enumeration above. It frames the places the *new* filters leave,
+   * never the area's whole membership, for the reason `selectArea` records: the surface resolves
+   * the ids it is handed against its own `places` prop, which is the filtered set, and a request
+   * naming rows that do not survive the filter is silently declined.
+   *
+   * **The scope write is what stops the list disagreeing with the count**. Without it a user
+   * scoped to Tel Aviv who searches for London cafés gets pins in London and a list with nothing
+   * in it. `GLOBAL_SCOPE` is the answer when the resolved area spans more than one of the page's
+   * areas — two Londons, or a city either side of the join radius — because any single area scope
+   * would then hide rows the preview counted.
+   *
+   * A sentence with **no** area moves nothing and touches no scope: there is no geography in it to
+   * frame, and `map-page-client.tsx`'s rule that narrowing must never navigate is unchanged.
+   */
   const applySentence = useCallback(
     (application: SentenceApplication) => {
-      setSentenceUndo({ query, activeTags, visitFilter, activeCategory, scope, applied: application });
+      const applied = matchesAfter(application);
+      const appliedIds = applied.map((place) => place.id);
+      const holding = application.area === null
+        ? []
+        : areas.filter((candidate) => appliedIds.some((id) => candidate.memberIds.has(id)));
+      const movedCamera = application.area !== null && appliedIds.length > 0;
+
+      setSentenceUndo({
+        query,
+        activeTags,
+        visitFilter,
+        activeCategory,
+        areaFilter,
+        scope,
+        applied: application,
+        movedCamera,
+      });
       setQuery(application.query);
       setActiveTags(application.tags);
       setVisitFilter(application.visit);
       setActiveCategory(application.category);
+      setAreaFilter(application.area);
+
+      if (!movedCamera) return;
+      const only = holding.length === 1 ? holding[0] : undefined;
+      setScope(only === undefined ? GLOBAL_SCOPE : scopeForAreaTap(only.id));
+      selectId(null);
+      camera.framePlaces(appliedIds);
     },
-    [query, activeTags, visitFilter, activeCategory, scope],
+    [
+      matchesAfter,
+      areas,
+      query,
+      activeTags,
+      visitFilter,
+      activeCategory,
+      areaFilter,
+      scope,
+      camera,
+      selectId,
+    ],
   );
 
-  /** Back to exactly what was there. Five writes in one event handler, so React commits them as
-   *  one render — the transaction, not five steps a user can watch happen. */
+  /** Back to exactly what was there. The writes happen in one event handler, so React commits them
+   *  as one render — the transaction, not six steps a user can watch happen — and the camera goes
+   *  back with them when the apply moved it (§5.2: *"Undo restores it in the same transaction as
+   *  the filters"*). It frames what the **restored** filters leave, for the same reason the apply
+   *  frames what the new ones leave. */
   const undoSentence = useCallback(() => {
     if (sentenceUndo === null) return;
     setQuery(sentenceUndo.query);
     setActiveTags(sentenceUndo.activeTags);
     setVisitFilter(sentenceUndo.visitFilter);
     setActiveCategory(sentenceUndo.activeCategory);
+    setAreaFilter(sentenceUndo.areaFilter);
     setScope(sentenceUndo.scope);
+    if (sentenceUndo.movedCamera) {
+      const back = matchesAfter({
+        category: sentenceUndo.activeCategory,
+        tags: sentenceUndo.activeTags,
+        visit: sentenceUndo.visitFilter,
+        query: sentenceUndo.query,
+        area: sentenceUndo.areaFilter,
+      }).map((place) => place.id);
+      if (back.length > 0) camera.framePlaces(back);
+    }
     setSentenceUndo(null);
-  }, [sentenceUndo]);
+  }, [sentenceUndo, matchesAfter, camera]);
 
   /** The same set, as ids — read by the `Elsewhere` counts and by the camera, which must frame what
    *  the filter left rather than what the area holds. */
@@ -1417,6 +1555,23 @@ export function MapPageClient({
   );
 
   /**
+   * **Drop the resolved area, and every route that clears a filter calls it.**
+   *
+   * The area has no chip of its own in the filter row — `library-filter-bar.tsx`'s grammar is one
+   * trigger per axis and this axis has no control to press — so it is only ever *visible* through
+   * the applied notice above the row. That notice withdraws the moment the cells stop holding what
+   * the sentence wrote (`sentenceStillApplied`). An area that survived a route which cleared the
+   * others would therefore be a narrowing with no cause on screen and no way out of it: a worse
+   * version of the bug the notice's own staleness rule was written to fix, one cell over.
+   *
+   * So the rule is the blunt one, and it is a deliberate trade: **tapping a tag chip drops the
+   * area you searched for.** Composing them instead — keeping `תל אביב-יפו` while you add
+   * `Bakery` — is the better product, and it needs the area to have a visible chip of its own
+   * first. That belongs to the filter row, not here.
+   */
+  const clearAreaFilter = useCallback(() => setAreaFilter(null), []);
+
+  /**
    * A tag tap, from a chip in a place's detail or a row in the filter panel's list. An active tag
    * comes off, any other goes on — one tap either way, and **several may be on at once**
    * (owner, 2026-09-02), composing as AND downstream.
@@ -1434,30 +1589,58 @@ export function MapPageClient({
           ? current.filter((active) => !isSameTag(active, tag))
           : [...current, tag],
       );
+      clearAreaFilter();
       selectId(null);
     },
-    [selectId],
+    [clearAreaFilter, selectId],
   );
 
   const clearTag = useCallback(
-    (tag: string) =>
-      setActiveTags((current) => current.filter((active) => !isSameTag(active, tag))),
-    [],
+    (tag: string) => {
+      setActiveTags((current) => current.filter((active) => !isSameTag(active, tag)));
+      clearAreaFilter();
+    },
+    [clearAreaFilter],
   );
-  const clearTags = useCallback(() => setActiveTags([]), []);
+  const clearTags = useCallback(() => {
+    setActiveTags([]);
+    clearAreaFilter();
+  }, [clearAreaFilter]);
 
   /** A category chip. Pressing the pressed one clears, pressing any other replaces — the same one
    *  tap either way the tag chips give, so the product does not hold two state models for one
    *  gesture. It does **not** deselect: unlike a tag chip, this control is in the list itself, so
    *  the answer to what was just asked is already the thing on screen. */
-  const toggleCategoryFilter = useCallback((category: ProductCategory) => {
-    setActiveCategory((current) => toggleCategory(current, category));
-  }, []);
+  const toggleCategoryFilter = useCallback(
+    (category: ProductCategory) => {
+      setActiveCategory((current) => toggleCategory(current, category));
+      clearAreaFilter();
+    },
+    [clearAreaFilter],
+  );
 
   /** The visit narrowing — `all`, `not-been` or `been`. Unlike a tag chip this does **not**
    *  deselect: the control lives in the list's own header rather than inside a place's detail, so
    *  there is no open place standing between the user and the answer they just asked for. */
-  const chooseVisitFilter = useCallback((filter: VisitFilter) => setVisitFilter(filter), []);
+  const chooseVisitFilter = useCallback(
+    (filter: VisitFilter) => {
+      setVisitFilter(filter);
+      clearAreaFilter();
+    },
+    [clearAreaFilter],
+  );
+
+  /** The search field, and every escape that clears it — the empty-list escape included, which
+   *  reaches this through the same prop. It drops the area for the reason `clearAreaFilter` gives:
+   *  a search whose results are still secretly confined to one city is a lie the screen cannot be
+   *  read to discover. */
+  const changeQuery = useCallback(
+    (next: string) => {
+      setQuery(next);
+      clearAreaFilter();
+    },
+    [clearAreaFilter],
+  );
 
   /** Memoised so every chip in the tree does not re-render on an unrelated state change — the
    *  context value is the only thing standing between this page's state and a leaf in the map's
@@ -1486,6 +1669,9 @@ export function MapPageClient({
     // leaving one of three filters on after the other two go is the kind of half-state nobody can
     // explain from the screen.
     setVisitFilter('all');
+    // The same argument again, and the area is the dimension it applies to hardest: a place saved
+    // in a city the resolved area excludes would land in a list that cannot show it at all.
+    clearAreaFilter();
     setShowImport(true);
   }
 
@@ -1509,6 +1695,7 @@ export function MapPageClient({
     setActiveTags([]);
     setVisitFilter('all');
     setActiveCategory(null);
+    clearAreaFilter();
     setScope(scopeForAreaTap(savedPlaceId));
     camera.framePlaces([savedPlaceId]);
     selectId(savedPlaceId);
@@ -1794,7 +1981,7 @@ export function MapPageClient({
                       libraryIsEmpty={places.length === 0}
                       libraryHasVisited={libraryHasVisited}
                       query={query}
-                      onQueryChange={setQuery}
+                      onQueryChange={changeQuery}
                       /* **The natural-language entry point, under the field rather than in the
                          filter row** — `nls-plan.md` §9 decision 1. `LibraryFilterBar`'s grammar is
                          one trigger per axis, each stating its current value at rest, and a
@@ -1867,7 +2054,7 @@ export function MapPageClient({
                       libraryIsEmpty={places.length === 0}
                       libraryHasVisited={libraryHasVisited}
                       query={query}
-                      onQueryChange={setQuery}
+                      onQueryChange={changeQuery}
                       /* The same slot, the same place, the anchored-popover surface — see the
                          sheet's copy above. */
                       searchAside={

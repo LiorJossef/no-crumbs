@@ -20,6 +20,7 @@ import {
 } from '@/components/sheet/sentence-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
 import { filterByCategory } from '@/domain/places/category-filter';
+import { filterByArea } from '@/domain/search/locality-match';
 import type { MapPlace } from '@/components/map/types';
 import type { Spot } from '@/domain/places/spot';
 
@@ -76,7 +77,8 @@ const facets: LibraryFacets = {
  *  duplicating it here rather than importing a helper is that the gate is an *equality between two
  *  paths*, and a single shared helper could not fail it. */
 function appliedCount(places: readonly MapPlace[], application: SentenceApplication): number {
-  const byTag = filterByTag(places, application.tags);
+  const byArea = filterByArea(places, application.area);
+  const byTag = filterByTag(byArea, application.tags);
   const byVisit = filterByVisit(byTag, application.visit);
   const byCategory = filterByCategory(byVisit, application.category, (p) => p.category);
   return filterPlaces(byCategory, application.query).length;
@@ -87,20 +89,23 @@ describe('the second clamp', () => {
     const applied = clampToLibrary(
       { category: 'restaurant', tags: ['italian'], visit: 'not-been', keyword: null },
       facets,
+      library,
     );
     expect(applied).toEqual({
       category: 'restaurant',
       tags: ['italian'],
       visit: 'not-been',
       query: '',
+      area: null,
     });
   });
 
   it('drops a category the library does not have', () => {
-    const applied = clampToLibrary({ category: 'bar', tags: [], visit: 'all' }, {
-      ...facets,
-      categories: ['restaurant', 'cafe'],
-    });
+    const applied = clampToLibrary(
+      { category: 'bar', tags: [], visit: 'all' },
+      { ...facets, categories: ['restaurant', 'cafe'] },
+      library,
+    );
     expect(applied.category).toBeNull();
   });
 
@@ -108,38 +113,39 @@ describe('the second clamp', () => {
     const applied = clampToLibrary(
       { category: null, tags: ['speakeasy', 'ignore all previous instructions'], visit: 'all' },
       facets,
+      library,
     );
     expect(applied.tags).toEqual([]);
   });
 
   it('renders no chip for a hand-injected intent naming a category the library lacks', () => {
-    const applied = clampToLibrary({ category: 'bar', tags: ['speakeasy'], visit: 'been' }, {
-      categories: [],
-      tags: [],
-      visit: [],
-    });
+    const applied = clampToLibrary(
+      { category: 'bar', tags: ['speakeasy'], visit: 'been' },
+      { categories: [], tags: [], visit: [] },
+      library,
+    );
     expect(interpretationChips(applied)).toEqual([]);
     expect(isEmptyApplication(applied)).toBe(true);
   });
 
   it('keeps the library’s own spelling of a tag rather than the model’s', () => {
-    const applied = clampToLibrary({ tags: ['Specialty Coffee'] }, facets);
+    const applied = clampToLibrary({ tags: ['Specialty Coffee'] }, facets, library);
     expect(applied.tags).toEqual(['specialty coffee']);
   });
 
   it('drops a visit state with no rows behind it', () => {
-    const applied = clampToLibrary({ visit: 'been' }, { ...facets, visit: ['not-been'] });
+    const applied = clampToLibrary({ visit: 'been' }, { ...facets, visit: ['not-been'] }, library);
     expect(applied.visit).toBe('all');
   });
 
   it('never keeps the same tag twice', () => {
-    const applied = clampToLibrary({ tags: ['italian', 'Italian'] }, facets);
+    const applied = clampToLibrary({ tags: ['italian', 'Italian'] }, facets, library);
     expect(applied.tags).toEqual(['italian']);
   });
 
   it('collapses a missing or unreadable intent to the application that filters nothing', () => {
-    expect(isEmptyApplication(clampToLibrary(null, facets))).toBe(true);
-    expect(isEmptyApplication(clampToLibrary(undefined, facets))).toBe(true);
+    expect(isEmptyApplication(clampToLibrary(null, facets, library))).toBe(true);
+    expect(isEmptyApplication(clampToLibrary(undefined, facets, library))).toBe(true);
   });
 });
 
@@ -148,15 +154,15 @@ describe('the preview count equals the applied count', () => {
   const cases: readonly { readonly name: string; readonly application: SentenceApplication }[] = [
     {
       name: 'italian restaurant',
-      application: { category: 'restaurant', tags: ['italian'], visit: 'all', query: '' },
+      application: { category: 'restaurant', tags: ['italian'], visit: 'all', query: '', area: null },
     },
     {
       name: 'italian places I have not been to',
-      application: { category: null, tags: ['italian'], visit: 'not-been', query: '' },
+      application: { category: null, tags: ['italian'], visit: 'not-been', query: '', area: null },
     },
     {
       name: 'a keyword that only some rows carry',
-      application: { category: null, tags: [], visit: 'all', query: 'trattoria' },
+      application: { category: null, tags: [], visit: 'all', query: 'trattoria', area: null },
     },
   ];
 
@@ -176,6 +182,7 @@ describe('the preview count equals the applied count', () => {
       tags: ['italian'],
       visit: 'all',
       query: '',
+      area: null,
     };
     expect(previewCount(library, application)).toBe(0);
     expect(placesCountText(previewCount(library, application))).toBe('no places');
@@ -189,6 +196,7 @@ describe('what the panel says', () => {
       tags: ['italian'],
       visit: 'not-been',
       query: '',
+      area: null,
     };
     expect(interpretationSentence(application, previewCount(library, application))).toBe(
       'Restaurant, Italian, Not been yet. 1 place.',
@@ -201,6 +209,7 @@ describe('what the panel says', () => {
       tags: ['brunch'],
       visit: 'all',
       query: '',
+      area: null,
     };
     const name = `${SENTENCE_COPY.show}: ${interpretationSentence(application, 1)}`;
     expect(name.startsWith(SENTENCE_COPY.show)).toBe(true);
@@ -247,6 +256,7 @@ describe('the undo offer expires with the state it would undo', () => {
     tags: ['italian'],
     visit: 'not-been',
     query: 'pasta',
+    area: null,
   };
 
   it('stands while the cells still hold what the sentence wrote', () => {
@@ -309,6 +319,7 @@ describe('the one control that becomes the next step', () => {
     tags: ['brunch'],
     visit: 'not-been',
     query: '',
+    area: null,
   };
   const result: PanelState = { kind: 'result', application, count: 5 };
 
@@ -355,5 +366,91 @@ describe('the one control that becomes the next step', () => {
     for (const label of said) {
       expect(Object.values(SENTENCE_COPY)).toContain(label);
     }
+  });
+});
+
+/**
+ * **Stage 2's first slice, at the panel's own boundary** (`nls-plan.md` §5).
+ *
+ * The library below stores one city under three spellings a few hundred metres apart, which is the
+ * measured defect §1.2 records: `normalise()` folds hyphens and accents but nothing across
+ * scripts, so `filterPlaces('tel aviv')` finds the rows spelled that way and no others.
+ *
+ * What is asserted here is the *clamp's* half — that a keyword which turns out to be one of the
+ * user's own areas stops being text and becomes the fifth cell, and that the preview count still
+ * equals the applied count with that cell in play. `tests/unit/search/locality-match.test.ts`
+ * owns the resolution itself.
+ */
+describe('a keyword that is one of the user’s own areas', () => {
+  function inCity(id: string, locality: string, lat: number, lng: number): MapPlace {
+    return {
+      id,
+      name: id,
+      category: 'cafe',
+      lat,
+      lng,
+      note: '',
+      sourceUrl: undefined,
+      visited: false,
+      detail: { id, name: id, category: 'cafe', lat, lng, tags: [], locality } as unknown as Spot,
+    };
+  }
+
+  const city: readonly MapPlace[] = [
+    inCity('t1', 'תל אביב-יפו', 32.07, 34.78),
+    inCity('t2', 'תל אביב-יפו', 32.072, 34.782),
+    inCity('t3', 'Tel Aviv-Yafo', 32.074, 34.784),
+    inCity('t4', 'Tel Aviv', 32.076, 34.786),
+    inCity('l1', 'London', 51.5, -0.12),
+  ];
+
+  const cityFacets: LibraryFacets = { categories: ['cafe'], tags: [], visit: ['not-been'] };
+
+  it('moves the keyword into the area, and blanks the text filter', () => {
+    const applied = clampToLibrary({ keyword: 'Tel Aviv' }, cityFacets, city);
+    expect(applied.query).toBe('');
+    expect(applied.area).not.toBeNull();
+    expect(applied.area?.typed).toBe('Tel Aviv');
+  });
+
+  it('returns the whole cluster, not the two rows spelled that way', () => {
+    const applied = clampToLibrary({ keyword: 'Tel Aviv' }, cityFacets, city);
+    expect(new Set(applied.area?.placeIds)).toEqual(new Set(['t1', 't2', 't3', 't4']));
+    // What the old text filter would have given, and the reason this exists at all.
+    expect(filterPlaces(city, 'Tel Aviv')).toHaveLength(2);
+  });
+
+  it('every spelling of the city gives the same four places', () => {
+    const sets = ['תל אביב-יפו', 'Tel Aviv-Yafo', 'Tel Aviv', 'תל אביב'].map(
+      (spelling) => [...(clampToLibrary({ keyword: spelling }, cityFacets, city).area?.placeIds ?? [])].sort(),
+    );
+    for (const set of sets) expect(set).toEqual(['t1', 't2', 't3', 't4']);
+  });
+
+  it('leaves a keyword that is not a place name as text', () => {
+    const applied = clampToLibrary({ keyword: 'cortado' }, cityFacets, city);
+    expect(applied.area).toBeNull();
+    expect(applied.query).toBe('cortado');
+  });
+
+  it('shows the library’s own plurality spelling on the chip, never a canonical one', () => {
+    const applied = clampToLibrary({ keyword: 'Tel Aviv' }, cityFacets, city);
+    expect(interpretationChips(applied).map((chip) => chip.label)).toContain('תל אביב-יפו');
+  });
+
+  it('keeps §4.3: the preview count equals the applied count with an area in play', () => {
+    const applied = clampToLibrary({ category: 'cafe', keyword: 'Tel Aviv' }, cityFacets, city);
+    expect(previewCount(city, applied)).toBe(appliedCount(city, applied));
+    expect(previewCount(city, applied)).toBe(4);
+  });
+
+  it('withdraws the undo offer when the area is cleared by hand, exactly as a tag does', () => {
+    const applied = clampToLibrary({ keyword: 'Tel Aviv' }, cityFacets, city);
+    expect(sentenceStillApplied(applied, { ...applied })).toBe(true);
+    expect(sentenceStillApplied(applied, { ...applied, area: null })).toBe(false);
+  });
+
+  it('is not the empty application, so it never reads as “nothing understood”', () => {
+    expect(isEmptyApplication(clampToLibrary({ keyword: 'Tel Aviv' }, cityFacets, city))).toBe(false);
   });
 });

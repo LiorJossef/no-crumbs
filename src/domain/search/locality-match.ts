@@ -167,3 +167,40 @@ function labelFor(
   if (best === null || tied) return null;
   return clusterLabel(best, (row) => row.locality);
 }
+
+/**
+ * **A resolved area, as the four filter cells' fifth sibling.**
+ *
+ * Deliberately not a `LocalityMatch`: that is what the resolver found, this is what the product
+ * will execute — the same distinction `SentenceApplication` draws against `SearchIntent`.
+ *
+ * `typed` is the user's own words, carried so a caller with no `label` (a cluster whose spellings
+ * tie, which `clusterLabel` answers with `null` rather than a coin flip) can still say what was
+ * asked for without inventing a name for it.
+ */
+export interface SentenceArea {
+  readonly label: string | null;
+  readonly typed: string;
+  readonly placeIds: readonly string[];
+}
+
+/** What to show for an area: the library's own plurality spelling, or the user's own words. Never
+ *  a canonical string this product picked (§5.3). */
+export function areaLabel(area: SentenceArea): string {
+  return area.label ?? area.typed;
+}
+
+/**
+ * The area pass — the fifth filter, and the one that runs first.
+ *
+ * Structural in `T` so `domain/` never learns about `MapPlace`, and total: no area is no
+ * narrowing, which is what makes it composable with the four that already exist.
+ */
+export function filterByArea<T extends { readonly id: string }>(
+  items: readonly T[],
+  area: SentenceArea | null | undefined,
+): readonly T[] {
+  if (area == null) return items;
+  const keep = new Set(area.placeIds);
+  return items.filter((item) => keep.has(item.id));
+}

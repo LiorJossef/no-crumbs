@@ -33,13 +33,20 @@
  * behind it, and it is why prompt injection is structurally inert. The model's whole output space
  * is four enums and one grounded string; a value with nothing behind it never reaches the screen.
  *
+ * The area is the same rule taken one step further: the model never names a place at all, and the
+ * *keyword it copied out of the user's own sentence* is resolved against the user's own saved
+ * localities here. So an area chip cannot name anywhere the user has not saved something, for the
+ * same structural reason a category chip cannot name a category they do not have.
+ *
  * ## The preview count is an acceptance gate
  *
  * §4.3: *"The preview count always equals the number of places that appear after `Show these`. A
  * mismatch here is the feature lying."* It is guaranteed by construction rather than by care:
- * `previewCount` runs `filterByTag → filterByVisit → filterByCategory → filterPlaces` over the
- * same library, in the same order, with the same arguments the apply will write. There is no
- * second counting path, and `tests/unit/sheet/sentence-panel.test.ts` holds the two to each other.
+ * `previewCount` runs `filterByArea → filterByTag → filterByVisit → filterByCategory →
+ * filterPlaces` over the same library, in the same order, with the same arguments the apply will
+ * write. There is no second counting path, and `tests/unit/sheet/sentence-panel.test.ts` holds
+ * the two to each other — including the area pass, which is the one that could most easily drift,
+ * because it is the only cell the panel *derives* rather than copies out of the model's answer.
  *
  * The number counts the library narrowed by **every filter and no scope** — which is exactly what
  * the map's pins draw and what the page's existing results live region announces
@@ -56,10 +63,12 @@
  *
  * ## What this file must never grow
  *
- * A camera move. Stage 1 has no geography — no city, no country, nothing in the intent shape that
- * names a place — so there is nothing here for a mover to frame, and `map-page-client.tsx:538`'s
- * rule stands: typing is not a camera mover. Stage 2 adds movers 4 and 5 on apply, with its own
- * docblock amendment (`nls-plan.md` §5.2).
+ * A camera move — **still, and now that Stage 2's first slice has landed the rule is worth more,
+ * not less.** A resolved area is a set of the user's own rows, and where the camera goes when one
+ * is applied is the page's decision, made in `applySentence` beside mover 4's own writes and
+ * enumerated in that file's mover list (`nls-plan.md` §5.2). Nothing here moves anything: this
+ * panel's only outputs are the five filter values it hands over, and
+ * `map-page-client.tsx`'s rule stands unchanged — typing is not a camera mover.
  */
 
 import {
@@ -82,6 +91,12 @@ import { filterByCategory } from '@/domain/places/category-filter';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { isPrimaryCategory } from '@/domain/places/taxonomy';
+import {
+  areaLabel,
+  filterByArea,
+  resolveLocality,
+  type SentenceArea,
+} from '@/domain/search/locality-match';
 import { cn } from '@/lib/utils';
 import { ENTER_POPOVER, PRESS_CHIP } from '@/lib/interaction';
 import { categoryDisplay } from '@/ui/place/category-display';
@@ -136,6 +151,16 @@ export interface SentenceApplication {
   readonly tags: readonly string[];
   readonly visit: VisitFilter;
   readonly query: string;
+  /**
+   * **One of the user's own areas, when the keyword turned out to be the name of one**
+   * (`nls-plan.md` §5, Stage 2). `null` is the ordinary case and means the keyword stayed text.
+   *
+   * It is a *filter* and not a scope, and that is load-bearing: the preview count is the library
+   * narrowed by every filter and **no** scope, and the map's pins ignore the scope entirely, so an
+   * area expressed as a scope would make this panel promise a number neither surface shows. §4.3
+   * is what that would break.
+   */
+  readonly area: SentenceArea | null;
 }
 
 /** The application that filters nothing — what an unreadable answer and a fully clamped one both
@@ -145,6 +170,7 @@ export const EMPTY_APPLICATION: SentenceApplication = {
   tags: [],
   visit: 'all',
   query: '',
+  area: null,
 };
 
 export function isEmptyApplication(application: SentenceApplication): boolean {
@@ -152,7 +178,8 @@ export function isEmptyApplication(application: SentenceApplication): boolean {
     application.category === null &&
     application.tags.length === 0 &&
     application.visit === 'all' &&
-    application.query.trim() === ''
+    application.query.trim() === '' &&
+    application.area === null
   );
 }
 
@@ -192,6 +219,7 @@ export interface InterpretedIntent {
 export function clampToLibrary(
   intent: InterpretedIntent | null | undefined,
   facets: LibraryFacets,
+  places: readonly MapPlace[],
 ): SentenceApplication {
   if (intent === null || intent === undefined) return EMPTY_APPLICATION;
 
@@ -217,7 +245,38 @@ export function clampToLibrary(
 
   const query = typeof intent.keyword === 'string' ? intent.keyword.trim() : '';
 
-  return { category, tags, visit, query };
+  /**
+   * **The keyword gets one question asked of it before it is used as text: is it the name of
+   * somewhere this user has saved places?** (`nls-plan.md` §5.1.)
+   *
+   * `resolveLocality` answers against the library and nothing else — no geocoder, no gazetteer,
+   * no provider — so it can only ever name an area the user already has, and `null` is a real
+   * answer meaning *this is not a place name here*, which leaves the keyword as text.
+   *
+   * When it resolves, the keyword **moves**: `query` is blanked and the area carries the
+   * narrowing. Leaving both on would AND a substring match against the cluster and gut it — the
+   * library stores four spellings of Tel Aviv, so `filterPlaces('tel aviv')` keeps 2 of the 25
+   * rows the area holds, which is the exact defect this closes.
+   */
+  const match = resolveLocality(query, localityRows(places));
+  const area: SentenceArea | null =
+    match === null
+      ? null
+      : { label: match.label, typed: query, placeIds: match.memberIds };
+
+  return { category, tags, visit, query: area === null ? query : '', area };
+}
+
+/** `MapPlace` as the least the resolver needs. The locality projection is the page's own —
+ *  `place.detail?.locality` — so the areas this resolves to are the areas the map and the sheet
+ *  already draw rather than a second clustering with its own opinion. */
+function localityRows(places: readonly MapPlace[]) {
+  return places.map((place) => ({
+    id: place.id,
+    locality: place.detail?.locality ?? null,
+    lat: place.lat,
+    lng: place.lng,
+  }));
 }
 
 /**
@@ -231,7 +290,11 @@ export function previewCount(
   places: readonly MapPlace[],
   application: SentenceApplication,
 ): number {
-  const byTag = filterByTag(places, application.tags);
+  // The area pass runs **first**, the same position it holds on the page — five passes composing
+  // as AND, so the order cannot change the result, but keeping them in one order keeps the two
+  // readings of the chain comparable by eye.
+  const byArea = filterByArea(places, application.area);
+  const byTag = filterByTag(byArea, application.tags);
   const byVisit = filterByVisit(byTag, application.visit);
   const byCategory = filterByCategory(byVisit, application.category, (place) => place.category);
   return filterPlaces(byCategory, application.query).length;
@@ -260,6 +323,12 @@ export function interpretationChips(
   }
   if (application.visit !== 'all') {
     chips.push({ key: `visit:${application.visit}`, label: VISIT_FILTER_LABEL[application.visit] });
+  }
+  if (application.area !== null) {
+    // The library's **own** spelling of the place, never a canonical string this product picked
+    // (§5.3) — a library written `תל אביב-יפו` must not get a chip saying `Tel Aviv`. With no
+    // plurality spelling to quote, `areaLabel` falls back to the user's own words.
+    chips.push({ key: 'area', label: areaLabel(application.area) });
   }
   if (application.query.trim() !== '') {
     chips.push({ key: 'keyword', label: `“${application.query.trim()}”` });
@@ -442,6 +511,7 @@ export function SentencePanel({
       const application = clampToLibrary(
         (body as { intent?: InterpretedIntent }).intent,
         facets,
+        places,
       );
       if (isEmptyApplication(application)) {
         setState({ kind: 'nothing' });
@@ -805,8 +875,18 @@ export function sentenceStillApplied(
     applied.visit === current.visit &&
     applied.query === current.query &&
     applied.tags.length === current.tags.length &&
-    applied.tags.every((tag) => current.tags.some((live) => isSameTag(live, tag)))
+    applied.tags.every((tag) => current.tags.some((live) => isSameTag(live, tag))) &&
+    sameArea(applied.area, current.area)
   );
+}
+
+/** Two areas are the same narrowing when they hold the same rows. Compared by membership rather
+ *  than by label, because the label is a display choice and the rows are the filter. */
+function sameArea(a: SentenceArea | null, b: SentenceArea | null): boolean {
+  if (a === null || b === null) return a === b;
+  if (a.placeIds.length !== b.placeIds.length) return false;
+  const mine = new Set(a.placeIds);
+  return b.placeIds.every((id) => mine.has(id));
 }
 
 /**
