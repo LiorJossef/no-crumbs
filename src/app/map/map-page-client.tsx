@@ -1159,8 +1159,12 @@ export function MapPageClient({
         tagLabel: tagFilterLabel(activeTags),
         notBeenOnly,
         matchesAnywhere: matches.length,
+        // The whole filter chain, already collapsed to a set of ids. Passed as ids rather than as
+        // a description of the filters so that a sixth axis needs no change here and cannot be
+        // forgotten here — the area filter added the fifth on the day this was written.
+        matchIds,
       }),
-    [inScope, listScope, query, activeTags, notBeenOnly, matches],
+    [inScope, listScope, query, activeTags, notBeenOnly, matches, matchIds],
   );
 
   // The canvas is unreachable to a screen reader, so the honest thing for it to say is what it is
@@ -1178,8 +1182,11 @@ export function MapPageClient({
     () =>
       places.length === 0
         ? EMPTY_MAP_ACCESSIBLE_NAME
-        : mapAccessibleName(heading, scopeLabel(listScope)),
-    [heading, listScope, places],
+        // Narrowed with the same `matchIds` the visible heading uses. Without it the canvas's
+        // accessible name says `4 countries` while the header beside it says `2` — the screen
+        // reader and the screen disagreeing about the same fact.
+        : mapAccessibleName(heading, scopeLabel(listScope, matchIds)),
+    [heading, listScope, places, matchIds],
   );
 
   // The open place, resolved against the *current* server data on every render — which is what makes
