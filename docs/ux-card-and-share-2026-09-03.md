@@ -473,3 +473,60 @@ record line, and the demoted `Remove from your places`.
 
 This also retires §R1's Google-attribution fallback question: the word `Google Maps` stays on the
 control, so the attribution is discharged on the control *and* on the provenance line.
+
+---
+
+## Rulings, 2026-09-04 — the compaction pass
+
+The owner asked for the card to be *"more compact and unified with the product (font, buttons),
+less overwhelming"*, then handed over ownership for the day. `design-system-frontend` measured the
+card; `ux-interaction` ruled on the two items that were not the implementer's to take. Recorded
+here because the reasoning constrains what may be done to this card later, not just what was done.
+
+### What the measurement found, and it changes two premises
+
+- **The `lg+` card is set in Helvetica Neue, not Manrope.** `maplibre-gl.css` fonts the map
+  container and the popover inherits it — 36 Helvetica nodes against 1 Manrope. That is the literal
+  answer to "unified with the product (font)", and it is one property in `globals.css`. It also
+  takes ~52 px off the desktop card, because the action row stops wrapping.
+- **The loudest object on the card is a tag.** Chips are `font-bold` on a filled ground with a
+  border; `Been here`, the primary, is `font-medium`. Band 1 holds five bordered pressables against
+  §A7's "exactly one", four of them heavier than the primary. That, and not spacing, is the
+  "overwhelming".
+- **41 of 60 saved places clip `Been here` at 390x812** today, one of them completely. The
+  handoff's "taller cards" was a large understatement, and its denominator was wrong too: the
+  control is 48 px, not 36.
+
+### R4's 48 px field row is withdrawn — rows go to `min-h-11`
+
+The 48 was derived for a **two-line** row: an 11 px label over a 14 px value. R4 deleted the second
+line and kept the number, in a clause listing what does *not* change. So it was the content's
+height and the content is gone. The card already refutes the one post-R4 justification — the nearby
+rows and the extra-source rows are borderless `min-h-11` rows in flush runs, near byte-identical
+apart from 4 px.
+
+**It buys 0 px above the fold.** It is a vocabulary change — four target heights to three, seven
+control shapes to six — and must not be cited as a fold fix. The rows then sit exactly on the 44 px
+floor with no headroom, so they are verified as targets and not only as layout.
+
+### No tag cap — the 1-in-60 clip ships
+
+After the still comes down to 112 px, exactly one row still clips its primary: `Kohi בית קפה יפני`,
+by 23 px at 390x812. Capping the card's tag list to one row would close it and was refused.
+`TagFacetBar` was deleted on 2026-08-29 for precisely this — a cap that hid tags the user then had
+no way to reach — and `TagChipList`'s own docblock says the detail wraps freely *because* the
+detail scrolls. The list row truncates because the card does not; cap the card and progressive
+disclosure loses its terminal. "Reveal on expand" is not a third option: the chips are pressable
+filter controls, so a non-pressable `+2` is dead text naming content it will not give you, and a
+pressable one is an eighth control shape whose expansion pushes `Been here` down by the 40 px the
+cap just saved.
+
+**MORN-4 §2(c) is restated rather than quietly complied with.** Its operative content was never "no
+clipping" — it was two failures measured at 13 of 48 px. The rule is now: *the fold may cut the
+primary only while the entire label is drawn and a thumb aimed at the visible centre cannot reach
+`BottomNav`.* At 33 of 48 px both hold, with roughly 2 px of margin.
+
+**The reopen trigger, and it will fire.** Tags are absent on most places today and extraction v2
+fills them going forward, so every future three-or-four-tag save is another `Kohi`. If more than
+one row clips at 844, or more than three at 812, the escalation is MORN-4 §5's sticky action row —
+not a cap, and not more shrinking.
