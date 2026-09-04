@@ -103,7 +103,7 @@ import { MapShell } from '@/components/shell/map-shell';
 import { useMapShell } from '@/components/shell/use-map-shell';
 import type { SheetStop } from '@/components/shell/sheet-geometry';
 import type { MapSummaries } from '@/components/map/types';
-import { COUNTRY_LANDING_ZOOM, PIN_BAND_MIN } from '@/components/map/zoom-bands';
+import { BAND_EDGE_GUARD, COUNTRY_LANDING_ZOOM, PIN_BAND_MIN } from '@/components/map/zoom-bands';
 import {
   claimEntrance,
   ENTRANCE_CLOCK_FLOOR_MS,
@@ -152,7 +152,7 @@ import {
 import { TagFilterContext, isSameTag, tagFacets, type TagFilter } from '@/ui/place/tag-filter';
 import { enrichmentOf } from '@/ui/place/enrichment';
 import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/place/announce';
-import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
+import { clusterByProximity, pickAnchorCluster, type GeoBounds } from '@/domain/places/clusters';
 import { buildAreas, mapAccessibleName } from '@/ui/place/active-area';
 import {
   GLOBAL_SCOPE,
@@ -233,6 +233,55 @@ const REVEAL_HOLD_MAX_MS = 2000;
  * `null` on the server, which is correct rather than degraded: the value never reaches the DOM as
  * text, so the two renders agree on everything React compares. It is a prop to a canvas.
  */
+/**
+ * **Where a sentence's own camera move is allowed to come to rest.**
+ *
+ * Owner, 2026-09-04: *"NLS results should always land on pins, not clusters ... showing me
+ * clusters for Tel Aviv, Haifa and Rishon would be strange, because I asked for the actual places,
+ * not a geographic summary of them."*
+ *
+ * A sentence is a **search**, and its answer is rows. Landing it on the summary band shows the
+ * *shape* of a library to someone who asked for its contents, and that is true whether the
+ * geography they named was a city or a country. So both sentence triggers clamp through this one
+ * range, and the floor is the pin band with `settleZoom`'s own guard window applied — a landing
+ * exactly on `PIN_BAND_MIN` is one float rounding away from drawing capsules instead.
+ *
+ * **It is a floor, and a floor throws the fit away when the two conflict.** A country's matching
+ * places can span the whole country, so fitting all of them and resting in the pin band are
+ * mutually exclusive; the owner has already ruled which way that resolves — *"It's fine if not
+ * every result fits on screen — the map should prioritize showing the resulting places as pins."*
+ * The rows that fall outside are still in the list beside the map, still named by `EverywhereElse`,
+ * and still there when you pan.
+ *
+ * `max` is `FIT_BOUNDS_MAX_ZOOM` — the same ceiling `fitTo` gives every other framing, so a
+ * sentence that resolves to a single place is framed exactly as selecting that place from the list
+ * frames it (mover 3), rather than at a zoom invented here. It is a literal for the reason
+ * `HOME_LANDING_ZOOM.max` is one: the constant is private to a module that transitively imports
+ * `server-only`.
+ *
+ * **The rule is about apply, not about typing.** A sentence with no geography in it still moves
+ * nothing at all — `applySentence` returns before it reaches this — so `map-page-client.tsx`'s
+ * standing rule that narrowing must never navigate is unchanged. When an apply moves the camera,
+ * it lands on pins; not every apply moves the camera.
+ */
+const SENTENCE_LANDING_ZOOM = {
+  minZoom: PIN_BAND_MIN + BAND_EDGE_GUARD,
+  maxZoom: 15,
+} as const;
+
+/** The box around a set of places, as `unionBounds` over their degenerate boxes — one place is a
+ *  zero-extent box, which `frameBounds` answers with the ceiling above. */
+function boundsAroundPlaces(list: readonly MapPlace[]): GeoBounds {
+  return unionBounds(
+    list.map((place) => ({
+      north: place.lat,
+      south: place.lat,
+      east: place.lng,
+      west: place.lng,
+    })),
+  );
+}
+
 function browserTimeZone(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -532,7 +581,12 @@ export function MapPageClient({
    *     **It gained a second trigger the same day**: applying a sentence whose keyword resolved to
    *     one of the user's own areas is this mover, with this mover's pair of writes — the flight
    *     and the scope — issued from `applySentence` (`nls-plan.md` §5.2). A resolved area that
-   *     spans more than one of `areas` sets `GLOBAL_SCOPE` instead of picking one. **`Undo` does
+   *     spans more than one of `areas` sets `GLOBAL_SCOPE` instead of picking one.
+   *     **The sentence trigger clamps its landing to the pin band and the tap does not**, which is
+   *     the same split mover 5 carries and is written out there: a sentence is a search and its
+   *     answer is rows, so it may not come to rest on capsules. Until 2026-09-04 it reached the pin
+   *     band by luck — a city's places are close together — and `SENTENCE_LANDING_ZOOM` makes it a
+   *     guarantee. **`Undo` does
    *     not fly back** — owner ruling, 2026-09-04: *"undo in sentence search is taking you to see
    *     all countries, not sure this is a good behavior."* `Undo` restores the filters and the
    *     scope and moves no camera; narrowing must never navigate, and un-narrowing must not either.
@@ -555,11 +609,24 @@ export function MapPageClient({
    *     which now shows its own area's number; `area-band-layout.ts` holds that argument and the
    *     arithmetic it costs. **This list is nine movers, and it was never ten.**
    *  5. Tapping a country marker frames the places the filters left in that country, clamped inside
-   *     the area band, and sets a **country** scope. See `focusCountry`. **§5.2 also promises this
-   *     one a sentence trigger and it does not have one yet**: Stage 2's first slice resolves
-   *     cities against the user's own localities and nothing else, so an intent still carries no
-   *     country. Said here rather than left as a silence, because a list of who may move the
-   *     camera is only worth having if what is *not* on it is true too.
+   *     the area band, and sets a **country** scope. See `focusCountry`. **It gained its promised
+   *     sentence trigger on 2026-09-04** (`nls-plan.md` §5.2), and this line said the opposite
+   *     until then: Stage 2's second slice resolves the keyword against the user's own *countries*
+   *     as well as their cities — locally, through `toCountryCode`'s ICU data over `en` and `he`,
+   *     with nothing about the user's geography leaving the device (§5.5) — so `applySentence`
+   *     now issues this mover's own pair of writes for a sentence like `in Italy` or `באיטליה`.
+   *     **Two triggers, one deliberate difference: the clamp.** A tap rests *inside the area band*,
+   *     because tapping a flag disc is exploring and the honest answer is "which cities do I have
+   *     things in". A sentence rests *at or above the pin band* (`SENTENCE_LANDING_ZOOM`), because
+   *     a sentence is a search and its answer is places — owner, 2026-09-04: *"NLS results should
+   *     always land on pins, not clusters ... I asked for the actual places, not a geographic
+   *     summary of them."* Where a full fit and that floor conflict, the floor wins and part of the
+   *     result is off-screen; the same owner ruled that too. The list is still **nine** movers.
+   *     Two negatives survive, because a list like this is only worth having if what is *not* on it
+   *     is true too: a sentence carrying **no** geography moves no camera at all, and an apply
+   *     leaving **zero** places moves no camera either — the filter and the country scope are still
+   *     written, so the empty state names the country, but there is nothing to frame and flying to
+   *     an empty viewport spends the user's context for nothing (owner, 2026-09-04).
    *  6. Selecting a place raises the sheet to `half`, so the camera offsets itself by the fraction
    *     of the viewport the sheet is about to cover — otherwise the pin just tapped comes to rest
    *     behind it. It lives in the surface (`map-surface.mapcn.tsx`, `selectedOcclusionFraction`)
@@ -1004,9 +1071,28 @@ export function MapPageClient({
    * **Camera mover 4, on its second trigger** (`nls-plan.md` §5.2). A sentence that resolved to one
    * of the user's own areas flies there and takes the list's scope with it, which is mover 4's own
    * pair of writes — see the enumeration above. It frames the places the *new* filters leave,
-   * never the area's whole membership, for the reason `selectArea` records: the surface resolves
-   * the ids it is handed against its own `places` prop, which is the filtered set, and a request
-   * naming rows that do not survive the filter is silently declined.
+   * never the area's whole membership, for the reason `selectArea` records: framing a membership
+   * would name rows the filters removed, and the surface declines a request it cannot resolve.
+   * **It clamps through `SENTENCE_LANDING_ZOOM`, so resting on pins is a guarantee here rather
+   * than an accident of geography** — a city's places are normally close enough together that a
+   * bare fit lands in the pin band anyway, which is why this went unnoticed until the country case
+   * made it explicit, and a spread-out city would have come to rest on capsules.
+   *
+   * **Camera mover 5, on its second trigger** (`nls-plan.md` §5.2), when the sentence resolved a
+   * *country* instead. Same mover, same pair of writes — a country scope and a framing of the
+   * places the filters left in that country — with **one deliberate difference: the clamp.** A
+   * country *tap* rests inside the area band, because tapping a flag disc is exploring and the
+   * answer to it is "which cities do I have things in". A *sentence* is a search, and its answer
+   * is rows; landing it on a tier of summary markers shows the shape of the library to someone who
+   * asked for the places. Owner, 2026-09-04: *"the country zoom from NLS ... should be more zoomed
+   * so you see the pins and not clusters."* So this trigger clamps to a **floor** at the pin band
+   * (`SENTENCE_LANDING_ZOOM`) where the tap clamps to a ceiling below it.
+   *
+   * That floor and a full fit are mutually exclusive for a wide country, and the owner has already
+   * ruled which way it resolves: **show pins.** Some of the result then sits outside the viewport.
+   * That is the product's ordinary behaviour rather than a new compromise — the list beside the map
+   * still holds every row, `EverywhereElse` names what falls outside, and the pins are there when
+   * you pan.
    *
    * **The scope write is what stops the list disagreeing with the count**. Without it a user
    * scoped to Tel Aviv who searches for London cafés gets pins in London and a list with nothing
@@ -1014,17 +1100,35 @@ export function MapPageClient({
    * areas — two Londons, or a city either side of the join radius — because any single area scope
    * would then hide rows the preview counted.
    *
-   * A sentence with **no** area moves nothing and touches no scope: there is no geography in it to
-   * frame, and `map-page-client.tsx`'s rule that narrowing must never navigate is unchanged.
+   * **Two negatives, and they are the half a later change will be tempted to relax.**
+   *
+   * **An apply that leaves zero places moves the camera nowhere** — owner, 2026-09-04:
+   * *"ALSO IF YOU HAVE ZERO RESULTS IN COUNTRY DONT MOVE THE MAP."* Not country-specific: flying to
+   * show an empty viewport is the worst kind of camera move, because it spends the context the user
+   * had and returns nothing they can even confirm arrived. The *filter* still applies — `cafés I've
+   * been to in Italy` over a library holding two Italian bakeries is honestly "nothing matches in
+   * Italy", not a sentence half-ignored — and the country scope is still written, so the empty state
+   * says which country it is empty of. It lands on `NothingHereEscape`, whose `Clear all` reaches
+   * this cell through `AreaFilterContext` and clears it with the other four.
+   *
+   * The other empty route needs no code here at all: a country the user has **nothing** in never
+   * becomes a filter in the first place (`resolveCountry` returns `null`), so the keyword stays
+   * text and nothing moves — §5.6's "produces no filter and no flight", which was written for a
+   * city and is true of a country for the same reason.
+   *
+   * **And a sentence with no geography in it does not move the camera at all**, nor touch the
+   * scope — owner, 2026-09-04, asked directly: *"yes, no camera move without geography is right."* A Stage 1
+   * apply that sets only a category, a tag or a visit state frames nothing, and this page's
+   * standing rule that typing is not a camera mover is unchanged; the sentence trigger is an
+   * exception to it **only** where a city or a country resolved. The rule is *when an apply moves
+   * the camera it lands on pins*, and never *every apply moves the camera*. The guard below is
+   * one early return on purpose, with no hook for a later "…and otherwise fit the matches".
    */
   const applySentence = useCallback(
     (application: SentenceApplication) => {
       const applied = matchesAfter(application);
       const appliedIds = applied.map((place) => place.id);
-      const holding = application.area === null
-        ? []
-        : areas.filter((candidate) => appliedIds.some((id) => candidate.memberIds.has(id)));
-      const movesCamera = application.area !== null && appliedIds.length > 0;
+      const geography = application.area;
 
       setSentenceUndo({
         query,
@@ -1041,15 +1145,52 @@ export function MapPageClient({
       setActiveCategory(application.category);
       setAreaFilter(application.area);
 
-      if (!movesCamera) return;
+      // No geography in the sentence: nothing moves, no scope is touched, and there is deliberately
+      // no other arm here. Narrowing must never navigate.
+      if (geography === null) return;
+
+      if (geography.kind === 'country') {
+        const country = countries.find(
+          (candidate) => candidate.countryCode === geography.countryCode,
+        );
+        // Unreachable from a resolved country — it resolved by matching this library's own rows —
+        // but a `find` that can return `undefined` gets an arm rather than a `!`.
+        if (country === undefined) return;
+        // **The scope is written even when the result is empty, and the flight is not.** They asked
+        // for this country, so the list should say so and the empty state should read *nothing in
+        // Israel matches these filters* rather than dropping half the sentence on the floor. A
+        // country scope needs no surviving row to name it: it is the country's own key.
+        setScope(scopeForCountryTap(country.key));
+        selectId(null);
+        if (appliedIds.length === 0) return;
+        camera.frameBounds({
+          bounds: matchingBoundsInCountry(country, new Set(appliedIds)) ?? country.bounds,
+          ...SENTENCE_LANDING_ZOOM,
+        });
+        return;
+      }
+
+      // An **area** scope cannot be written from an empty result: it is anchored to a place id, and
+      // with no surviving row there is no area to name — which is why this branch, unlike the
+      // country one above, leaves the scope where it was.
+      if (appliedIds.length === 0) return;
+      const holding = areas.filter((candidate) =>
+        appliedIds.some((id) => candidate.memberIds.has(id)),
+      );
       const only = holding.length === 1 ? holding[0] : undefined;
       setScope(only === undefined ? GLOBAL_SCOPE : scopeForAreaTap(only.id));
       selectId(null);
-      camera.framePlaces(appliedIds);
+      // `frameBounds` and not `framePlaces`, since 2026-09-04. `framePlaces` fits with a ceiling
+      // and **no floor**, so a city whose places are spread out could come to rest on capsules —
+      // the pin band was reached by the geography of a normal city rather than guaranteed. This
+      // request carries the floor, and it frames a box this page computed from the applied set
+      // rather than ids the surface has to resolve against a prop that changes in the same commit.
+      camera.frameBounds({ bounds: boundsAroundPlaces(applied), ...SENTENCE_LANDING_ZOOM });
     },
     [
       matchesAfter,
       areas,
+      countries,
       query,
       activeTags,
       visitFilter,

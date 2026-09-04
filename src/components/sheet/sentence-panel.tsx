@@ -91,6 +91,7 @@ import { filterByCategory } from '@/domain/places/category-filter';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { isPrimaryCategory } from '@/domain/places/taxonomy';
+import { resolveCountry } from '@/domain/search/country-match';
 import {
   areaLabel,
   filterByArea,
@@ -131,6 +132,23 @@ export const SENTENCE_COPY = {
   failed: 'Couldn’t do that just now.',
   retry: 'Try again',
 } as const;
+
+/**
+ * **The one string here that `nls-plan.md` §3.4's table does not have**, added because §5.6 asks
+ * for something the table has no slot for: *"the rows with no country code are reported rather
+ * than silently dropped."*
+ *
+ * A country filter is a claim about the whole library, and it is only true of the rows whose
+ * country is known. Saying nothing would make the preview count read as complete when it is not.
+ * It renders **only** when there is at least one such row — measured 2026-09-04 there are none on
+ * the local library (59 saved places, all four codes present), so on this data it never appears.
+ *
+ * It is not an error and it is not an apology: it states a fact about the library in the noun the
+ * rest of the product uses for these rows. Flagged for sign-off rather than invented quietly.
+ */
+export function unplacedNoteText(count: number): string {
+  return `${placesCountText(count)} in your library have no country saved.`;
+}
 
 /** `12 places` / `1 place` / `no places` — §3.2's honest empty preview, in the noun the rest of the
  *  product already uses for the same rows. */
@@ -249,22 +267,68 @@ export function clampToLibrary(
    * **The keyword gets one question asked of it before it is used as text: is it the name of
    * somewhere this user has saved places?** (`nls-plan.md` §5.1.)
    *
-   * `resolveLocality` answers against the library and nothing else — no geocoder, no gazetteer,
-   * no provider — so it can only ever name an area the user already has, and `null` is a real
-   * answer meaning *this is not a place name here*, which leaves the keyword as text.
+   * `resolveGeography` answers against the library and nothing else — no geocoder, no gazetteer,
+   * no provider — so it can only ever name a city or a country the user already has, and `null` is
+   * a real answer meaning *this is not a place name here*, which leaves the keyword as text.
    *
-   * When it resolves, the keyword **moves**: `query` is blanked and the area carries the
+   * When it resolves, the keyword **moves**: `query` is blanked and the geography carries the
    * narrowing. Leaving both on would AND a substring match against the cluster and gut it — the
    * library stores four spellings of Tel Aviv, so `filterPlaces('tel aviv')` keeps 2 of the 25
    * rows the area holds, which is the exact defect this closes.
    */
-  const match = resolveLocality(query, localityRows(places));
-  const area: SentenceArea | null =
-    match === null
-      ? null
-      : { label: match.label, typed: query, placeIds: match.memberIds };
+  const area = resolveGeography(query, places);
 
   return { category, tags, visit, query: area === null ? query : '', area };
+}
+
+/**
+ * **The keyword as geography: one of the user's own cities first, then one of their countries.**
+ *
+ * ### Why localities win, and what the evidence is
+ *
+ * Measured against the local library on 2026-09-04 (59 saved places, 17 distinct localities across
+ * `GB`, `IL`, `CZ`, `HU`): **no stored locality resolves to a country code at all**, so on this
+ * library the order is unobservable and neither pass can steal from the other. The order is
+ * therefore chosen for the case it *will* meet rather than for one it has met:
+ *
+ * - **A locality match quotes the library; a country match infers over it.** The locality rung
+ *   matched a string this user's own row actually holds. The country rung matched a *name for a
+ *   code*: `places.country_code` stores `IT`, never the word `Italy`, so the match runs through
+ *   ICU's idea of what `IT` is called. This repo's standing rule is that extracted beats inferred,
+ *   and that is the same rule.
+ * - **The narrower reading is the recoverable one.** Every locality is inside exactly one country,
+ *   so a locality answer is a subset of the country answer for the genuine city-and-country
+ *   collisions (`Singapore`, `Monaco`, `Luxembourg`, `Kuwait` — all measured resolving as
+ *   countries). Choosing the subset shows fewer rows than the user might have meant, which the
+ *   preview count states before anything is applied; choosing the superset shows rows they did not
+ *   ask for under a chip naming a city.
+ * - **The country rung is the looser matcher, so it should not go first.** `toCountryCode` answers
+ *   `Chad`, `Jordan`, `Georgia` and `Turkey` — ordinary words and names — with country codes.
+ *   Behind a locality pass those only fire when the user has no city of that name, which is the
+ *   narrowest door they can be given.
+ *
+ * ### The honest cost, stated rather than hidden
+ *
+ * Either rung *moves* the keyword out of the text filter, so a genuine word search that happens to
+ * be a country name in a library that has rows there stops being a text search — `turkey` is the
+ * real one. The clamp is what bounds it: nothing fires unless the user has saved something there,
+ * and the chip says which reading was taken before `Show these` is pressed.
+ */
+function resolveGeography(query: string, places: readonly MapPlace[]): SentenceArea | null {
+  const match = resolveLocality(query, localityRows(places));
+  if (match !== null) {
+    return { kind: 'area', label: match.label, typed: query, placeIds: match.memberIds };
+  }
+  const country = resolveCountry(query, countryRows(places));
+  if (country === null) return null;
+  return {
+    kind: 'country',
+    label: country.label,
+    typed: query,
+    placeIds: country.memberIds,
+    countryCode: country.code,
+    unplaceable: country.unplaceable,
+  };
 }
 
 /** `MapPlace` as the least the resolver needs. The locality projection is the page's own —
@@ -277,6 +341,13 @@ function localityRows(places: readonly MapPlace[]) {
     lat: place.lat,
     lng: place.lng,
   }));
+}
+
+/** The same projection for the country rung — `place.detail?.countryCode`, which is the field the
+ *  map's own country band and the list's `Elsewhere` section already bucket by, so a country chip
+ *  can never name a country differently from the flag disc beside it. */
+function countryRows(places: readonly MapPlace[]) {
+  return places.map((place) => ({ id: place.id, countryCode: place.detail?.countryCode ?? null }));
 }
 
 /**
@@ -350,7 +421,16 @@ export function interpretationSentence(
   const chips = interpretationChips(application)
     .map((chip) => chip.label)
     .join(', ');
-  return chips === '' ? placesCountText(count) : `${chips}. ${placesCountText(count)}.`;
+  // The unplaced note is spoken as well as shown: it is on screen for a sighted user, and leaving
+  // it out here would make the announcement the more confident of the two renderings.
+  const area = application.area;
+  const unplaced =
+    area !== null && area.kind === 'country' && area.unplaceable > 0
+      ? ` ${unplacedNoteText(area.unplaceable)}`
+      : '';
+  return chips === ''
+    ? `${placesCountText(count)}${unplaced}`
+    : `${chips}. ${placesCountText(count)}.${unplaced}`;
 }
 
 /** What the panel is doing right now. Five states, exactly the five §3 names. */
@@ -680,6 +760,13 @@ export function SentencePanel({
             ))}
           </ul>
         )}
+        {state.kind === 'result' &&
+          state.application.area?.kind === 'country' &&
+          state.application.area.unplaceable > 0 && (
+            <p className="px-0.5 text-xs text-muted-foreground">
+              {unplacedNoteText(state.application.area.unplaceable)}
+            </p>
+          )}
 
         <Button
           /**

@@ -62,9 +62,25 @@ const library: readonly MapPlace[] = [
 ];
 
 const telAviv: SentenceArea = {
+  kind: 'area',
   label: 'תל אביב-יפו',
   typed: 'tel aviv',
   placeIds: ['tlv-1', 'tlv-2', 'tlv-3'],
+};
+
+/**
+ * The fifth cell's **other** shape (`nls-plan.md` §5.1 step 1). A country narrows by country code
+ * and flies through a different camera mover, but it is executed by the same single pass over the
+ * same ids — which is exactly why §4.3's identity survives it, and why this file asserts the
+ * identity over both shapes rather than only over the one it was written for.
+ */
+const israel: SentenceArea = {
+  kind: 'country',
+  label: 'Israel',
+  typed: 'Israel',
+  placeIds: ['tlv-1', 'tlv-2', 'tlv-3'],
+  countryCode: 'IL',
+  unplaceable: 0,
 };
 
 const applications: readonly { readonly name: string; readonly application: SentenceApplication }[] = [
@@ -88,6 +104,20 @@ const applications: readonly { readonly name: string; readonly application: Sent
     name: 'no area at all — the Stage 1 shape, unchanged',
     application: { category: 'cafe', tags: ['brunch'], visit: 'all', query: '', area: null },
   },
+  {
+    name: 'a country alone',
+    application: { category: null, tags: [], visit: 'all', query: '', area: israel },
+  },
+  {
+    // The owner's own example, 2026-09-04: *"cafes I've been to in Israel"*. Category, visit and a
+    // country at once — the combination the country slice was reasoned from.
+    name: 'a country, a category and a visit state — “cafes I’ve been to in Israel”',
+    application: { category: 'cafe', tags: [], visit: 'been', query: '', area: israel },
+  },
+  {
+    name: 'a country the filters empty out',
+    application: { category: 'bar', tags: [], visit: 'all', query: '', area: israel },
+  },
 ];
 
 describe('the number the panel showed is the number the page produces', () => {
@@ -97,9 +127,9 @@ describe('the number the panel showed is the number the page produces', () => {
     });
   }
 
-  it('is 3, 2, 1, 0 and 3 respectively over this library', () => {
+  it('is 3, 2, 1, 0, 3, 3, 1 and 0 respectively over this library', () => {
     expect(applications.map(({ application }) => previewCount(library, application))).toEqual([
-      3, 2, 1, 0, 3,
+      3, 2, 1, 0, 3, 3, 1, 0,
     ]);
   });
 
@@ -141,6 +171,41 @@ describe('what the camera is pointed at after an apply', () => {
 
   it('has nothing to point at when the combination is empty, which is why the flight is gated', () => {
     expect(pageChain(library, applications[3]!.application)).toHaveLength(0);
+  });
+
+  it('for a country, is the rows the new filters leave inside it — “cafes I’ve been to in Israel”', () => {
+    expect(pageChain(library, applications[6]!.application).map((p) => p.id)).toEqual(['tlv-2']);
+  });
+
+  it('a country the filters empty out is gated the same way an area is', () => {
+    expect(pageChain(library, applications[7]!.application)).toHaveLength(0);
+  });
+});
+
+/**
+ * **The landing clamp, read off the page's source.**
+ *
+ * Owner, 2026-09-04: *"NLS results should always land on pins, not clusters."* Both sentence
+ * triggers — the city one and the country one — go through `SENTENCE_LANDING_ZOOM`, whose floor is
+ * the pin band. A regex, because the alternative is a WebGL context: it cannot say where the camera
+ * came to rest, and it is not asked to. It sees one of the two triggers quietly going back to a
+ * framing with no floor, which is the regression this rule has.
+ */
+describe('a sentence that moves the camera lands on pins', () => {
+  const source = readFileSync(
+    new URL('../../../src/app/map/map-page-client.tsx', import.meta.url),
+    'utf8',
+  );
+
+  it('clamps both sentence triggers through one range floored at the pin band', () => {
+    expect(source).toContain('minZoom: PIN_BAND_MIN + BAND_EDGE_GUARD');
+    expect(source.match(/\.\.\.SENTENCE_LANDING_ZOOM/g) ?? []).toHaveLength(2);
+  });
+
+  it('no longer frames a resolved city through the floorless `framePlaces`', () => {
+    const apply = source.slice(source.indexOf('const applySentence'), source.indexOf('const undoSentence'));
+    expect(apply).not.toContain('camera.framePlaces(');
+    expect(apply.match(/camera\.frameBounds\(/g) ?? []).toHaveLength(2);
   });
 });
 

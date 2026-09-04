@@ -453,4 +453,117 @@ describe('a keyword that is one of the user’s own areas', () => {
   it('is not the empty application, so it never reads as “nothing understood”', () => {
     expect(isEmptyApplication(clampToLibrary({ keyword: 'Tel Aviv' }, cityFacets, city))).toBe(false);
   });
+
+  it('is tagged `area`, so the page knows which camera mover it pulls', () => {
+    expect(clampToLibrary({ keyword: 'Tel Aviv' }, cityFacets, city).area?.kind).toBe('area');
+  });
+});
+
+/**
+ * **A keyword that is one of the user's own countries** — `nls-plan.md` §5.1 step 1, built
+ * 2026-09-04. The fifth cell's second shape, resolved locally through `toCountryCode`'s ICU data
+ * and with nothing about the user's geography leaving the device (§5.5).
+ */
+describe('a keyword that is one of the user’s own countries', () => {
+  function inCountry(
+    id: string,
+    locality: string | null,
+    countryCode: string | null,
+    lat: number,
+    lng: number,
+  ): MapPlace {
+    return {
+      id,
+      name: id,
+      category: 'cafe',
+      lat,
+      lng,
+      note: '',
+      sourceUrl: undefined,
+      visited: id === 't2',
+      detail: {
+        id,
+        name: id,
+        category: 'cafe',
+        lat,
+        lng,
+        tags: [],
+        locality,
+        countryCode,
+      } as unknown as Spot,
+    };
+  }
+
+  const world: readonly MapPlace[] = [
+    inCountry('t1', 'תל אביב-יפו', 'IL', 32.07, 34.78),
+    inCountry('t2', 'Tel Aviv-Yafo', 'IL', 32.072, 34.782),
+    inCountry('h1', 'חיפה', 'IL', 32.79, 34.99),
+    inCountry('l1', 'London', 'GB', 51.5, -0.12),
+    inCountry('x1', null, null, 50.08, 14.43),
+  ];
+
+  const worldFacets: LibraryFacets = { categories: ['cafe'], tags: [], visit: ['been', 'not-been'] };
+
+  it('§5.6 — `in Israel` and `בישראל` agree, and both take the whole country', () => {
+    const english = clampToLibrary({ keyword: 'Israel' }, worldFacets, world);
+    const hebrew = clampToLibrary({ keyword: 'בישראל' }, worldFacets, world);
+    expect(english.area?.kind).toBe('country');
+    expect([...(english.area?.placeIds ?? [])].sort()).toEqual(['h1', 't1', 't2']);
+    expect([...(hebrew.area?.placeIds ?? [])].sort()).toEqual([...(english.area?.placeIds ?? [])].sort());
+  });
+
+  it('§5.6 — a country the user has nothing in is no filter at all, in both languages', () => {
+    for (const keyword of ['Italy', 'באיטליה']) {
+      const applied = clampToLibrary({ keyword }, worldFacets, world);
+      expect(applied.area, keyword).toBeNull();
+      // It stays a text search rather than becoming a filter with nothing behind it.
+      expect(applied.query, keyword).toBe(keyword);
+    }
+  });
+
+  it('§5.6 — the row with no country code is reported, not silently dropped', () => {
+    const applied = clampToLibrary({ keyword: 'Israel' }, worldFacets, world);
+    expect(applied.area?.kind === 'country' && applied.area.unplaceable).toBe(1);
+    expect(applied.area?.placeIds).not.toContain('x1');
+  });
+
+  /**
+   * **The precedence, as a test.** A locality the user has saved beats a country of the same name.
+   * The library here holds a row whose *stored locality* is `Luxembourg` and other rows in the
+   * country `LU`; the narrower, quoted-from-the-library reading wins.
+   */
+  it('resolves against localities first, then countries', () => {
+    const ambiguous: readonly MapPlace[] = [
+      inCountry('lux-city', 'Luxembourg', 'LU', 49.61, 6.13),
+      inCountry('lux-north', 'Clervaux', 'LU', 50.05, 6.03),
+    ];
+    const applied = clampToLibrary({ keyword: 'Luxembourg' }, worldFacets, ambiguous);
+    expect(applied.area?.kind).toBe('area');
+    expect(applied.area?.placeIds).toEqual(['lux-city']);
+    // Without the city row it is the country, so the second rung is genuinely reachable.
+    const countryOnly = clampToLibrary({ keyword: 'Luxembourg' }, worldFacets, [ambiguous[1]!]);
+    expect(countryOnly.area?.kind).toBe('country');
+  });
+
+  it('keeps §4.3: the preview count equals the applied count with a country in play', () => {
+    // The owner's own example, 2026-09-04: “cafes I've been to in Israel”.
+    const applied = clampToLibrary(
+      { category: 'cafe', visit: 'been', keyword: 'Israel' },
+      worldFacets,
+      world,
+    );
+    expect(previewCount(world, applied)).toBe(appliedCount(world, applied));
+    expect(previewCount(world, applied)).toBe(1);
+  });
+
+  it('shows the product’s own name for the country on the chip', () => {
+    const applied = clampToLibrary({ keyword: 'בישראל' }, worldFacets, world);
+    expect(interpretationChips(applied).map((chip) => chip.label)).toContain('Israel');
+  });
+
+  it('withdraws the undo offer when the country is cleared by hand', () => {
+    const applied = clampToLibrary({ keyword: 'Israel' }, worldFacets, world);
+    expect(sentenceStillApplied(applied, { ...applied })).toBe(true);
+    expect(sentenceStillApplied(applied, { ...applied, area: null })).toBe(false);
+  });
 });

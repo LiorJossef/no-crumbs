@@ -169,32 +169,89 @@ function labelFor(
 }
 
 /**
- * **A resolved area, as the four filter cells' fifth sibling.**
+ * **The geography a sentence resolved to, as the four filter cells' fifth sibling.**
  *
- * Deliberately not a `LocalityMatch`: that is what the resolver found, this is what the product
- * will execute — the same distinction `SentenceApplication` draws against `SearchIntent`.
+ * Deliberately not a `LocalityMatch` or a `CountryMatch`: those are what a resolver found, this is
+ * what the product will execute — the same distinction `SentenceApplication` draws against
+ * `SearchIntent`.
  *
- * `typed` is the user's own words, carried so a caller with no `label` (a cluster whose spellings
- * tie, which `clusterLabel` answers with `null` rather than a coin flip) can still say what was
- * asked for without inventing a name for it.
+ * ## One cell for both shapes, and why it is not a sixth
+ *
+ * A country narrows by country code and frames through a different camera mover, so it looks like
+ * a second axis. It is not, for three reasons that are all about what the product already holds:
+ *
+ * 1. **It is the same question.** The user typed one place name, and the answer is either one of
+ *    their cities or one of their countries — never both at once. Two cells would allow a state
+ *    (`Tel Aviv` AND `Italy`) that no sentence can produce and that the resolver would have to
+ *    forbid at the far end.
+ * 2. **§4.3's identity comes free.** Preview-equals-applied holds because the panel and the page
+ *    run *one* chain of five passes. A sixth pass is a sixth place for the two chains to drift,
+ *    and the acceptance gate is exactly that they cannot.
+ * 3. **The chip and `Clear all` already reach this cell and only this cell.** The filter row's
+ *    fifth chip is `AreaFilterContext` and `NothingHereEscape` reads that same context, both in
+ *    files this change does not touch. A sixth cell would have to be threaded through both, and
+ *    the one that was missed would make `Clear all` start lying again — a bug that was found and
+ *    fixed on 2026-09-04.
+ *
+ * So both shapes are one cell, and `kind` is the only thing that differs downstream: which camera
+ * mover fires on apply, and which scope it writes.
+ *
+ * ## Why a country still carries place ids
+ *
+ * A country *could* be executed as a predicate over `country_code`. Resolving it to ids at match
+ * time instead means the fifth pass stays one `Set.has` for both shapes, so the panel's count and
+ * the page's set are computed by the same function over the same input — which is the whole of
+ * §4.3. The cost is that the set is a snapshot of the library at resolve time; the one route that
+ * grows the library, `openImport`, already blanks this cell along with the other four.
+ *
+ * ## The name
+ *
+ * `SentenceArea` and `filterByArea` keep their names although a country is not an area. The filter
+ * row's half of this vocabulary — `AreaFilterChip`, `AreaFilterContext` — lives in
+ * `library-filter-bar.tsx`, outside this change's write scope, so a rename here would split one
+ * axis's name across two files. One imperfect word beats two.
  */
-export interface SentenceArea {
+interface SentenceGeographyBase {
+  /**
+   * What to call it. For an area, the library's own plurality spelling; `null` when the cluster's
+   * spellings tie, and a caller that gets `null` must fall back to the user's own words rather
+   * than inventing a name (§5.3).
+   */
   readonly label: string | null;
+  /** The user's own words, carried so a caller with no `label` can still say what was asked for. */
   readonly typed: string;
+  /** What the filter is. */
   readonly placeIds: readonly string[];
 }
 
-/** What to show for an area: the library's own plurality spelling, or the user's own words. Never
- *  a canonical string this product picked (§5.3). */
+export type SentenceArea =
+  /** One of the user's own clusters, found by name. Applied by camera mover 4. */
+  | (SentenceGeographyBase & { readonly kind: 'area' })
+  /**
+   * One of the countries the user has places in, found by ICU over `en`/`he` and nothing that
+   * leaves the device (§5.5). Applied by camera mover 5.
+   */
+  | (SentenceGeographyBase & {
+      readonly kind: 'country';
+      /** ISO-3166-1 alpha-2 — how the page finds the country summary the camera frames. */
+      readonly countryCode: string;
+      /** Library rows carrying no country code at all: reported, never silently dropped (§5.6). */
+      readonly unplaceable: number;
+    });
+
+/** What to show for the fifth axis: the library's own plurality spelling, the country's own name,
+ *  or the user's own words. Never a canonical string this product picked (§5.3). */
 export function areaLabel(area: SentenceArea): string {
   return area.label ?? area.typed;
 }
 
 /**
- * The area pass — the fifth filter, and the one that runs first.
+ * The geography pass — the fifth filter, and the one that runs first.
  *
- * Structural in `T` so `domain/` never learns about `MapPlace`, and total: no area is no
- * narrowing, which is what makes it composable with the four that already exist.
+ * Structural in `T` so `domain/` never learns about `MapPlace`, and total: no geography is no
+ * narrowing, which is what makes it composable with the four that already exist. One
+ * implementation for both `kind`s, which is what makes the panel's preview and the page's apply
+ * literally the same code (§4.3).
  */
 export function filterByArea<T extends { readonly id: string }>(
   items: readonly T[],
