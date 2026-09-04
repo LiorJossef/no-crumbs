@@ -1,16 +1,37 @@
 # No Crumbs — a personal map of the places your feed recommended
 
-**Live app:** <https://p-002-zeta.vercel.app> · **Repository:** <https://github.com/LiorJossef/P-002>
+**Live app:** <https://p-002-git-main-lior19.vercel.app> ·
+**Repository:** <https://github.com/LiorJossef/no-crumbs>
 
-*(`P-002` is the repository codename; the product is No Crumbs.)*
+*(`P-002` is the repository codename and the working directory name; the product is No Crumbs.)*
 
-Paste a TikTok link; the post's caption is read, place names are extracted, resolved against an
-open places index, and — once you confirm them — pinned on a map that is yours and stays yours.
+Paste a TikTok link. The post's caption is read, place names are extracted, resolved against a
+places provider, and — once you confirm them — pinned on a map that is yours and stays yours.
 
-**Planning documents are the source of truth.** Start with
-[`docs/00-project-charter.md`](docs/00-project-charter.md), then
-[`docs/implementation-plan.md`](docs/implementation-plan.md) (the build order).
-This README covers only what MS2 delivers: the toolchain, the layering, and how to run it.
+## What it does today
+
+- **Import a TikTok** — paste a link, the caption is read and place names extracted, each candidate
+  is shown for confirmation before anything is saved. **Nothing is written without a confirmation**,
+  and an uncertain result is presented as uncertain rather than guessed at.
+- **The map is the library** — saved places as pins, grouped into your own areas and countries as
+  you zoom out. Tapping an area or a country opens it; the list beside the map always answers the
+  same question the map does.
+- **Find a place again** — a live search across names, cities and your own notes; filters for
+  category, tags and whether you have been; and **natural-language search**: type
+  `cafes I've been to in Israel` and it resolves to the filters the library already has, previews
+  what it would show, and only narrows when you press.
+- **Collections** — group places, share a collection by link, and see who added what.
+- **It refuses to lie.** A place we could not resolve says so. A count on the map is the count the
+  list will show. The extracted and the inferred are kept apart, everywhere.
+
+**Not built, on purpose:** Instagram and YouTube (TikTok is the only access mechanism verified
+against its terms — those links are a recognised redirect to manual add, never a failure), and any
+kind of social feed. The scope boundary is [`docs/mvp-plan.md`](docs/mvp-plan.md).
+
+**Planning documents are the source of truth**, and there are a lot of them. For a cold start read
+[`docs/current-state.md`](docs/current-state.md) — what works, what is verified and how, and what is
+still open. Then [`docs/mvp-plan.md`](docs/mvp-plan.md) (the plan of record) and
+[`docs/00-project-charter.md`](docs/00-project-charter.md) (scope and principles).
 
 ---
 
@@ -23,7 +44,8 @@ This README covers only what MS2 delivers: the toolchain, the layering, and how 
 | Hosting | Vercel (preview per branch + production) | charter |
 | Map | MapLibre GL JS **v6.4.1** + CARTO vector basemap (`voyager-gl-style`, keyless) | `docs/06-map-and-places-decision.md` (D2) |
 | Places | **Google Places is canonical** (15/16 top-1); the self-hosted Overture index is production's ToS-gated fallback. **No Nominatim adapter exists** — D2b was superseded, not built | `docs/06` §3.1 |
-| Extraction | Anthropic `claude-haiku-4-5`, structured output | `docs/09-extraction-and-resolution.md` (D7) |
+| Extraction | Gemini in production, Anthropic `claude-haiku-4-5` as the code default — see the env matrix | `docs/09-extraction-and-resolution.md` (D7) |
+| Sentence search | Gemini `gemma-4-26b-a4b-it`; the user's own place names never leave the device | `docs/nls-plan.md` §5.5 |
 | Tests | Vitest (unit) + Playwright (e2e, mobile-first) | `docs/implementation-plan.md` §13 |
 
 ## Local setup
@@ -111,9 +133,9 @@ third category — a secret in a `NEXT_PUBLIC_` name is a published secret.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | staging | staging | prod | same; safe because authorisation is RLS |
 | `SUPABASE_SERVICE_ROLE_KEY` | **secret** | staging | staging | prod | server only; bypasses RLS. The schema has **18** `SECURITY DEFINER` functions across 14 migrations |
 | `ANTHROPIC_API_KEY` | **secret** | dev key | dev key | prod key | `integrations/llm/*` only, Node runtime |
-| `LLM_PROVIDER` | public-safe | `anthropic` | `anthropic` | `anthropic` | picks the extraction adapter; `gemini` is the alternative. An unknown value throws at startup |
+| `LLM_PROVIDER` | public-safe | `gemini` | `gemini` | **`gemini`** | picks the extraction adapter. The **code default is `anthropic`** — an unset value falls back to the adapter verified against the golden set, so production must set this explicitly. An unknown value throws at startup |
 | `ANTHROPIC_MODEL` | public-safe | unset | unset | unset | optional override; defaults to `claude-haiku-4-5` in code |
-| `GEMINI_API_KEY` | **secret** | optional | optional | optional | only read when `LLM_PROVIDER=gemini` |
+| `GEMINI_API_KEY` | **secret** | **required** | **required** | **required** | read when `LLM_PROVIDER=gemini`, and **always** by the sentence-search route, which uses Gemini regardless of the provider setting |
 | `GEMINI_MODEL` | public-safe | unset | unset | unset | optional override |
 | `PLACE_RESOLVER` | public-safe | `google` | `google` | `overture` | which provider answers a lookup. `docs/06` §3.1 is why production differs |
 | `GOOGLE_PLACES_API_KEY` | **secret** | dev key | dev key | see note | **server-only.** `place-resolver-factory.ts` throws without it when `PLACE_RESOLVER=google` |
