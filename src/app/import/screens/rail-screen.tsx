@@ -22,7 +22,7 @@
  * being there; nothing here may fill it from the pasted URL or from a timer.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 
 import { CrumbTrail } from '@/components/brand/crumb-trail';
@@ -48,6 +48,30 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
   resolve: 'Matching locations',
 };
 
+/**
+ * How long `Cancel` ignores a press after the rail appears.
+ *
+ * A double-click on `Add →` used to start an import and cancel it in the same gesture, and the
+ * cause was geometry rather than logic: both are full-width buttons at the bottom of the same
+ * column, and at `lg` widths `Cancel` renders within half a pixel of where `Add` just was —
+ * measured at y=552.42 against Add's y=552.97, a 43px overlap with Add's centre inside Cancel.
+ * The second click of the pair therefore landed on `Cancel`, which aborts the request and returns
+ * to the paste screen, so the user saw their double-click do nothing at all. On a phone the two
+ * sit 150px apart and it never happened.
+ *
+ * 500ms because that is the interval a browser itself uses to decide two clicks are one
+ * double-click; anything shorter leaves part of the gesture live. The import it guards runs for
+ * 7-34s, so a cancel intended by a human is never inside this window — a press this early is a
+ * click meant for the button that was there a frame ago.
+ *
+ * A guard rather than a moved button: `Cancel`'s position was argued to where it is
+ * (`iteration-2-plan.md` I2-5, and the note on the spacer below), and this is a mis-delivered
+ * press, not a layout mistake. Deliberately not `disabled` — a control that flickers disabled for
+ * half a second reads as broken, and there is nothing to explain to someone who did not mean to
+ * press it.
+ */
+const CANCEL_DEAD_MS = 500;
+
 export function RailScreen({
   rail,
   onCancel,
@@ -55,6 +79,11 @@ export function RailScreen({
   rail: RailState;
   onCancel: () => void;
 }) {
+  const shownAt = useRef(Date.now());
+  const cancelIfDeliberate = () => {
+    if (Date.now() - shownAt.current < CANCEL_DEAD_MS) return;
+    onCancel();
+  };
   /**
    * Two stages, not three.
    *
@@ -245,7 +274,7 @@ export function RailScreen({
       <div className="h-8 shrink-0" />
 
       <div className="flex flex-col gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel} className="h-11 w-full rounded-lg text-sm font-bold">
+        <Button type="button" variant="ghost" onClick={cancelIfDeliberate} className="h-11 w-full rounded-lg text-sm font-bold">
           Cancel
         </Button>
       </div>
