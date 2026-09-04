@@ -180,7 +180,12 @@ describe('the mirror still matches the surface', () => {
     expect(SURFACE).toContain("instance.on('dragend', handleDragEnd)");
     expect(SURFACE).toContain("instance.on('zoomend', handleZoomEnd)");
     expect(SURFACE).toContain("instance.on('moveend', handleMoveEnd)");
-    expect(SURFACE).toContain('onUserZoom={handleControlZoom}');
+    // Renamed from `handleControlZoom` on 2026-09-04: the same callback now also serves the two
+    // other user zooms whose camera events carry no `originalEvent` — a discrete mouse-wheel notch
+    // and a box zoom. See `tests/unit/map/user-initiated-camera.test.ts`.
+    expect(SURFACE).toContain('onUserZoom={noteUserZoom}');
+    expect(SURFACE).toContain("instance.on('wheel', noteUserZoom)");
+    expect(SURFACE).toContain("instance.on('boxzoomend', noteUserZoom)");
     // …and detaches each of them, or a remounted map accumulates handlers that outlive it.
     expect(SURFACE).toContain("previous.off('moveend', handleMoveEnd)");
   });

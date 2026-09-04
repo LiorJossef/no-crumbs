@@ -419,6 +419,22 @@ export interface ViewportChangeMeta {
    * gestures apply their own guard; this field never lies about what is drawn to express one.
    */
   readonly band: ZoomBand;
+  /**
+   * The band of the **previous** settled report, or `null` when this is the first one.
+   *
+   * Here rather than in the page because it is a fact about the camera's history, and the camera's
+   * history is the surface's to keep — the same argument that puts `band` here rather than letting
+   * the page re-derive the thresholds. It is reported for programmatic moves too, so the band a
+   * flight *landed* in is the band the user's next gesture is measured against.
+   *
+   * `ui/place/list-scope.ts` needs it to tell a **crossing** from a membership: "the camera is in
+   * the pin band" is true of a 40 px drag as much as of the zoom that just arrived there, and only
+   * one of those may take a country scope apart. See `scopeAfterCameraSettled`.
+   *
+   * Optional so that a surface which cannot keep the history omits it and every consumer treats
+   * that as "decide nothing", which is the behaviour they all had before this existed.
+   */
+  readonly previousBand?: ZoomBand | null;
 }
 
 /** A framing request with a zoom range, for `MapSurfaceProps.focusBounds`. */

@@ -37,20 +37,30 @@
  *
  * ## Two preconditions this module cannot enforce, and the caller must
  *
- *  1. **`userInitiated` has to become true for a user's own zoom.** `ViewportChangeMeta` currently
- *     documents it as false for "a zoom of any kind", which was correct when a zoom could only ever
- *     hand the list to another city by accident. Under the band rule a zoom is the *only* gesture
- *     that can cross a band, so with the flag as it stands today every transition below is dead
- *     code. It must stay false for every programmatic move — that is the whole guard, and it is
- *     what stops a re-fit or a post-import flight rewriting the list.
+ *  1. **`userInitiated` has to become true for a user's own zoom** — done, and **measured** rather
+ *     than assumed (2026-09-04, at `72346dc`, `1280x900`, instrumented `reportViewport`): a
+ *     trackpad pinch/scroll, a drag and the `+`/`−` controls all report `true`, and the country
+ *     tap's own flight reports `false`. It must stay false for every programmatic move — that is
+ *     the whole guard, and it is what stops a re-fit or a post-import flight rewriting the list.
+ *
+ *     **One gesture still reports `false` and it is the commonest one on a desktop mouse.**
+ *     MapLibre 6.4.1's `ScrollZoomHandler._onTimeout` — the path a *discrete* wheel notch takes
+ *     when it arrives more than 400 ms after the last one — sets `_type = 'wheel'` and starts the
+ *     zoom without ever assigning `_lastWheelEvent`, so `renderFrame()` returns
+ *     `originalEvent: undefined` and every `zoomend`/`moveend` it produces is bare. Measured: 26
+ *     consecutive wheel notches at 650 ms spacing, all `userInitiated: false`. The surface closes
+ *     that by listening to the `wheel` map event itself; see `map-surface.mapcn.tsx`.
  *  2. **The zoom has to be reported.** It now is (`ViewportChangeMeta.zoom`/`.band`).
+ *  3. **The band the camera came *from* has to be reported** — `previousBand` below. Without it a
+ *     transition can only ask which band the camera is *in*, and "in the pin band" is true of a
+ *     40 px drag as much as of a zoom that just crossed into it.
  *
  * Pure: no React, no DOM, no MapLibre. The one import from `components/` is `zoom-bands.ts`, which
  * is itself pure and is the single definition of where a band starts — its own docblock forbids
  * re-deriving those numbers, and a second copy of them here is exactly the drift it warns about.
  */
 
-import { bandForZoom } from '@/components/map/zoom-bands';
+import { bandForZoom, type ZoomBand } from '@/components/map/zoom-bands';
 import { toCountryName } from '@/domain/places/country-code';
 import {
   areaHeading,
@@ -301,13 +311,39 @@ function resolveGlobal<T>(
  * | `country` | `global` | unchanged (identity) |
  * | `country` | `country` / `area` | `global` — the map is drawing countries, so the list is too |
  * | `area` / `pin` | `global` | the area under the camera, or its country if two of that country's areas are on screen |
- * | `area` / `pin` | `country` | unchanged — a pan is not a country change |
+ * | `area` | `country` | unchanged — a pan is not a country change, and a country tap lands here |
+ * | `pin`, entered from a wider band | `country` | **one of that country's own areas**, if the camera is over one |
+ * | `pin`, already in it | `country` | unchanged |
  * | `area` / `pin` | `area` | `dominantArea`, i.e. unchanged unless the pan crossed a 50 km cluster boundary |
  *
  * `userInitiated === false` changing nothing at all is the guard that carries over verbatim from
  * `areaAfterCameraSettled`, and it is doing more work here than it was: a country tap now flies the
  * camera *and* writes a country scope, so the flight that follows must not immediately overwrite
  * what the tap just wrote. It cannot, because that flight is programmatic.
+ *
+ * ## Why a country scope is left on a zoom into the pin band, and on nothing else
+ *
+ * Reported by the owner on 2026-09-04 and reproduced at 1280x900 against `72346dc`: tapping
+ * `Israel 36` and then zooming by hand into Tel Aviv left the header reading `36 places in Israel`
+ * over a screen of Herzliya and Ra'anana pins. Ten settled user zooms, `z8.26` to `z10.58`,
+ * crossing `AREA_BAND_MAX` on the second — every one of them `userInitiated: true`, and every one
+ * of them swallowed by the `country` arm, which returned `scope` whatever the camera did.
+ *
+ * That arm was written when a *pan* was the only gesture that could reach it, and for a pan it is
+ * still right: a country is a thing you chose and not a thing you drifted into. A zoom that crosses
+ * out of the area band is a different act — it is the user asking to look at one place rather than
+ * at a country — and it is the same act the `global` arm already answers by adopting what is on
+ * screen. So the two arms now agree, and the difference between them is only where they start.
+ *
+ * **`previousBand` is what makes it a crossing rather than a membership test**, and that distinction
+ * is the whole safety of it. A sentence apply writes a country scope and lands *on pins*
+ * (`SENTENCE_LANDING_ZOOM`), so a rule reading "the camera is in the pin band" would let the first
+ * 40 px drag afterwards replace the country the sentence just chose with one of its cities. Asking
+ * whether the camera *arrived* in the pin band leaves that landing, and every pan and nudge after
+ * it, alone.
+ *
+ * A `null` `previousBand` — a surface that cannot report one, or the very first report of a page —
+ * decides nothing, exactly like a missing rect.
  *
  * Returns `scope` **by identity** in every case that is not a transition, so a settled pan inside
  * one area costs a `setState` that bails out rather than a re-render of every surface.
@@ -317,25 +353,41 @@ export function scopeAfterCameraSettled<T>(input: {
   /** The zoom the camera came to rest at. `null` from a surface that cannot report one, which is
    *  treated exactly like a missing rect: decide nothing. */
   readonly zoom: number | null;
+  /**
+   * The band the camera was in at the **previous** settled report, or `null` when there was none.
+   *
+   * Optional, and absent means "no information", which decides nothing — so a caller that has not
+   * been taught to pass it keeps today's behaviour exactly rather than getting a new one by
+   * default. The page holds it already: `lastZoomRef` is written from every report, including the
+   * programmatic ones, which is the sequence this needs.
+   */
+  readonly previousBand?: ZoomBand | null;
   readonly userInitiated: boolean;
   readonly areas: readonly Area<T>[];
   readonly countries: readonly CountrySummary<T>[];
   readonly rect: ViewportBounds | null;
 }): ListScope {
   const { scope, zoom, userInitiated, areas, countries, rect } = input;
+  const previousBand = input.previousBand ?? null;
   if (!userInitiated || rect === null || zoom === null) return scope;
 
-  if (bandForZoom(zoom) === 'country') {
+  const band = bandForZoom(zoom);
+  if (band === 'country') {
     return scope.kind === 'global' ? scope : GLOBAL_SCOPE;
   }
 
-  if (scope.kind === 'global') return restoredScope(areas, countries, rect) ?? scope;
+  if (scope.kind === 'global') return restoredScope(areas, countries, rect, band) ?? scope;
 
-  // A country scope is only ever entered by an explicit tap, and only an explicit tap leaves it.
-  // Panning across the Channel at area-band zoom is possible and does not re-country the list:
-  // "only update when clusters change or when clicking a specific cluster" (owner, requirement 3),
-  // and a country is a thing you chose rather than a thing you drifted into.
-  if (scope.kind === 'country') return scope;
+  // A country scope is left by an explicit tap, by zooming out to the country band (above), and by
+  // **crossing into the pin band** — and by nothing else. Panning across the Channel at area-band
+  // zoom is possible and does not re-country the list: "only update when clusters change or when
+  // clicking a specific cluster" (owner, requirement 3), and a country is a thing you chose rather
+  // than a thing you drifted into. A pan cannot reach the arm below, because a pan does not change
+  // the band it started in.
+  if (scope.kind === 'country') {
+    if (band !== 'pin' || previousBand === null || previousBand === 'pin') return scope;
+    return narrowedWithinCountry(areas, countries, rect, band, scope) ?? scope;
+  }
 
   const currentId = resolveArea(areas, scope.anchor)?.id ?? scope.anchor;
   const next = dominantArea(areas, rect, currentId) ?? currentId;
@@ -343,16 +395,67 @@ export function scopeAfterCameraSettled<T>(input: {
 }
 
 /**
- * Leaving the country band: what the list becomes.
+ * A country scope narrowing to **one of its own areas**, or `null` for every other answer.
  *
- * The area under the camera, except when the camera is showing **two or more areas of one
- * country** — then the country is what is on screen and the country is what the list says. That is
- * not an extra rule so much as the one that makes the two routes to the same view agree: a country
- * tap lands inside the area band by construction (`COUNTRY_LANDING_ZOOM`), and zooming manually to
- * the same camera has to produce the same heading, or the list's state would depend on how you got
- * there.
+ * The narrowing reuses `restoredScope`, so the two routes into the pin band agree: zooming there
+ * from a global scope and zooming there from the country's own scope produce the same heading.
  *
- * The countryless bucket is excluded from that promotion. Its areas are the ones we could not place,
+ * What it adds is the containment check, and that is the "chosen, not drifted into" rule surviving
+ * the change rather than being traded away for it. `dominantArea` answers with the nearest area by
+ * centroid when the rect holds no pins at all, which is right for a global scope — some area is
+ * always the closest thing to you — and wrong here: zooming into a street with nothing saved on it
+ * would hand a list headed `18 places in the United Kingdom` to whichever cluster happened to be
+ * nearest, which for a rect over open water is a jump to another continent. A country you chose
+ * gives way to its own cities and to nothing else.
+ */
+function narrowedWithinCountry<T>(
+  areas: readonly Area<T>[],
+  countries: readonly CountrySummary<T>[],
+  rect: ViewportBounds,
+  band: ZoomBand,
+  scope: { readonly kind: 'country'; readonly key: string },
+): ListScope | null {
+  const next = restoredScope(areas, countries, rect, band);
+  if (next === null || sameScope(next, scope)) return null;
+  if (next.kind !== 'area') return null;
+  const country = countries.find((candidate) => candidate.key === scope.key);
+  const holds = country?.areas.some((area) => area.id === next.anchor) ?? false;
+  return holds ? next : null;
+}
+
+/**
+ * **What the camera is showing, as a scope** — the area under it, or its country.
+ *
+ * The area under the camera, except when the camera is **in the area band** showing two or more
+ * areas of one country — then the country is what is on screen and the country is what the list
+ * says. That is not an extra rule so much as the one that makes the two routes to the same view
+ * agree: a country tap lands inside the area band by construction (`COUNTRY_LANDING_ZOOM`), and
+ * zooming manually to the same camera has to produce the same heading, or the list's state would
+ * depend on how you got there.
+ *
+ * ## Why the promotion stops at the area band (2026-09-04)
+ *
+ * It used to apply at every zoom, and **that is what kept the owner's `36 places in Israel` on
+ * screen over a street-level view of Tel Aviv.** Measured at `0a6eaba`, instrumented at the page:
+ * the crossing into the pin band arrives exactly as designed — `userInitiated: true`, `band: 'pin'`,
+ * `previousBand: 'area'` — and then this function answered `Israel` anyway, because the rect held
+ * pins from ten Israeli areas at z8.52 and still eight of them at z10.58. Israel's clusters are
+ * small (`2 km`, or `50 km` sharing a normalised locality), so *every* view of the Tel Aviv metro
+ * holds several of them and the promotion could never be escaped by zooming.
+ *
+ * The promotion's own justification is the reason it stops here rather than a new rule bolted on:
+ * it exists so that a country tap's landing and a manual zoom to the same camera agree, and a
+ * country tap **cannot land in the pin band** — `COUNTRY_LANDING_ZOOM.max` is half a band below it.
+ * There is no second route to reconcile. What the pin band draws is individual places, not area
+ * capsules, so "you are looking at two of my areas" is a statement about a layer that is not on
+ * screen, and the most specific true label is the dominant area.
+ *
+ * Nothing is hidden by the narrowing, which is what makes it safe rather than merely wanted: the
+ * map draws `matches` and not the scope (`map-page-client.tsx`), and every out-of-scope match is
+ * still listed in the continuation below the heading. The scope moves the heading and the grouping,
+ * never the pins.
+ *
+ * The countryless bucket is excluded from the promotion. Its areas are the ones we could not place,
  * grouped by an admission rather than by a country, so "you are looking at two of them" is not a
  * fact about anywhere. It stays tappable — an explicit tap on that group is still a country scope.
  *
@@ -362,9 +465,11 @@ function restoredScope<T>(
   areas: readonly Area<T>[],
   countries: readonly CountrySummary<T>[],
   rect: ViewportBounds,
+  band: ZoomBand,
 ): ListScope | null {
   const areaId = dominantArea(areas, rect, null);
   if (areaId === null) return null;
+  if (band !== 'area') return scopeForAreaTap(areaId);
 
   const country = countries.find(
     (candidate) =>

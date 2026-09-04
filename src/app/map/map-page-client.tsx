@@ -1662,6 +1662,11 @@ export function MapPageClient({
           // the page was not showing.
           scope: current ?? defaultScope(areas),
           zoom: meta.zoom,
+          // The band the camera was in *before* this report, which is what makes the country
+          // transition a crossing rather than a membership test. A membership rule — "the camera is
+          // in the pin band" — would let every later nudge inside that band re-answer the question,
+          // including the nudges after a sentence apply deliberately landed there.
+          previousBand: meta.previousBand ?? null,
           userInitiated: meta.userInitiated,
           areas,
           countries,

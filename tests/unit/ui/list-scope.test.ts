@@ -457,6 +457,21 @@ describe('scopeAfterCameraSettled — the whole transition table', () => {
       ).toEqual(scopeForCountryTap('GB'));
     });
 
+    it('does not promote in the pin band, where no area capsule is drawn to promote', () => {
+      // The promotion exists so a country tap's landing and a manual zoom to the same camera agree,
+      // and a country tap cannot land in the pin band (`COUNTRY_LANDING_ZOOM.max` is half a band
+      // below it). With nothing to reconcile, the most specific true label wins.
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope: GLOBAL_SCOPE,
+          zoom: ZOOM.pin,
+          userInitiated: true,
+          rect: ENGLAND_RECT,
+        }),
+      ).toEqual(scopeForAreaTap(london.id));
+    });
+
     it('never promotes the countryless bucket, however many of its areas are on screen', () => {
       // Its areas are grouped by an admission rather than by a country, so "you are looking at two
       // of them" is not a fact about anywhere.
@@ -511,6 +526,144 @@ describe('scopeAfterCameraSettled — the whole transition table', () => {
         }),
       ).toBe(scope);
     });
+
+  /**
+   * **The owner's report of 2026-09-04**, and the one row of the table that used to be a flat
+   * `return scope`.
+   *
+   * Reproduced at 1280x900 against `72346dc`: tapping `Israel 36` and then zooming in by hand left
+   * the header reading `36 places in Israel` over a screen of Herzliya and Ra'anana pins. Ten
+   * settled user zooms from z8.26 to z10.58, every one of them reporting `userInitiated: true`, and
+   * every one of them swallowed here.
+   *
+   * The crossing is what is being tested, never the membership — which is why `previousBand`
+   * appears in every case below, including the ones that must change nothing.
+   */
+  describe('a country scope and the pin band', () => {
+    it('hands the list to the area under the camera when a zoom crosses into the pin band', () => {
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope: scopeForCountryTap('GB'),
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: rectAround(LONDON, 0.04),
+        }),
+      ).toEqual(scopeForAreaTap(london.id));
+    });
+
+    it('narrows to the dominant area even when two of the country\'s areas are on screen', () => {
+      // **The measurement that made this the behaviour rather than the opposite one.** Israel's
+      // clusters are small, so every view of the Tel Aviv metro holds eight to ten of them — the
+      // area-band promotion, applied at pin zoom, made `36 places in Israel` inescapable by
+      // zooming. The promotion belongs to the band whose layer it describes; see `restoredScope`.
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope: scopeForCountryTap('GB'),
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: ENGLAND_RECT,
+        }),
+      ).toEqual(scopeForAreaTap(london.id));
+    });
+
+    it('does not move on a pan that was already in the pin band', () => {
+      // The regression this guard exists for: a sentence apply writes a country scope and lands on
+      // pins (`SENTENCE_LANDING_ZOOM`), so a rule reading "the camera is in the pin band" would let
+      // the first drag afterwards replace the country the sentence just chose.
+      const scope = scopeForCountryTap('IL');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: 'pin',
+          userInitiated: true,
+          rect: rectAround(TEL_AVIV, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('does not move on a zoom that stays inside the area band', () => {
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.area,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: rectAround(LONDON, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('does not move when the crossing was the camera moving itself', () => {
+      // Movers 4 and 5 land on pins, and a sentence apply fires both. They must not rewrite the
+      // scope the tap or the sentence just wrote.
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: false,
+          rect: rectAround(LONDON, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('decides nothing when the surface reports no previous band', () => {
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: null,
+          userInitiated: true,
+          rect: rectAround(LONDON, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('holds the country over open water, where the nearest area is not a fact about anywhere', () => {
+      // `dominantArea` answers with the nearest centroid when the rect holds no pins, which is right
+      // for a global scope and wrong here: it would hand `18 places in the United Kingdom` to
+      // whichever cluster happened to be closest to a patch of sea.
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: rectAround({ lat: 0, lng: 0 }, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('holds the country when the crossing landed in a different one', () => {
+      // A country is still a thing you chose. Arriving in the pin band over Tel Aviv with the list
+      // scoped to the United Kingdom is drifting, however you got there.
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: rectAround(TEL_AVIV, 0.04),
+        }),
+      ).toBe(scope);
+    });
+  });
 
     it('holds an area scope through a pan inside it, by object identity', () => {
       const scope = scopeForAreaTap(london.id);

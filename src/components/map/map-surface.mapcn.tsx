@@ -88,6 +88,7 @@ import {
   PIN_BAND_MIN,
   settleZoom,
   ZERO_STATE_ZOOM,
+  type ZoomBand,
 } from './zoom-bands';
 import { summaryPillFitAllowance, type SummaryPillLabel } from './country-flag-image';
 import {
@@ -1026,6 +1027,11 @@ export function MapSurfaceMapcn({
    */
   const pannedSinceReport = useRef(false);
 
+  /** The band of the last report this surface sent, so the next one can say what it crossed. Written
+   *  for programmatic reports as well as gestures: a flight's landing band is what the user's next
+   *  gesture is measured against. `null` until the first report. */
+  const lastReportedBand = useRef<ZoomBand | null>(null);
+
   /** Report the current query rect, now. Reads the breakpoint from `window.innerWidth` (the same
    *  width `PlaceDesktopPanel` switches on) but measures the rect in *canvas* pixels, which is what
    *  `unproject` speaks. */
@@ -1060,7 +1066,11 @@ export function MapSurfaceMapcn({
     // flick, and `ux-library-at-scale.md` §2.1's whole point is that the swap is MapLibre's, with
     // no zoom listener and nothing re-rendering under a moving thumb.
     const zoom = instance.getZoom();
-    if (rect) handler(rect, { userInitiated, zoom, band: bandForZoom(zoom) });
+    const band = bandForZoom(zoom);
+    if (!rect) return;
+    const previousBand = lastReportedBand.current;
+    lastReportedBand.current = band;
+    handler(rect, { userInitiated, zoom, band, previousBand });
   }, []);
 
   /**
@@ -1098,8 +1108,16 @@ export function MapSurfaceMapcn({
    * The guard is `originalEvent`, not the event name. `zoomend` fires for `flyTo`, `fitBounds` and
    * `easeTo` too, so keying on it alone would let all six camera movers rewrite the list — exactly
    * what the `userInitiated` flag exists to prevent, and worse than not reporting zooms at all.
-   * MapLibre's handler manager attaches the wheel/touch/dblclick event that caused the zoom,
+   * MapLibre's handler manager attaches the touch/dblclick/keyboard event that caused the zoom,
    * including onto the inertial `easeTo` it starts itself; a programmatic command carries none.
+   *
+   * **It does not attach the wheel event on every wheel path, and this comment claimed it did.**
+   * Measured 2026-09-04 at `72346dc`, instrumented, at both breakpoints: a *trackpad* burst reports
+   * `originalEvent` on `zoomend`, and 26 consecutive **discrete mouse-wheel notches** at 650 ms
+   * spacing report none at all — see `noteUserZoom` for the line of `ScrollZoomHandler` responsible.
+   * So this guard was silently device-dependent: alive on a trackpad, dead on a mouse. It stays
+   * exactly as it is, because it is right about every gesture it *does* see and its whole value is
+   * refusing the ones it does not; the wheel is covered beside it rather than through it.
    *
    * **The zoom buttons are the exception, and this comment used to deny they existed.** It said
    * there is no `NavigationControl` on this map and therefore no buttons to account for — true of
@@ -1108,7 +1126,7 @@ export function MapSurfaceMapcn({
    * pressing `−` until the country badges appear left the list still describing a city the map had
    * stopped drawing — the exact symptom `8a15423` was meant to end, surviving on the one zoom
    * affordance a desktop user is most likely to reach for. They report themselves instead, through
-   * `onUserZoom`; the guard below stays as it is, because it is right about everything else.
+   * `onUserZoom`, together with the two other gestures MapLibre leaves bare (`noteUserZoom`).
    */
   const handleZoomEnd = useCallback(
     (event: { originalEvent?: unknown }) => {
@@ -1119,9 +1137,35 @@ export function MapSurfaceMapcn({
     [noteUserGesture]
   );
 
-  /** A zoom the user asked for through a control rather than a gesture. Same authority as a wheel
-   *  or a pinch: the button is the user's hand, it just leaves no `originalEvent` behind. */
-  const handleControlZoom = useCallback(() => {
+  /**
+   * **A user zoom that leaves no `originalEvent` on the camera event it produces**, and there are
+   * three of them. Same authority as a wheel or a pinch — the hand is on the glass either way;
+   * MapLibre simply does not carry the DOM event through to `zoomend`/`moveend` on these paths.
+   *
+   *  - **The `+` / `−` controls** (`MapControls showZoom`, through `onUserZoom`). They call
+   *    `map.zoomTo`, a programmatic command, so the guard in `handleZoomEnd` correctly rejects it
+   *    and this is what tells it apart from a re-fit.
+   *  - **A discrete mouse-wheel notch**, through `instance.on('wheel')`. This one is a defect in
+   *    MapLibre 6.4.1 rather than a design: `ScrollZoomHandler.wheel` only assigns
+   *    `this._lastWheelEvent` once `this._type` is known, and a notch arriving more than 400 ms
+   *    after the previous one takes the `timeDelta > 400` branch, which defers to `_onTimeout` —
+   *    and `_onTimeout` sets `_type = 'wheel'` and starts the zoom **without ever assigning
+   *    `_lastWheelEvent`**. `renderFrame()` then returns `originalEvent: undefined`, and every
+   *    `zoom`, `zoomend` and `moveend` the gesture fires is bare. Measured 2026-09-04 at `72346dc`,
+   *    instrumented, 1280x900: 26 consecutive notches at 650 ms spacing, `userInitiated: false`
+   *    every time — while a trackpad burst of the same size, which takes the `trackpad` branch and
+   *    does assign `_lastWheelEvent`, reported `true`. So the zoom transitions in
+   *    `ui/place/list-scope.ts` were live on a trackpad and dead on a mouse, which is not a
+   *    distinction any of this was meant to make.
+   *  - **A shift-drag box zoom**, through `boxzoomend`. `BoxZoomHandler` drives the camera with
+   *    `map.fitScreenCoordinates(p0, p1, bearing, { linear: true })` and passes no `eventData`, so
+   *    its `moveend` is bare too. `boxzoomend` itself carries the `originalEvent`.
+   *
+   * Every other user zoom — trackpad, pinch, double-click, two-finger tap, the keyboard's `+`/`-`
+   * — routes through a `cameraAnimation` that MapLibre calls with `{ originalEvent: e }`, and is
+   * already covered by `handleZoomEnd` / `handleMoveEnd`.
+   */
+  const noteUserZoom = useCallback(() => {
     pannedSinceReport.current = true;
     noteUserGesture();
   }, [noteUserGesture]);
@@ -1139,7 +1183,7 @@ export function MapSurfaceMapcn({
    *
    * It is additive rather than a replacement: `dragend` also sets the pan flag *before* the inertia
    * decays, which is the sticky-across-the-debounce behaviour `pannedSinceReport` documents, and
-   * the zoom buttons still need `handleControlZoom` because a programmatic `zoomTo` carries no
+   * the zoom buttons still need `noteUserZoom` because a programmatic `zoomTo` carries no
    * `originalEvent` by construction. Both remaining handlers are idempotent with this one.
    *
    * Nothing this file issues can trip it: every `easeTo`, `fitBounds` and `flyTo` here is called
@@ -1219,6 +1263,8 @@ export function MapSurfaceMapcn({
       if (previous && previous !== instance) {
         previous.off('dragend', handleDragEnd);
         previous.off('zoomend', handleZoomEnd);
+        previous.off('wheel', noteUserZoom);
+        previous.off('boxzoomend', noteUserZoom);
         previous.off('moveend', handleMoveEnd);
         previous.off('moveend', scheduleViewportReport);
         previous.off('resize', scheduleViewportReport);
@@ -1295,6 +1341,11 @@ export function MapSurfaceMapcn({
       // was the user's.
       instance.on('dragend', handleDragEnd);
       instance.on('zoomend', handleZoomEnd);
+      // The two user zooms whose own camera events arrive without an `originalEvent` — see
+      // `noteUserZoom`. Both are idempotent with the two listeners around them: they set the same
+      // flag, and the report consumes it once.
+      instance.on('wheel', noteUserZoom);
+      instance.on('boxzoomend', noteUserZoom);
       // Before the report's own `moveend` listener, so the pan flag is set by the time the
       // trailing debounce reads it. They are two listeners on one event rather than one that does
       // both jobs, because the report is debounced and this is not.
@@ -1307,7 +1358,15 @@ export function MapSurfaceMapcn({
       // instead of producing a pre-fit rect and then a post-fit one.
       whenReady(instance, scheduleViewportReport);
     },
-    [fitToBounds, refitFramed, scheduleViewportReport, handleDragEnd, handleZoomEnd, handleMoveEnd]
+    [
+      fitToBounds,
+      refitFramed,
+      scheduleViewportReport,
+      handleDragEnd,
+      handleZoomEnd,
+      handleMoveEnd,
+      noteUserZoom,
+    ]
   );
 
   // The **initial** framing, and only that. `attachMapRef`'s `once('load', ...)` races against
@@ -1563,7 +1622,7 @@ export function MapSurfaceMapcn({
         {controlSlot}
         <MapControls
           showZoom
-          onUserZoom={handleControlZoom}
+          onUserZoom={noteUserZoom}
           className="relative bottom-auto right-auto"
         />
       </div>
