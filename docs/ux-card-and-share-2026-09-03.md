@@ -530,3 +530,32 @@ primary only while the entire label is drawn and a thumb aimed at the visible ce
 fills them going forward, so every future three-or-four-tag save is another `Kohi`. If more than
 one row clips at 844, or more than three at 812, the escalation is MORN-4 §5's sticky action row —
 not a cap, and not more shrinking.
+
+### The `Kohi` residue — ruled 2026-09-04, the trigger does not fire
+
+The compaction shipped and the one remaining clipped row was re-measured on the finished tree.
+
+| 390x812 | before the chip change | after |
+|---|---|---|
+| `Been here` visible height, of 48 px | 30.6 px | **32.6 px** |
+| visible centre → `BottomNav` top | 13.3 px | **14.3 px** |
+| label ink → `BottomNav` top | −3.4 px | **−1.4 px** |
+| label ink → scroll clip | −1.4 px | **+0.6 px** |
+
+At **390x844 `Been here` is not clipped at all** — the full 48 px is drawn.
+
+**The reopen trigger was "under 31 px at 812". It reads 32.6. It does not fire, and I am not
+escalating.** No sticky action row, no cap, no further shrinking. The chip change was worth exactly
+the 2.00 px it was estimated at.
+
+**The residue, stated rather than rounded away.** The restated §2(c) asks for the *entire label*
+drawn, and 1.4 px of the glyph bottoms still sit behind `BottomNav`'s translucent top rim at 812.
+The ink now clears the scroll container (+0.6 px, where it was cut by 1.4 px before), `Been here`
+has no descenders, and the crop confirms the words and their check read cleanly — so this is
+accepted, not satisfied. If the rule is ever re-litigated, that 1.4 px is the case to argue about.
+
+**One number in the record could not be reproduced and is not being explained away.** The CARD-2
+sweep reported 28.6 px at 812; the reconstructed "before" in the follow-up run measured 30.6 px on
+the same row, and the three commits in between are all header-side and should not move the detail
+card. The 2.00 px delta is the reliable part of both runs; treat 32.6 as the standing number and
+re-measure before relying on either.
