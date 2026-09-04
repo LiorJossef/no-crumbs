@@ -434,11 +434,16 @@ export function SentencePanel({
    * **Focus is contained while the panel is open, and Escape closes it — both on a *native*
    * listener rather than a React prop, because a React prop does not fire here.**
    *
-   * Measured at 390×844 on this tree: a `keydown` inside the sheet reaches the panel's own DOM node
-   * and is then stopped before it reaches `document`, which is where Next's App Router root has
-   * React's delegated listener. So `onKeyDown` on this container never ran — the first Tab out of
-   * the input landed on the `Been` trigger, outside a panel §3.5 calls a dialog. A listener bound
-   * to the node itself sees the event on the way past, one hop before whatever swallows it.
+   * Measured at 390×844 on this tree, and **it is `Tab` specifically, not every key** — an earlier
+   * draft of this comment said "a keydown", which was wrong and was corrected once someone went and
+   * measured it. `non-modal-drawer.tsx`'s `releaseTab()` swallows `Tab` before it reaches
+   * `document`, where Next's App Router root holds React's delegated listener, and returns early
+   * for every other key. That is deliberate: it exists to stop Radix's unconditional focus loop.
+   *
+   * So `onKeyDown` on this container never saw `Tab` — the first Tab out of the input landed on the
+   * `Been` trigger, outside a panel §3.5 calls a dialog. A listener bound to the node itself sees
+   * the event on the way past, one hop before the drawer swallows it. Escape *would* have worked
+   * through a React prop; it is on the same native listener only because its partner is.
    *
    * The containment is Tab-wrapping only: no scroll lock and no scrim, because on the phone this
    * panel is part of the sheet's own column rather than a layer over it. The desktop popover also
