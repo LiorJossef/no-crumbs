@@ -805,11 +805,29 @@ function PlaceList({
             <BulkDeleteNotice notice={selection.notice} />
           )}
 
-          {!libraryIsEmpty && !selecting && (
-            <PlaceSearchField value={query} onChange={onQueryChange} />
-          )}
+          {/* **The field and its aside are one group, not two children of the column.**
+              Owner, 2026-09-04, with a screenshot of the `lg+` header: *"fix the gap between find
+              from sentence."* Measured at 1280x900 before this: the aside sat **16 px under the
+              field and 16 px above the filter row** — exactly equidistant, so a single quiet text
+              link read as an orphan belonging to neither neighbour (14/14 at 390x844, the same
+              shape).
 
-          {!libraryIsEmpty && !selecting && searchAside}
+              It belongs to the field. `nls-plan.md` §9 decision 1 puts the natural-language entry
+              point *under the search field* rather than as a fifth trigger in `LibraryFilterBar`,
+              and the prop's own docblock says so. 6 px binds it there; the column's own 14/16 px
+              still separates the pair from the filter row below.
+
+              One wrapper under the *same two gates*, rather than a margin on the aside: the aside
+              is a slot and this file never learns what is in it, so the spacing has to be the
+              group's rather than the child's. With no aside the wrapper holds one child and a
+              column gap draws nothing — no stray space on the hosts that pass none. `SentenceApplied`
+              rides in the same slot, so the group is also correct when it holds two children. */}
+          {!libraryIsEmpty && !selecting && (
+            <div className="flex flex-col gap-1.5">
+              <PlaceSearchField value={query} onChange={onQueryChange} />
+              {searchAside}
+            </div>
+          )}
 
           {/* **Two rows, not three.** Measured at 375x812 on the owner's own library, the header
               drew the visit chip and three category chips at y190, two sort chips at y248 and ten
