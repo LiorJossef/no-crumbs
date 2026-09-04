@@ -85,14 +85,21 @@ collection; one place moved into `London 2026` and straight back out by the veri
 **declared it as a breach of its own grant** rather than letting me find it. **Nothing was written by
 the geography backfill.**
 
-**One row I did not touch and cannot explain:** two real imports ran at **02:44–02:45 local** and
-saved `Paradiso Matcha Bar` (Praha), taking the library to 60. No lane had write permission then, and
-you were awake sending the status check. I assumed it was you and left it.
+**One row I did not touch and cannot attribute:** two real imports ran at **02:44–02:45 local** and
+saved `Paradiso Matcha Bar` (Praha), taking the library to 60. I left it alone. I first assumed it
+was you, because you were awake sending the status check at about that time — but when I deleted the
+resume task it reported **four archived run sessions**, so the hourly resume fired at roughly 00:23,
+01:23, 02:23 and 03:23. Each was told to read this file's heartbeat and stand down if it was under 45
+minutes old, and by the timestamps in this file each should have; but I cannot prove from here what
+any of them did, and its prompt told it to continue the run without explicitly forbidding database
+writes. **So there are two candidates for that import and I cannot separate them.** No commit on this
+branch is one I did not make, and the tree is clean.
 
 ## Housekeeping
 
-**Delete the scheduled task `no-crumbs-overnight-resume`** — it recurs daily and will wake up again
-tonight. Sidebar → Scheduled.
+**The scheduled task `no-crumbs-overnight-resume` is deleted** — I removed it at 03:57 so it cannot
+wake up again tonight. Its prompt is still on disk at
+`~/.claude/scheduled-tasks/no-crumbs-overnight-resume/SKILL.md` if you ever want the pattern.
 
 The branch is pushed. Nothing is merged; `merge:pr` and CI were out of scope all night.
 
