@@ -119,10 +119,10 @@ is not running and you should take over.
 > so a heartbeat running fast eventually reads as stale and invites a second session in on top of a
 > live one. **Run `date` before writing a timestamp here. Never estimate one.**
 
-- **Last updated:** 2026-09-04 03:05 IDT
+- **Last updated:** 2026-09-04 03:55 IDT
 - **Run started:** 2026-09-03 22:30 IDT
 - **Hard stops:** 06:00 no new work · 06:30 tree clean · 07:00 handoff written and pushed
-- **Status:** owner asleep, full ownership · NLS Stage 1 **engine landed and gated** · the surface is the last lane running
+- **Status:** **COMPLETE — HANDOFF WRITTEN.** All lanes finished, branch pushed. Any resume task that fires should stand down.
 
 ## The resume mechanism
 
