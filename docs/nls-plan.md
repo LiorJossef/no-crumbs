@@ -397,6 +397,34 @@ solved locally already; the owner's written consent, since he is the sole data s
 is closed, with a code comment saying the ruling expires when a second account exists; and a
 user-visible statement where the feature is used.
 
+### 5.5b The landing rule — owner, 2026-09-04
+
+> *"NLS results should always land on pins, not clusters. Think of a query like 'cafes I've been to
+> in Israel': showing me clusters for Tel Aviv, Haifa and Rishon would be strange, because I asked
+> for the actual places, not a geographic summary of them. It's fine if not every result fits on
+> screen — the map should prioritize showing the resulting places as pins."*
+
+**A sentence is a search, and its result is places.** Camera mover 5 clamps into the *area* band
+by design, because tapping a country marker is an exploration gesture — *show me which cities I
+have things in* — and city pills are the right answer to it. A sentence is the opposite kind of
+act, so the same mover on its sentence trigger clamps to at least the **pin** band. Same mover,
+same pair of writes, one deliberate difference, and it is written into the docblock rather than
+left to be rediscovered.
+
+Mover 4 gets the same guarantee, which it previously had only by luck: a city's places are close
+together, so a fit over them lands on pins by accident of geography rather than by rule. A city
+whose places are spread must not quietly rest on pills either.
+
+**When fitting every match and resting on pins conflict, pins win**, and results fall off-screen.
+That is accepted rather than tolerated: the pins are there when the map is panned, every row is in
+the list beside it, and `EverywhereElse` names what is outside the frame.
+
+**The boundary this rule does not cross.** The owner's example carries geography (`in Israel`). A
+sentence with none still moves no camera at all — `map-page-client.tsx`'s standing rule is that
+typing is not a camera mover, and a Stage 1 apply setting only a category or a tag has nothing to
+frame. The rule is *when an apply moves the camera, it lands on pins*, not *every apply moves the
+camera*. Widening it would reverse a standing rule and is the owner's to take.
+
 ### 5.6 Done when
 
 - ~~All four stored Tel Aviv spellings~~ — **there are seven, and they return 25, measured
