@@ -40,21 +40,15 @@ jobs:
       - run: npm run check:claude
       - run: npm run test
 
-  build:
-    name: next build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-
   e2e:
     name: playwright
     runs-on: ubuntu-latest
+    # PRs only. This job and `database` used to run on `push: [main]` as well, so every merge paid
+    # ~25 minutes re-proving what the pull request had proved minutes earlier — against a 2,000
+    # minute monthly allowance that a run of ~20 minutes exhausts in about a hundred runs. The
+    # merge commit is the PR head plus main, and `scripts/merge-pr.sh` already refuses a branch
+    # that does not contain current main, so the combination was tested before the button.
+    if: github.event_name == 'pull_request'
     # ## Why this job no longer runs inside mcr.microsoft.com/playwright
     #
     # It used to, and the reason was measured: `playwright install --with-deps` on a bare runner is
@@ -173,6 +167,8 @@ jobs:
   database:
     name: migrations · RLS policy tests
     runs-on: ubuntu-latest
+    # PRs only, for the reason given on `e2e` above.
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
