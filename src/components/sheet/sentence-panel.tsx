@@ -727,22 +727,77 @@ export function SentencePanel({
 }
 
 /**
+ * **Are the four filter cells still exactly what the sentence wrote into them?**
+ *
+ * The one question that decides whether `Undo` is still a truthful offer. Order-insensitive on
+ * tags and key-equal through `isSameTag`, the same equality `filterByTag` and the clamp use, so a
+ * tag re-spelled between the facet and the pill does not read as a change the user made.
+ */
+export function sentenceStillApplied(
+  applied: SentenceApplication,
+  current: SentenceApplication,
+): boolean {
+  return (
+    applied.category === current.category &&
+    applied.visit === current.visit &&
+    applied.query === current.query &&
+    applied.tags.length === current.tags.length &&
+    applied.tags.every((tag) => current.tags.some((live) => isSameTag(live, tag)))
+  );
+}
+
+/**
  * **The applied notice and its `Undo`** — one transaction back to the previous filters and scope.
  *
  * Rendered by the page under the filter row while a sentence's filters are on. It is not part of
  * the panel because the panel is closed by then: the notice is about the *library*, not about the
  * surface that changed it, and it has to survive the panel unmounting.
  *
+ * **It survives the panel, not the filters.** Owner-reported, 2026-09-04, and reproduced at both
+ * breakpoints: clearing the filters by any other route — the row's own `Clear`, a tag chip's ×,
+ * the empty-list escape, the search field — left this notice on screen, and pressing `Undo` then
+ * *restored* the filters the user had just deliberately cleared. So the snapshot is meaningful for
+ * exactly as long as the state it would undo is still on screen, and staleness is **derived** from
+ * comparing the cells rather than hooked onto each clear handler: there are at least four such
+ * routes today and a fifth would silently miss a hook.
+ *
+ * The `Undo` press itself is not a user change read through this gate — it writes the previous
+ * cells and drops the snapshot in the same handler, so this component unmounts rather than
+ * observing its own write.
+ *
+ * `applied` and `current` are optional only so the notice keeps compiling against a host that has
+ * not passed them yet; with either missing it renders unconditionally, which is the old behaviour
+ * and the bug. `onStale` lets the host drop the snapshot as well as hide it — without it a user
+ * who manually rebuilds the exact applied filters would see the notice return.
+ *
  * **No live region.** The page's existing results region already announced the new count when the
  * filters changed; a second announcement of the same fact is the defect §3.5 names.
  */
 export function SentenceApplied({
   onUndo,
+  applied,
+  current,
+  onStale,
   className,
 }: {
   readonly onUndo: () => void;
+  /** What the sentence wrote into the four cells. */
+  readonly applied?: SentenceApplication;
+  /** What those four cells hold right now. */
+  readonly current?: SentenceApplication;
+  /** Told once, when the two stop agreeing. */
+  readonly onStale?: () => void;
   readonly className?: string;
 }): ReactNode {
+  const stale =
+    applied !== undefined && current !== undefined && !sentenceStillApplied(applied, current);
+
+  useEffect(() => {
+    if (stale) onStale?.();
+  }, [stale, onStale]);
+
+  if (stale) return null;
+
   return (
     <div
       data-vaul-no-drag
