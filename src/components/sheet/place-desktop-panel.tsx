@@ -260,10 +260,18 @@ export function PlaceDesktopPanel({
             sighted users, in the band the owner asked us to empty, restating what the heading and
             the list already say. The screen-reader announcement is a separate live region in
             `map-shell.tsx` and is untouched. */}
-        {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
-        {/* The natural-language entry point sits directly under the field, on both surfaces —
-            `nls-plan.md` §9 decision 1. See `PlaceSheetProps.searchAside`. */}
-        {!libraryIsEmpty && !selecting && searchAside}
+        {/* **The field and its aside are one group**, the `lg+` twin of `PlaceList`'s wrapper,
+            which carries the argument in full. Measured at 1280x900 before this: the aside sat
+            16 px under the field and 16 px above the filter row — perfectly equidistant, so the
+            entry point read as an orphan belonging to neither. 6 px binds it to the field it
+            belongs to; the column's own `gap-4` still separates the pair from the filter row.
+            Same two gates, and a column gap draws nothing when there is no aside. */}
+        {!libraryIsEmpty && !selecting && (
+          <div className="flex flex-col gap-1.5">
+            <PlaceSearchField value={query} onChange={onQueryChange} />
+            {searchAside}
+          </div>
+        )}
         {/* **Two rows, not three walls of chips**, exactly as on the phone — the same component,
             so the two surfaces cannot offer different controls over one library. Row 1 narrows,
             row 2 sorts; the sort control rides in `belowRow`. */}
