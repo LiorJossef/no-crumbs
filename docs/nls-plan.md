@@ -266,6 +266,36 @@ WHERE clause on `places.category` alone is wrong for ~24 of 64 rows.
 
 ---
 
+## 4b. The two presses, and what was decided about them — 2026-09-04
+
+The owner, using Stage 1: *"im not sure that the fact the user should click 2 times (one find, one
+apply) is a good behavior."* They then handed over ownership for the day, so this was decided here.
+
+**The second press stays.** What it buys is measured, not hypothetical — the Stage 1 gate
+(`docs/evidence/extraction/nls-stage1-gate-2026-09-04.md`, 35 live queries on the shipped model and
+prompt `q2`) puts no-false-filter at **97.1%** and exact at **88.6%**, and the inexact cases are
+mostly whole-query-as-keyword, which produces a plausible intent returning an **empty list**. So
+roughly one search in ten would land the user on nothing, and one in thirty-five would narrow the
+library wrongly in a way that looks right. §4.3's preview count is what catches both, and it catches
+them *before* the library changes shape.
+
+**What was actually wrong is the hierarchy, not the count.** After an interpretation returns, the
+filled primary `Find places` button stayed, and `Show these` was added below it as an *outline*
+button — so the loudest control on the panel was the one that re-runs the same call, and the finger
+had to travel past it to a weaker-looking target. That is a defect, and it is most of what "two
+clicks" felt like.
+
+The fix: the submit control **becomes** the apply control in place — same position, same size,
+promoted to primary, reading `Show these · N places` — with re-running demoted. The press count is
+unchanged; the travel and the mis-aimed weight are gone.
+
+**Parked, not rejected: apply-on-submit unless the preview is empty.** One press in the good case,
+and the empty case never applies. It closes the ~9% failure cleanly. It is not being built now
+because it carries a condition that is a product decision rather than an implementation one: **the
+applied notice must name the filters it set.** `Filtered from what you typed.` over a library that
+silently changed shape is exactly the confident wrongness this repo keeps writing rules against.
+Revisit after using the hierarchy fix.
+
 ## 5. Stage 2 — geography
 
 ### 5.1 Resolution order
