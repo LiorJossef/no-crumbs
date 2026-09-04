@@ -45,7 +45,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { PlaceRow, PlaceSearchField } from '@/components/sheet/place-sheet';
+import { NothingHereEscape, PlaceRow, PlaceSearchField } from '@/components/sheet/place-sheet';
 import {
   EnterSelectionButton,
   LeaveSelectionButton,
@@ -925,15 +925,23 @@ function CollectionList({
         {collection.places.length === 0 ? (
           <EmptyCollection collection={collection} onAdd={() => onViewChange('add')} />
         ) : matches.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {/* Two different empties, and they are not the same news. A search that matched
-                nothing is about the words; a filter that matched nothing is about the person, and
-                telling someone their collaborator's places "don't match that" when they typed
-                nothing is a screen blaming a search box that is not on screen. */}
-            {addedBy !== null && query.trim() === ''
-              ? 'Nothing in this collection from them.'
-              : 'Nothing in this collection matches that.'}
-          </p>
+          /* **The same empty state the library draws** — 2026-09-04. This was a bare grey sentence
+             with no mark and no way out, which made it the third vocabulary for one event: the
+             library's search miss, the library's filter miss and this one were three different
+             objects. `NothingHereEscape` is one object with one control, and the control clears
+             both axes this list narrows on, so it can never leave you on an empty list with
+             nothing to press.
+
+             The distinction the old copy drew is kept, and by construction rather than by a
+             ternary: a query quotes itself, and the person filter falls to the filter sentence,
+             which does not blame a search box the reader did not type in. */
+          <NothingHereEscape
+            searchQuery={query}
+            onClear={() => {
+              if (query !== '') setQuery('');
+              if (addedBy !== null) setAddedBy(null);
+            }}
+          />
         ) : (
           <ul>
             {rows.map((place) =>
