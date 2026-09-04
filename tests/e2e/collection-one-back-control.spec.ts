@@ -114,8 +114,17 @@ async function openFirstCollection(page: Page): Promise<void> {
  */
 const PICKER_TRIGGER = /^(Collections\s*)?(In\b|Add to a collection)/;
 
+/**
+ * By role, not by text, and the difference is not stylistic. `add-to-collection.tsx` renders the
+ * label as `<span>In</span><bdi>{name}</bdi>` — two elements with a CSS gap and no whitespace
+ * between them — so the button's `textContent` is `Intel aviv food`, and `In\b` has no word
+ * boundary to match there. The accessible name is computed with the separator and reads
+ * `In tel aviv food`, which is both what a screen reader announces and what this regex was
+ * written against. `getByRole` also consults the accessibility tree, so the collection's hidden
+ * second mount — the reason `press` filters on `:visible` — is excluded for free.
+ */
 function pickerTrigger(page: Page) {
-  return page.locator('button').filter({ hasText: PICKER_TRIGGER }).first();
+  return page.getByRole('button', { name: PICKER_TRIGGER }).first();
 }
 
 /** Presses it wherever it is in the column. The sheet rests at `half`, so this row is often below
@@ -168,7 +177,7 @@ test.describe('one back control, at every step inside a collection', () => {
     // because the navigation that caused it is gone.
     const trigger = pickerTrigger(page);
     await expect(trigger).toHaveCount(1);
-    await press(page, PICKER_TRIGGER);
+    await press(page, PICKER_TRIGGER, 'label');
     await page.waitForTimeout(1200);
     await expect(
       page.getByRole('button', { name: 'New collection' }),
@@ -179,7 +188,7 @@ test.describe('one back control, at every step inside a collection', () => {
     // 4. And closed. Dismissal is the trigger again — there is no second pane to come back from,
     // so pressing the row that opened the panel is what shuts it. The host's control is untouched
     // throughout, which is the point: it never changed hands.
-    await press(page, PICKER_TRIGGER);
+    await press(page, PICKER_TRIGGER, 'label');
     await page.waitForTimeout(1200);
     expect(await backShaped(page)).toEqual(['Back to the collection']);
     await expect(page.getByRole('button', { name: 'New collection' })).toHaveCount(0);
@@ -208,7 +217,7 @@ test.describe('the map draws exactly one exit, and the picker adds none', () => 
     // `/map`'s host affordance is an ×, and the picker draws nothing back-shaped of its own —
     // so opening it leaves the count at zero rather than at one.
     await expect(pickerTrigger(page)).toHaveCount(1);
-    await press(page, PICKER_TRIGGER);
+    await press(page, PICKER_TRIGGER, 'label');
     await page.waitForTimeout(1500);
     await expect(page.getByRole('button', { name: 'New collection' })).toBeVisible();
     expect(await backShaped(page)).toEqual([]);

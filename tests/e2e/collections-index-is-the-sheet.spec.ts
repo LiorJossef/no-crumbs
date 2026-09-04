@@ -52,10 +52,21 @@ test.describe('the collections index', () => {
   });
 
   test('carries none of the page chrome the ruling deleted', async ({ page }) => {
-    // `visible=true` because the assertion is about the *sheet*, not the document. The `lg+` panel
-    // in `collections-index-list.tsx` renders its own <h1> by design and is `display: none` at this
-    // width — still in the DOM, so a bare `locator('h1')` counts chrome that is not on screen.
-    await expect(page.locator('h1').locator('visible=true')).toHaveCount(0);
+    // The heading rule is per-breakpoint, so the assertion has to be too. `collections-index-list.tsx`
+    // picks its tag from the stop it is rendered at — `h1` in the `lg+` panel, `h2` in the sheet —
+    // precisely so the sheet never creates a second `h1` beside the panel's. Both copies are always
+    // in the document; only one is displayed, which is why every locator here filters on visibility.
+    //
+    // So: the sheet is a sheet and carries no page title, and the panel is a page and carries
+    // exactly one. Asserting zero everywhere would have failed the panel for doing the right thing.
+    const visibleH1 = page.locator('h1').locator('visible=true');
+    const width = page.viewportSize()?.width ?? 0;
+    if (width >= 1024) {
+      await expect(visibleH1).toHaveCount(1);
+      await expect(visibleH1).toHaveText(/collections/i);
+    } else {
+      await expect(visibleH1).toHaveCount(0);
+    }
     await expect(page.getByRole('link', { name: /back to the map/i })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /go to your map/i })).toHaveCount(0);
   });
