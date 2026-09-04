@@ -1,0 +1,454 @@
+# Overnight run — report
+
+> **Written 2026-08-31 by the lead orchestrator**, against `docs/overnight-run-plan.md` §11.
+> Baseline: the annotated tag `pre-facelift` (`1b79e9c`). Everything below is measured at the commit
+> named beside it, never at "the working tree" — under concurrency the tree held four agents'
+> half-finished work and proved nothing about any one of them.
+>
+> Companion documents produced by this run: [`overnight-run-ledger.md`](overnight-run-ledger.md) (the
+> per-package record), [`overnight-harness-notes.md`](overnight-harness-notes.md) (how the product
+> was made visible, and §13's Q1 walkthrough), [`ux-overnight-specs.md`](ux-overnight-specs.md),
+> [`overnight-copy-deck.md`](overnight-copy-deck.md),
+> [`overnight-deletion-review.md`](overnight-deletion-review.md),
+> [`overnight-import-decomposition.md`](overnight-import-decomposition.md).
+
+## 0. The shape of it
+
+**120 commits. 95 files changed under `src/`** (+11,589 / −2,875), and a comparable weight of tests.
+Thirteen specialist agents across nine waves, four build lanes running concurrently against one
+shared working tree, with the lead reading every diff as it landed.
+
+**The one-sentence version.** The product opened on the same screen whether you had saved nothing or
+three hundred places — a stock basemap and a number — and it now opens on your own places, under its
+own name, with the states a product is supposed to have. What it does **not** do is claim anything it
+did not before: every honesty rule in §3 held, and the two packages most at risk of breaking one
+(`W6-2`'s rail split and `W6-3`'s held count) came back claiming *less* than the code they replaced.
+
+---
+
+## 2. Every KPI, measured
+
+Measured at `HEAD` with §4's own commands.
+
+| # | Target | Baseline | Measured | Verdict |
+|---|---|---|---|---|
+| **K2** | `npm run verify` green | — | **green**, all 8 stages | **met** |
+| **K3** | Tests ≥ 2022 | 2017 / 114 files | **2489 / 148 files** | **met** |
+| **K4** | `@theme` keys ≥ 60 | 36 | **89** | **met** |
+| **K5** | Arbitrary values ≤ 60 | 166 | **17** | **met** |
+| **K6** | Raw `var(--mint-N)` ≤ 10 | 75 | **0** | **met** |
+| **K7** | `active:` ≥ 3 shared class strings | 3 | **9**, four shared constants | **met — but see below** |
+| **K8** | `group-hover:` > 0, coupling works | 0 | **7** — see the note below | **met** |
+| **K9** | `motion-safe:` > 0, every animation has a reduced arm | 0 | **67**, and `motion-reduce:` 10 → **1**, which is inside a comment | **met** |
+| **K10** | `loading.tsx` for three routes | 0 | **3** | **met** |
+| **K11** | Four brand asset files | 0 | **4** | **met** |
+| **K12** | Zero hard-coded colours added | 26 | **25** | **met** — went down |
+| **K13** | First screen shows the paste field and a framed map | — | **partial** — see §3 | **partial** |
+| **K14** | Home shows the user's own pins at rest | — | **met**, restated — see below | **met** |
+
+**K8's command is defective and the KPI is met.** §4's grep is `grep -roh 'group-hover:'`, which
+returns **0**. The implementation uses a *named* group — `group/row` on the row, `group-hover/row:`
+on the disc, the muted line and the distance — because the row sits inside other grouped elements,
+so a bare `group` would have been the wrong implementation. Tailwind's named-group variant is
+`group-hover/row:`, which the plan's grep cannot match. Measured with `grep -rohE 'group-hover[/:]'`
+it is **5**. The correct code was invisible to the KPI's own command.
+
+**K14 was unachievable as written and is reported against a restatement.** *"Home shows the user's own
+pins at rest, with ≥ 3 places"* cannot hold for 3 places in 3 countries — no camera shows three
+continents and three pins. `ux-overnight-specs.md` `OQ-5` established this and proposed the
+achievable property, which I accepted: **home rests in the pin band whenever the library's bounding
+box allows it, and never rests inside the band-edge guard window.** That is what `W2-1` implements
+and what its tests assert.
+
+---
+
+## 4. Decisions recorded for the owner
+
+Nine, in the order I would want them.
+
+1. **The ratified crumb outline is a circle at every size the mark ships at.** Measured, not
+   eyeballed: rendered at 1000px, ink centroid, radius sampled at 720 angles — the outline deviates
+   from a true circle by **4.6% of its radius peak-to-peak, 1.14% s.d.**, which scaled to the sizes
+   in use is **0.33px at 16px, 0.73px at 36px, 0.90px at 44px**. Under one pixel everywhere below
+   ~50px. Side by side with a true circle it is distinguishable at 200px and indistinguishable at 44.
+   A rendering bug was ruled out first — the browser receives `CRUMB_PATH` verbatim in one `<path>`,
+   correct `viewBox`, one fill, no leftover aperture. `brand-and-product-foundation.md` §3.1 rule 1
+   forbids changing the outline, so **this is the owner's and nobody worked around it.**
+2. **`W2-1` partly reverses an owner ruling that was one day old.** The 2026-08-30 home reversal made
+   two changes; only one answered the complaint. Widening the box from the anchor cluster to the whole
+   library is what fixed *"it opened on the Jerusalem Hotel"* — a union is order-independent — and
+   **that half is untouched**. The zoom ceiling was separate and was the sole cause of defect 0a.
+3. **300 places on a phone is an unreadable heap**, and it is the top-ranked Q1 finding. There is no
+   density handling inside the pin band; clustering was removed deliberately in `ac43eaa`. The named
+   repair is `growth-plan.md` §5.7's ~1.5 km neighbourhood band, which this run did not fund.
+4. **The extraction keep-cap stays at 12**, pinned by `confirm.ts:33`'s `candidateIndex` bound.
+   Raising it means touching a browser-facing request schema. Nothing tonight required it.
+5. **Ownership transfer for collections needs a migration**, and the run forbade one. The refusal
+   path shipped instead. Detail in `overnight-deletion-review.md` §2.1.
+6. **No dark-mode toggle shipped, deliberately.** `.dark` is now reachable and rebuilt against the
+   mint ramp, but `facelift-plan.md` §4 decision 3 is *a signed pass, or no toggle at all* — and the
+   palette has not been signed off. The theme follows the device; the control stays unbuilt.
+7. **The mascot appears in the brand palette, not gold-on-mint.** The design document draws the app
+   icon as a gold mascot on a mint tile, which contradicts its own §3.1 rule 3 (*"the two never share
+   a surface"*). Rule 1 is the tiebreak — palette may vary, the outline may not. One constant to flip.
+8. **The OG route fetches two font weights at build time** rather than committing a font binary, and
+   returns `null` rather than throwing, so a network-less build stays green and degrades to satori's
+   bundled face. Committing the binary is the owner's call.
+9. **Provider requests per import rose 7 → 8**, one more paid Google lookup, as the direct consequence
+   of `W1-3` raising `MAX_CANDIDATES` so an eight-venue listicle survives whole.
+
+
+---
+
+## 1b. The four quality gates
+
+| Gate | Verdict | Judged by | Evidence |
+|---|---|---|---|
+| **Q1** the walkthrough | **PASS with twelve findings**, four of them fixed the same night | `qa-reliability` | 42 captures, both gate viewports, 0/3/30/300 places; `overnight-harness-notes.md` §13 |
+| **Q2** the demo runs clean | **COULD NOT BE RUN** | — | See below. Not a fail; an honest gap |
+| **Q3** nothing over-claims | **PASS, all four claims** | `security-privacy`, which built none of the UI | [`overnight-q3-verdict.md`](overnight-q3-verdict.md) |
+| **Q4** it feels alive | **PARTIAL** — the mechanical half passes, the judged half needs a person | `qa-reliability` | Motion traces, `overnight-harness-notes.md` §14 |
+
+**Q2 is the one gate this run could not honour, and the reason is structural.** The 90-second demo
+is a real TikTok fetch → oEmbed → an LLM call → a database write. This checkout has **no
+`.env.local`** — only `.env.example` — and reading any `.env*` file is on the project's harness deny
+list, which I did not lift. Docker is not running, so there is no local Supabase either. **A sequence
+of stub-backed screenshots captioned "the demo" would have been a fabrication**, and the agent that
+would have produced them said so before I had to. Q2 needs a real deployment, real credentials and a
+person, and it is the first thing I would do in the morning.
+
+**Per-package verification did run, and my first draft of this report said it had not.** Both
+`qa-reliability` verifiers delivered full verdicts; their reports arrived in one batch after I had
+written that they went idle. **`verify-w1a`** passed W1-2 and W1-3 from `git archive` exports with its
+own fixtures, drove both real adapters, and caught a precision error in the exit criterion itself (the
+pipeline never sets `resolution.status === 'capped'`; the type is `{ status: 'unresolved', reason:
+'capped' }`, so asserting on `status` is vacuously true). **`verify-wave`** returned seven passes and
+one fail across Waves 0–4 — and its W0-3 evidence is the strongest single artefact of the night: **24
+gate screens captured at the parent commit and at the commit, diffed pixel by pixel, max channel delta
+0 on every pixel of all 24 pairs.**
+
+**Q3 is the gate §8a says outranks the others, and the way it was judged matters.** The screenshots
+could not answer its fourth claim: the candidate list is an internal scroll container, so the
+`capped` card — the one the claim exists to check — is **below the fold in every capture at both
+viewports**, and `--full-page` does not reach it. *A gate judged on what fits in the frame would have
+passed the one card it was written for without ever seeing it.* A rendered-text probe was written
+instead. `HEAD` then moved six commits mid-review, and rather than gloss that the judge proved the
+entire import surface byte-identical across all three commits used, with a diff.
+
+**Q4's mechanical half passes and its judged half does not close.** Press feedback exists on the
+shared button, row and chip strings (`active:` 3 → 9, three named constants). Hovering a row lifts
+its pin (`group/row` + `group-hover/row:`). Filtering fades rather than deletes. Pins land in waves —
+measured against a *before* in which the map and its markers arrived in **one whole-surface fade with
+zero visible change events after it**, i.e. no per-marker entrance at all. Under
+`prefers-reduced-motion` everything collapses to opacity, and `motion-reduce:` went 10 → 1 (the
+survivor is inside a comment). **What a trace cannot say is whether it looks good.** That needs a
+person on a real device, and so does the 60fps half of W7-6 — software GL gives a ranking, not a
+frame rate.
+
+---
+
+## 3. What was not completed, and precisely why
+
+1. **Q2, the demo gate** — no credentials, no local database, and faking it was refused. Above.
+2. **The 60fps-on-a-real-device half of W7-6** — no device and no hardware compositor here. What
+   *was* measured is a comparison, and it retires a standing risk: with the sheet **open** over a
+   live map at 390×844, the over-budget frame count is roughly **half** the sheet-closed count
+   (67/73/61 against 123/130/123 over 16.7 ms), because the sheet covers half the viewport and
+   **canvas area dominates blur cost**. `facelift-plan.md` finding 12's mechanism is real; the fear
+   was misplaced.
+3. **S1 — 300 places on a phone is an unreadable heap.** The top-ranked Q1 finding. There is no
+   density handling inside the pin band and clustering was deliberately removed in `ac43eaa`. W2-1
+   turned that screen from *one capsule* into *300 pins*, which is unambiguously better and still not
+   good. The named repair is `growth-plan.md` §5.7's ~1.5 km neighbourhood band, which this run did
+   not fund and which I refused to start unverified at 3am on top of the camera work that had just
+   landed.
+4. **W3-1's exit criterion was not met when I reported it as met. It is met now.** Closed by
+   `544f7ec` and `1186817`, and confirmed by driven measurement at both gate viewports — **33 PRESS,
+   0 owned failures**. The original finding, and the four instrument failures it took to settle it,
+   are in §7. What follows is the state I wrongly reported.
+
+   **The original finding:** An independent verifier failed its
+   second half — *every pressable thing acknowledges within one frame* — by forcing `:active` through
+   CDP over every visible pressable at 390×844: **12 of 12 controls on `/collections`, 10 of 11 on
+   `/map`**. Re-measured at HEAD the nav tabs are fixed, but the **`＋` Create FAB** still has no
+   press, and `src/app/collections/**` and `src/components/collections/**` contain **no `PRESS_*` and
+   no `active:` at all**. Both are reopened and dispatched.
+
+   **K7 is met and the criterion is not, and those are different statements.** K7 counts shared class
+   strings; the criterion counts coverage. This is the clearest case in the run of a grep passing
+   while the thing it stands for fails — the same shape as K8, which passed in the code while its own
+   command read zero. **Two of the fourteen numeric targets turned out not to measure what they
+   name.**
+
+4b. **Two gaps caused by a file I never granted.** `place-desktop-panel.tsx` was requested **five
+   times** by the map lane. At 1440×900 the list is that component, not `PlaceSheet`, so **K8's
+   browser half cannot fire at the gate viewport** (the DOM half is measured working; the panel's rows
+   receive no `onHover`) and **W5-2 is invisible on desktop**, photographed as absent. Two optional
+   props and two spreads. Granted at 03:30. **An orchestration failure, not a build one.**
+
+4c. **W1-1's overlay auto-open was deliberately dropped, and the reason is that shipping it would have
+   failed the criterion it was meant to satisfy.** `ImportPageClient` renders a full-bleed
+   `--brand-wash` at `<lg`, so auto-opening puts the paste field on a gradient with **the map
+   completely covered on a phone** — K13 asks for the paste field *and* a framed map. The lane put
+   three options to me before writing code, recommended shipping the resting-at-`half` half, said it
+   would build that absent a reply, and **I never replied.** The specification and the KPI disagreed;
+   the lane chose correctly.
+5. **`src/components/ui/map.tsx` was ruled out of scope** — 2,000 vendored lines holding 12 of the 25
+   remaining hard-coded colours, two hand-rolled icon buttons and three unguarded `animate-pulse`
+   dots. Opening it at 3am was the wrong trade. It is owed work, and the pile against that one file
+   is now: those colours and dots, the **`Zoom in` / `Zoom out` controls, which genuinely have no
+   press** (measured cleanly — the press landed, `:active` resolved, nothing moved), and **the
+   MapLibre keyboard focus stop**, which draws no ring. That last one was declined deliberately rather
+   than missed: the element is created inside MapLibre's own container so only a descendant selector
+   reaches it, `globals.css` was not that lane's, and a Tailwind arbitrary variant would be a rule-6a
+   failure — *"a focus ring aimed at the wrong element is worse than an admitted gap."*
+6. **Landing and sign-in contrast is unscored in both themes** — their text sits on the `--brand-wash`
+   gradient, which has no single background colour, so 74 of the sweep's 80 indeterminate elements are
+   those two screens. They need a manual or pixel check.
+7. **The live regions were specified, not consolidated.** The audit's "four `aria-live` regions doing
+   the job of one" collided with a written decision that one of them is panel-local *on purpose*, and
+   most of the nineteen `role="alert"` uses are inline field errors that belong where they are. I
+   routed the ruling and told the build lane to touch none of them. Better four correct regions than
+   one wrong one.
+8. **Nothing merged**, as expected: CI still cannot start a runner, so `merge:pr` correctly refuses.
+   No attempt was made and none should be.
+
+
+---
+
+## 5. Documents corrected, and what was wrong with them
+
+| Document | What was wrong | Where it is fixed |
+|---|---|---|
+| `current-state.md` item **0a** | *"The home screen draws no pins."* **Understated.** At 0 places and at 300 the product showed the *same screen*, differing only by a number in a capsule | struck through, `80b4644` |
+| `current-state.md` item **1** | *"Ownership transfer was never built."* **Understated.** The DDL says it is **unexpressible** — `owner_id` is not a grantable column, `service_role` holds no privilege on those tables at all, and a one-owner index plus a policy refuse promotion. Three independent controls | corrected, `80b4644` |
+| `current-state.md` "Measured" | Tests recorded as 107 files / 1,959 | corrected to 148 / 2,489 on the branch; `main` unchanged at 114 / 2,017 |
+| `current-state.md` | *"The product name is still open"*, and *"None of it is implemented"* | both false since 2026-08-30 / this run |
+| `facelift-plan.md` **§4.6** | *"Archivo appears only in the wordmark."* Archivo was **retired the same day** by `brand-and-product-foundation.md` §3.1's second pass; the face is **Fraunces** | corrected, `80b4644` |
+| `overnight-run-plan.md` §8 **W1-3** | *"Raise `MAX_CANDIDATES` **and** `GEMINI_MAX_CANDIDATES` to 8."* The Gemini cap was **already 8** — a measured model ceiling, bisected live, where `maxItems` 9–12 all return `400 INVALID_ARGUMENT` | recorded in the ledger |
+| **K8's own command** | `grep -roh 'group-hover:'` cannot match Tailwind's **named-group** variant `group-hover/row:` — and the named form is the *correct* implementation, because rows nest inside other grouped containers on `/collections`, so a bare `group` would light up every row inside an outer hover | reported as met; command recorded as defective |
+| **K14 as written** | *"Home shows the user's own pins at rest with ≥3 places"* is **unachievable** — no camera shows three continents and three pins | reported against `OQ-5`'s restatement |
+| `ux-overnight-specs.md` Spec 2 **§2.0** | Proposes collapsing four button radii onto `rounded-md`. Written while `--radius-md` was undefined and those sizes rendered **square**; now that it is `0.875rem`, `rounded-md` would restyle them 10/12px → 14px | `--radius-xs` registered instead, `362c7a5` |
+| `pin-mark.tsx` docblock | Claimed the silhouette *"reads as a crumb at 30px and above"*. **Measured false** — 4.6% peak-to-peak, under one pixel below ~50px | corrected by its author, `c2cd998` |
+| `category-filter-bar.tsx` docblock | Claimed the clipped trailing chip *is* the affordance saying there is more. **Incidental** — it depends on where chip boundaries happen to land | corrected, `16e1fb3` |
+| `handleDragEnd` docblock | Claimed MapLibre's keyboard handler pans through the same drag machinery. **False against the installed 6.4.1** — `handler/keyboard.ts` calls `easeTo` directly and fires no `dragend` | corrected, `0609efa` |
+| `palette.ts` header | Read as though the CSS side were live. **No component read a `--category-*` token at all** — every category surface painted a literal through an inline style | corrected, `3b37bb1` |
+
+**Re-measured, unchanged: CI still cannot start a runner.** PR #109's four jobs fail in **2–3 seconds
+each** — `lint · typecheck · layer guard · unit`, `next build`, `playwright`, `migrations · RLS`.
+A job that fails in two seconds having executed no steps never began. `ci.yml` is correct; the cause
+is account-level. **No merge was attempted.**
+
+---
+
+## 6. The next three things
+
+1. **Run Q2 on a real deployment, with a person watching.** It is the only gate this run could not
+   touch, and it is the one that answers whether the thing is any good. Everything it needs exists:
+   the flow works end to end, the rail is honest, the payoff is held, provenance reads at a glance,
+   and the no-places screen is now a destination. **What is untested is the ninety seconds strung
+   together**, and no amount of stubbing substitutes for it.
+2. **Build the ~1.5 km neighbourhood band** (`growth-plan.md` §5.7). It is the fix for the run's
+   top-ranked finding: 300 places on a phone is an unreadable heap. W2-1 made that screen show the
+   user's library instead of a capsule; the third band is what makes it *readable*. It was
+   deliberately not started at 3am on top of camera work that had just landed, and that was the right
+   call — but it is the first real feature I would build.
+3. **Sign the dark palette off against the running map, and settle the mark.** Dark is measured,
+   reachable and following the device, with no toggle, exactly as §4 decision 3 requires — so signing
+   it off is now a person looking at a screen rather than reviewing a document. The mark needs the
+   same kind of look: the ratified outline is a circle at every size it ships at, the face carries it
+   on chrome today, and only the owner can decide whether the silhouette changes.
+
+**And one thing I would not do:** merge this before CI can run. The suite is green locally and
+`verify` covers one of CI's four jobs. That is evidence, not a pass.
+
+
+---
+
+## 7. What this run actually taught, and it is one lesson with six instances
+
+**The defects that mattered most were invisible to the tests that covered them.** Not because the
+tests were wrong — because they were answering a narrower question than the one that mattered.
+
+1. **The scroll fade washed out the count it was guarding.** Every assertion about that chip row
+   passed at both fade sizes. Caught by looking at a screenshot the author had just taken. A count
+   faded to near-invisible is the same claim a truncated count makes, only more politely.
+2. **The night sea was invisible against the land** at ΔE 8.2 — on a product whose first screen *is*
+   a coastline. **WCAG contrast called it 1.11:1 and would call any two near-blacks roughly that**, so
+   the standard measurement could not tell a good sea from an invisible one. A ratio that is correct
+   and useless is more dangerous than none, because it looks like diligence.
+3. **A pin on a major road measured 2.70:1** — and neither the palette file nor the basemap file could
+   see it, because it is a property of the two together. A light-theme café body on that road would
+   have been **1.03:1**: not a dim pin, an absent one.
+4. **`--radius-md` was undefined**, and the consequence was worse than "an invalid radius": the
+   computed value resolved to `0` and `twMerge` stripped the class that would have rescued it, so
+   four button sizes were rendering **square**. Static analysis found the missing token; only a
+   browser found the squares.
+5. **A guard went blind.** The assertion that `P-002` never reaches a user matched `title:\s*'([^']+)'`;
+   `title` correctly became an object, the regex stopped matching, and the guard could no longer see
+   the string it guards. It failed loudly **only** because someone had written
+   `expect(title).toBeDefined()` as an afterthought.
+6. **The one that is sharpest, because it was invisible to *both* automated passes.** A basemap
+   `housenumber` layer was left exactly as the vendor drew it — the correct default for a layer that
+   matches no role — and on a near-black ground that tan became the brightest warm thing on the map,
+   dozens of times a frame, within a few degrees of the café pins. It is **canvas text, so the
+   accessibility harness cannot score it either.** A person looking at a zoomed-in night frame found
+   the symptom; the cause came from a *question* — *which layers match no role?* — which returned
+   exactly one of twenty-seven. **The reported symptom was a different layer from the actual cause**,
+   and chasing the report rather than the mechanism would have meant re-tinting a role that was
+   already correct.
+
+**The corollary, which is the process finding.** Four verification guards degraded in one night —
+one blind, one over-broad, one stale after a rename, one measuring a variant its own command could
+not match. None was anyone's fault and every one was caught. The reason they were caught is that
+**agents kept checking their own instruments**: a harness that shipped ten screenshots labelled
+`signed-out` showing a signed-in session, then ten more of five different screens that were all the
+same unhydrated page; a driver reporting "dark is broken" that turned out to be its own unasserted
+`str.replace`; a contrast tool reporting a fabricated 2.33:1 failure on the flagship CTA that WCAG
+exempts outright. Each was found by the agent that built it, reported against itself, and fixed in
+the tool rather than annotated.
+
+**A harness that cannot fail cannot be evidence.** That sentence, written by the agent whose harness
+had twice been unable to fail, is the most useful thing produced tonight — and it is §7's rule
+arriving from the other direction: *a builder's own green result is the least reliable evidence
+available*, demonstrated on itself, three times.
+
+**And a seventh, which is the only one caught by a peer rather than by its own author — and the only
+one that produces false *passes*.** The independent audit of press feedback drove CDP's
+`forcePseudoState` and read `CSS.getComputedStyleForNode`. Under that path **every element carrying
+any `scale` declaration returns `scale: 1`**, so `scale-95` and `scale-98` are indistinguishable and
+the measurement cannot read depth at all — and it reported a *change* on at least one control that a
+real mouse press shows has none.
+
+Its headline finding was still a true positive: the `＋` FAB genuinely had no press, and the
+collections surfaces genuinely had none at all. But **a method that can report an absence as a pass is
+categorically more dangerous than one that reports a presence as a failure**, because the first kind
+closes a gate and the second kind only wastes an hour. The re-test uses a real `mouse.down()`, which
+has its own trap worth writing down: releasing the pointer *away* from the element to avoid activating
+it is a **drag**, and a drag inside the sheet is a vaul gesture that closes it and detaches every row.
+Press only what you can afford to activate, and release in place.
+
+**And then the re-test produced the eighth, in the opposite direction, which is what makes the pair
+worth keeping.** Challenged on one control, the peer re-ran it and found its *own* result had been
+false: `Find my location` presses correctly at `0.95`, and its earlier "no press" was recorded **with
+the sheet open, painting over the map controls.** The control's `boundingBox()` was still valid — it
+is laid out and in the DOM — so the press went to those coordinates and landed on a **list row**.
+`elementFromPoint` named the interceptor: `p.line-clamp-1.font-heading`, inside
+`Open Filter Coffee Bar No. 3`.
+
+**The fix is one boolean, and it is the reusable part of this whole section.** Record whether the
+element actually entered `:active` while the pointer was down:
+
+- **`:active` false → the press never reached the element.** The measurement is *void* — it says
+  nothing about the element, and must not be reported as either a pass or a failure.
+- **`:active` true and nothing moved → the element genuinely has no press.**
+
+With that field, `Zoom in` / `Zoom out` become a clean negative rather than an inference — the press
+landed, `:active` resolved on the button, `PRESS_CHIP` is absent, nothing moved — and
+`Find my location` a clean positive.
+
+**So both methods produced a false result on the same night, in opposite directions, and the
+difference between them was a single unrecorded boolean.** CDP-forced `:active` gave a false *pass*;
+the real-press run gave a false *failure*. Neither was trustworthy alone. The false pass remains the
+more dangerous of the two — **nobody re-checks a green** — but the correction was volunteered by the
+agent whose own result it overturned, unprompted except by being asked to check.
+
+### The convergence, which is the sharpest form of all of it
+
+**One measurement — does a control acknowledge a press — defeated three different agents in three
+different ways on the same night.**
+
+| Agent | Method | Failure |
+|---|---|---|
+| the independent verifier | CDP `forcePseudoState` + `getComputedStyleForNode` | **false pass** — every element with any `scale` declaration reads `scale: 1`, and an absence was reported as a change |
+| the design lane | real `mouse.down()` | **false failure** — the sheet was painting over the control, `boundingBox()` was still valid, and the press landed on a list row |
+| the collections lane | CDP `forcePseudoState`, again | **would not fire at all** — no effect through either `getComputedStyleForNode` or `Runtime.callFunctionOn`, on a surface known to press |
+
+And a fourth in the same family, from the third agent's own tooling: its first stylesheet walk reported
+**zero** `active` rules on every route, including one whose press had shipped hours earlier. In modern
+Chrome a `CSSStyleRule` **also exposes `cssRules`** under CSS nesting, so an
+`if (r.cssRules) … else if (r.selectorText)` walk skips every style rule in the sheet. Corrected, it
+finds 25.
+
+**The third agent did the right thing with a broken instrument:** it reported what it could actually
+establish — the rules are in the stylesheet the page loaded, *and* every visible pressable carries the
+matching class — said plainly that this composes to the answer but is weaker than driving the
+pseudo-state, and asked for the working instrument to be pointed at its commit rather than reporting a
+number it had not taken.
+
+### And then it was closed properly, with a method worth keeping
+
+The working instrument was pointed at the collections surfaces at `1186817`, both gate viewports:
+**33 PRESS, 0 owned failures.** Every pressable those surfaces own resolved `:active` and moved, each
+at the depth its element kind calls for — `0.95` for chips and icon buttons, `0.98` for the FAB and
+`Add places`, `0.99` for all six list rows and the collection cards. **Three matrix depths, assigned
+by kind rather than applied uniformly.** The composed inference was right and is now a measurement.
+
+**The one non-vendor VOID confirms the exclusion by measuring it.** `Collapse the places sheet` never
+resolves `:active`, and `elementFromPoint` returns the sheet content painted over it — because a
+`fixed inset-0 bg-transparent` tap-catcher is *by design* underneath everything. Not a defect, not a
+pass: genuinely unmeasurable, which is what VOID is for.
+
+**The reusable checklist, which is the durable output of the whole episode:**
+
+1. **A real `mouse.down()`, never `forcePseudoState`** — the forced pseudo-state reads `scale: 1` for
+   everything and can report an absence as a change.
+2. **Record `:active` per element.** This is the boolean that separates *"the press never reached
+   it"* (void — say nothing) from *"it landed and nothing happened"* (a real failure).
+3. **`elementFromPoint` at the press coordinates**, so an interception is named rather than inferred.
+4. **Scroll into view first, and skip anything still off-viewport.** A fourth trap, found in the final
+   run: **Playwright's `isVisible()` is true for an element far below the fold** — it means "has a box
+   and is not `visibility: hidden`", not "on screen". Pressing those yields phantom interceptions
+   where `elementFromPoint` returns null because the point is outside the viewport. Five VOIDs became
+   clean passes once the box was re-read after scrolling.
+
+Plus the technique that made a single pass over 50 controls possible at all: **suppress `click` in the
+capture phase** (`preventDefault` + `stopImmediatePropagation` on `window`). A real press then
+activates nothing — no navigation, no drag, no state change between elements — while `:active`, which
+is driven by hit-testing on pointerdown, is unaffected. That also retires the drag hazard: with clicks
+suppressed there is no need to move the pointer away before releasing, so the sheet's gesture never
+fires.
+
+**Eight instruments, one night, on a codebase whose tests were green throughout.** That is the run's
+real finding about itself: **the measurements needed as much verification as the code did**, and two
+of the fourteen KPIs turned out not to measure what they name. The press question took four attempts
+across three agents to answer, and the answer — **33 of 33** — was never in doubt in the code. Only in
+the instruments.
+
+
+---
+
+## 8. Closed after the corrections — 2026-08-31 03:30
+
+The three gaps above were reopened and closed within the hour.
+
+| Gap | Closed by | State |
+|---|---|---|
+| **W3-1's second half** — the `＋` FAB had no press | `544f7ec` | `PRESS_BUTTON`, not `PRESS_CHIP`: a filled primary with a shadow to drop is the matrix's primary row, not the chip's |
+| **W3-1's second half** — collections had *no* press feedback at all | `1186817` | Six files. Its own new guard then caught a **bare `transition-*` surviving beside a `motion-safe:` press** — the same shape deleted from the button base earlier, found by a test written in the same commit |
+| **K8's browser half and W5-2's desktop half** — `place-desktop-panel.tsx` | `1538c71` | Two optional props and two spreads. The coupling and the sort control now reach the desktop list |
+
+**Final measurement, `npm run verify` green:**
+
+| | baseline | final |
+|---|---|---|
+| Tests | 2,017 / 114 files | **2,501 / 149 files** |
+| `@theme` keys | 36 | **89** |
+| Arbitrary values | 166 | **16** |
+| Raw `var(--mint-N)` | 75 | **0** |
+| `active:` | 3 | **18**, across 11 files |
+| `group-hover:` | 0 | **7** |
+| `motion-safe:` | 0 | **73** |
+| Hard-coded hex in `*.tsx` | 26 | **25** |
+
+**The correction that matters more than the numbers.** Two of the fourteen numeric targets did not
+measure what they name. **K8's command could not match the correct implementation** — Tailwind puts a
+named group's name before the colon, and the specification *mandates* the named form because rows nest
+inside grouped containers on `/collections`, so building to spec made the counter read zero. **K7
+counted shared class strings while its package's criterion counted coverage** — three constants
+existed and passed the grep while twelve of twelve controls on `/collections` acknowledged nothing.
+
+In both cases the grep was green and the product was wrong, and in both cases it took a person or an
+independent agent *looking at the running screen* to find it. That is the same lesson §7 of this
+report draws from six defects, arriving from the direction of the instruments rather than the code:
+**a measurement is a claim about a thing, and the two can come apart silently.**

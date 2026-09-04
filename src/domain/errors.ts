@@ -2,16 +2,27 @@
  * The closed error taxonomy (`07` §9, L0-F1-T1). `DomainError` is the only thing an integration
  * adapter or a pipeline stage may throw across the app-layer seam: no provider error object,
  * message, status code or stack ever reaches the client. Everything else in `07`'s table collapses
- * to one of these 14 codes.
+ * to one of these 13 codes.
  *
  * Rules this file obeys:
- *  - **Closed set.** `DomainErrorCode` has exactly the 14 members `07` §9 names. Adding a 15th is a
- *    decision for that document, not a call site.
+ *  - **Closed set.** `DomainErrorCode` has exactly 13 members. Two of `07` §9's names are retired —
+ *    `PHOTO_POST` (photo posts are ordinary posts now — see `canonicalise-tiktok-url.ts`) and, on
+ *    2026-08-31, the per-user rate-limit code, which carried a written screen and a 429 for a
+ *    limiter nobody ever built (`product-ruling-quota-copy-2026-08-31.md` R4). One member,
+ *    `EXTRACTOR_QUOTA_EXHAUSTED`, is newer than that document. A retired code comes back **with
+ *    its producer, in the same commit**, which is the only order that was ever correct; adding a
+ *    14th is a decision for that document, not a call site.
  *  - **No code is reachable only by typing a raw string.** Every member of `DomainErrorCode` has
  *    exactly one constructor function below that produces it, and every constructor fixes that
  *    code's `retryable` value from the table — a call site cannot construct, say, `INTERNAL` and
  *    claim it is retryable when the taxonomy says otherwise, because `retryable` is not a
  *    parameter anywhere.
+ *  - **These messages are diagnostics, and `voice-and-vocabulary.md` does not bind them.** They
+ *    are read in logs and by us, never by a user: the client receives `body.error.code` and renders
+ *    `ui/import/import-error-copy.ts`, which is where the vocabulary rules apply. That is why five
+ *    of the strings below say *post* while every user-facing string says *video* — §3 bans *post*
+ *    as a word a user reads, and TikTok's own URL taxonomy is the right register for a log line.
+ *    Asked and answered twice on 2026-08-31; the first sentence of this docblock is the proof.
  *  - **`NO_PLACES_FOUND` is not here.** It is a successful outcome (`ImportOutcome`'s
  *    `kind: 'no_places'`, `domain/import/events.ts`), not a member of this union — see the note at
  *    the bottom of `07` §9. Modelling the modal result (~73%, `04` §4) as an error would poison
@@ -31,10 +42,10 @@ export type DomainErrorCode =
   | 'POST_UNAVAILABLE'
   | 'UPSTREAM_TIMEOUT'
   | 'RATE_LIMITED_UPSTREAM'
-  | 'RATE_LIMITED_LOCAL'
   | 'NO_CAPTION'
   | 'EXTRACTOR_UNAVAILABLE'
   | 'EXTRACTOR_INVALID_OUTPUT'
+  | 'EXTRACTOR_QUOTA_EXHAUSTED'
   | 'NOT_AUTHENTICATED'
   | 'INTERNAL';
 
@@ -49,10 +60,10 @@ export const DOMAIN_ERROR_CODES: readonly DomainErrorCode[] = [
   'POST_UNAVAILABLE',
   'UPSTREAM_TIMEOUT',
   'RATE_LIMITED_UPSTREAM',
-  'RATE_LIMITED_LOCAL',
   'NO_CAPTION',
   'EXTRACTOR_UNAVAILABLE',
   'EXTRACTOR_INVALID_OUTPUT',
+  'EXTRACTOR_QUOTA_EXHAUSTED',
   'NOT_AUTHENTICATED',
   'INTERNAL',
 ];
@@ -163,15 +174,6 @@ export const rateLimitedUpstream = makeConstructor(
   'TikTok is rate-limiting us right now.',
 );
 
-/** Our own per-user limiter, checked in the route handler before `getOrCreateImport` (`07` §7).
- *  Pre-A. Not immediately retryable — the UI's own copy is "give it a few minutes", not a retry
- *  button (`07` §9's "later"), which this taxonomy represents as `retryable: false`. */
-export const rateLimitedLocal = makeConstructor(
-  'RATE_LIMITED_LOCAL',
-  false,
-  "You've tried this a few times. Give it a few minutes.",
-);
-
 /** Content extractor: oEmbed returned 200 but no usable text. A/B seam, not retryable — a retry
  *  would read the same empty caption. */
 export const noCaption = makeConstructor('NO_CAPTION', false, 'This post has no caption to read.');
@@ -192,6 +194,20 @@ export const extractorInvalidOutput = makeConstructor(
   "We couldn't process this post right now.",
 );
 
+/** LLM adapter: the provider answered correctly and **declined** — the day's call allowance is
+ *  spent. Stage B, and the one extractor failure that is **not** retryable: the next call, in the
+ *  same second or the same hour, spends the same empty allowance, so a retry button would be a
+ *  promise we cannot keep (`product-ruling-quota-copy-2026-08-31.md` R2/R4). That is the whole
+ *  reason it is not `EXTRACTOR_UNAVAILABLE`: the two failures are one word apart in the logs and a
+ *  day apart on the screen, and only a distinct code lets the screen say *come back tomorrow*
+ *  instead of offering a retry that cannot work. Nothing here is a per-user limit — no such
+ *  limiter exists (`security.md` R-1). */
+export const extractorQuotaExhausted = makeConstructor(
+  'EXTRACTOR_QUOTA_EXHAUSTED',
+  false,
+  'The model provider has no calls left in its allowance.',
+);
+
 /** Route handler: no Supabase session. Pre-A. Not a retry — a sign-in redirect, pasted URL
  *  preserved (`07` §9). */
 export const notAuthenticated = makeConstructor('NOT_AUTHENTICATED', false, 'Please sign in to continue.');
@@ -210,10 +226,10 @@ export const DOMAIN_ERROR_CONSTRUCTORS = {
   POST_UNAVAILABLE: postUnavailable,
   UPSTREAM_TIMEOUT: upstreamTimeout,
   RATE_LIMITED_UPSTREAM: rateLimitedUpstream,
-  RATE_LIMITED_LOCAL: rateLimitedLocal,
   NO_CAPTION: noCaption,
   EXTRACTOR_UNAVAILABLE: extractorUnavailable,
   EXTRACTOR_INVALID_OUTPUT: extractorInvalidOutput,
+  EXTRACTOR_QUOTA_EXHAUSTED: extractorQuotaExhausted,
   NOT_AUTHENTICATED: notAuthenticated,
   INTERNAL: internal,
 } satisfies Record<DomainErrorCode, (message?: string, cause?: unknown) => DomainError>;

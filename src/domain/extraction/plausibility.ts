@@ -79,14 +79,61 @@ function normaliseForComparison(s: string): string {
     .trim();
 }
 
-/** `@handle`s and URLs are never venues regardless of context — always rejected. `#hashtag`s are
- *  handled separately below: they now survive to the other checks instead of being blanket-dropped
- *  here (see `HASHTAG_ONLY_CONFIDENCE_CEILING`). */
-function isHandleOrUrl(rawName: string): boolean {
+/** A URL is never a venue name. `@`-tokens are decided by `taggedBusinessName` below, and
+ *  `#hashtag`s survive to the other checks instead of being blanket-dropped here (see
+ *  `HASHTAG_ONLY_CONFIDENCE_CEILING`). */
+function isUrl(rawName: string): boolean {
+  return /^https?:\/\//i.test(rawName.trim());
+}
+
+/**
+ * The confidence ceiling for a candidate whose only evidence is a **tagged account**
+ * (`@The Miners Coffee`). Numerically the same 0.5 as the hashtag ceiling and for the same reason
+ * — the evidence is a tag, not prose — but deliberately a separate constant: the two classes have
+ * different failure modes and will be measured apart, and one shared number would hide whichever
+ * of them turns out to be wrong.
+ *
+ * **Unmeasured.** No labelled set exists for tagged businesses yet; 0.5 is inherited, not fitted.
+ */
+const TAGGED_ACCOUNT_CONFIDENCE_CEILING = 0.5;
+
+/**
+ * A tagged **business**, not a creator handle: the venue name if this `@`-token is one, else null.
+ *
+ * ## Why this exists (E-T3, revises `09` §5.2 category H)
+ *
+ * `09` §5.2 said a `@handle` is "never a venue regardless of context", and that ruling was written
+ * before business tags were considered. On `✨ Anwi Cafe ✨ Kro Bakery ✨ Kus Kolace ✨
+ * @The Miners Coffee` the rule costs a real, named, recommended venue — the fourth place in a
+ * four-place caption — and it costs it silently, as `dropped.hashtag_or_handle`.
+ *
+ * ## The discriminator, and what it is not
+ *
+ * **Internal whitespace.** A TikTok username cannot contain a space, so `@theminerscoffee` is a
+ * handle and stays dropped; `@The Miners Coffee` is a display name the caption wrote out, which is
+ * how a *business* is tagged. That is a shape test, not a world-knowledge test, and it is the only
+ * one available from caption text alone.
+ *
+ * **The corroboration arm was considered and rejected.** "A bare `@handle` whose words also appear
+ * in the prose is a venue" reads well and is wrong here: if the prose names it, the prose already
+ * produced a candidate, and admitting the handle as a second one is exactly the two-candidates-one-
+ * venue duplicate this import path has no merge step for. Corroboration is a reason to *trust* the
+ * prose candidate, never a reason to add a row.
+ *
+ * ## What it still gets wrong
+ *
+ * A person tagged by display name (`@Sarah Cohen`) passes this shape test. It is left to survive
+ * rather than guessed at: it arrives capped at `TAGGED_ACCOUNT_CONFIDENCE_CEILING`, labelled on
+ * the card as tag-only evidence, and it resolves to nothing — an unresolved candidate the user
+ * rejects, not a confident wrong place.
+ */
+export function taggedBusinessName(rawName: string): string | null {
   const trimmed = rawName.trim();
-  if (trimmed.startsWith('@')) return true;
-  if (/^https?:\/\//i.test(trimmed)) return true;
-  return false;
+  if (!trimmed.startsWith('@')) return null;
+  const name = trimmed.slice(1).trim();
+  // Two or more whitespace-separated words. One word is a username, whatever it is capitalised as.
+  if (!/\S\s+\S/u.test(name)) return null;
+  return name;
 }
 
 /**
@@ -161,6 +208,40 @@ export function isHashtagOnlyEvidence(
 
   if (onlyInTag(rawName)) return true;
   return evidence !== null && onlyInTag(evidence);
+}
+
+/**
+ * Is a tagged account the **only** place this caption names this venue?
+ *
+ * The same question `isHashtagOnlyEvidence` asks about `#tags`, asked about `@tags`, and for the
+ * same reason: `filterPlausible` strips the `@` off a tagged business before anything downstream
+ * sees it, so by review time the candidate looks exactly like a name read out of the prose. It is
+ * not — the evidence is a tag, and the card has to say so.
+ *
+ * Decided on the caption, never on the candidate's spelling: every occurrence of the name in the
+ * caption is immediately preceded by `@`. One occurrence in the prose and the answer is no, the
+ * prose corroborates it and this is an ordinary find.
+ *
+ * Whitespace inside the name is ignored on both sides (`@The Miners Coffee` vs `the miners
+ * coffee`), which is what makes this immune to how the model chose to re-space the tag.
+ */
+export function isTaggedAccountOnlyEvidence(caption: string, rawName: string): boolean {
+  const needle = tightenForTagMatch(rawName);
+  if (needle === '') return false;
+  // The caption with everything but letters, digits and `@` removed, so `@The Miners Coffee`
+  // becomes `@theminerscoffee` and the mention marker survives next to the name.
+  const tightCaption = caption
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .replace(/[^\p{L}\p{N}@]/gu, '');
+
+  let found = false;
+  for (let at = tightCaption.indexOf(needle); at !== -1; at = tightCaption.indexOf(needle, at + 1)) {
+    found = true;
+    if (at === 0 || tightCaption[at - 1] !== '@') return false;
+  }
+  return found;
 }
 
 function isCityOrCountryOnly(rawName: string, cityHint: string | null, countryHint: string | null): boolean {
@@ -266,41 +347,62 @@ export function filterPlausible<T extends PlaceCandidate>(
   const seen = new Set<string>();
 
   for (const candidate of candidates) {
-    if (isHandleOrUrl(candidate.rawName)) {
+    if (isUrl(candidate.rawName)) {
       dropped.hashtag_or_handle += 1;
       continue;
     }
-    if (isCityOrCountryOnly(candidate.rawName, candidate.cityHint, candidate.countryHint)) {
+    // An `@`-token is a tagged business or it is a handle; only the first survives, and it
+    // survives under the *name*, with the `@` gone, so every rule below and the resolver itself
+    // read a venue name rather than a mention.
+    const businessName = taggedBusinessName(candidate.rawName);
+    if (businessName === null && candidate.rawName.trim().startsWith('@')) {
+      dropped.hashtag_or_handle += 1;
+      continue;
+    }
+    const candidateInHand: T =
+      businessName === null ? candidate : ({ ...candidate, rawName: businessName } as T);
+    if (isCityOrCountryOnly(candidateInHand.rawName, candidateInHand.cityHint, candidateInHand.countryHint)) {
       dropped.city_or_country_only += 1;
       continue;
     }
-    if (isGenericWordsOnly(candidate.rawName)) {
+    if (isGenericWordsOnly(candidateInHand.rawName)) {
       dropped.generic_words_only += 1;
       continue;
     }
-    if (candidate.evidence !== null && !evidenceFoundInCaption(caption, candidate.evidence)) {
+    if (candidateInHand.evidence !== null && !evidenceFoundInCaption(caption, candidateInHand.evidence)) {
       dropped.evidence_not_in_caption += 1;
       continue;
     }
-    const key = normaliseForComparison(candidate.rawName);
+    const key = normaliseForComparison(candidateInHand.rawName);
     if (seen.has(key)) {
       dropped.duplicate += 1;
       continue;
     }
     seen.add(key);
+    // Decided on the caption, not on whether the model kept the `@` — the same lesson the
+    // hashtag arm below learned the hard way (`isHashtagOnlyEvidence`'s header). A model that
+    // writes `The Miners Coffee` with the `@` stripped still gets capped and still gets labelled.
     if (
-      isHashtagOnlyEvidence(caption, candidate.rawName, candidate.evidence) &&
-      candidate.modelConfidence !== null &&
-      candidate.modelConfidence > HASHTAG_ONLY_CONFIDENCE_CEILING
+      isTaggedAccountOnlyEvidence(caption, candidateInHand.rawName) &&
+      candidateInHand.modelConfidence !== null &&
+      candidateInHand.modelConfidence > TAGGED_ACCOUNT_CONFIDENCE_CEILING
+    ) {
+      kept.push({ ...candidateInHand, modelConfidence: TAGGED_ACCOUNT_CONFIDENCE_CEILING } as T);
+      continue;
+    }
+    if (
+      isHashtagOnlyEvidence(caption, candidateInHand.rawName, candidateInHand.evidence) &&
+      candidateInHand.modelConfidence !== null &&
+      candidateInHand.modelConfidence > HASHTAG_ONLY_CONFIDENCE_CEILING
     ) {
       // `{ ...candidate, modelConfidence }` is a `T` at runtime — every other property is copied
       // — but TypeScript cannot prove a spread-plus-override of a generic is still that generic,
       // so the assertion states what the spread guarantees. The only alternative is dropping the
       // generic, which loses the v2 fields' types for every caller.
-      kept.push({ ...candidate, modelConfidence: HASHTAG_ONLY_CONFIDENCE_CEILING } as T);
+      kept.push({ ...candidateInHand, modelConfidence: HASHTAG_ONLY_CONFIDENCE_CEILING } as T);
       continue;
     }
-    kept.push(candidate);
+    kept.push(candidateInHand);
   }
 
   return { kept, dropped };

@@ -2,35 +2,126 @@ import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { PRESS_BEAT, PRESS_BUTTON, PRESS_CHIP } from "@/lib/interaction"
+
+/**
+ * The icon button's two matrix columns that differ from every other button: the chip's press depth
+ * (see the `size` block below) and a **30%** disabled step rather than the base's 45%.
+ *
+ * 30 rather than 45 because a disabled icon button is a glyph and nothing else — no label to carry
+ * the meaning, no fill to sit in — so at 45% it still reads as a live control and gets tapped. The
+ * matrix sets the two steps apart for exactly that reason, and it lands after `variant` in cva's
+ * order, so it wins over the base for any icon-sized button.
+ */
+const ICON_BUTTON = `disabled:opacity-30 ${PRESS_CHIP}`
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  // `disabled:opacity-45`, not 50: the matrix fixes the disabled step at 45% and there is no
+  // reason for the button to hold a second number for it.
+  //
+  // **No un-prefixed `transition-all`.** It used to be here and it was doing exactly one thing:
+  // running the hover fade and the press translate for users who had asked for reduced motion,
+  // because `PRESS_BEAT`'s `motion-safe:transition` supersedes it for everybody else. Deleting it
+  // is W3-3's inversion applied to the button — the un-prefixed state is the reduced case, and the
+  // reduced case for a press is the colour arriving at once.
+  `group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-45 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 ${PRESS_BEAT}`,
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // The only variant that scales, per the matrix: a filled button is the one that reads as a
+        // physical thing, so it is the one that can be pushed. `shadow-raised` is its resting
+        // elevation and exists so `active:shadow-none` has a level to drop from — a press that
+        // only shrinks reads as a rendering glitch; a press that shrinks *and* settles reads as a
+        // press. The two are one beat: the base's `translate-y-px` rides the same transition and
+        // there is deliberately no second duration.
+        //
+        // **`hover:bg-primary-hover`, not `hover:bg-primary/80`.** The alpha step was the same mint
+        // at 80% over a near-white page: measured at `/sign-in`, `rgb(168, 236, 226)` at rest and
+        // `rgb(184, 239, 230)` on hover — imperceptible, and *lighter*, when the matrix's row for a
+        // primary button reads "mint darkens a step". The token darkens toward the ink the button
+        // already carries and holds in both themes; its arithmetic is on `--primary-hover` in
+        // `globals.css`. Same call-site shape as `secondary` below, which had this all along.
+        default: `bg-primary text-primary-foreground shadow-raised hover:bg-primary-hover active:shadow-none ${PRESS_BUTTON}`,
+        // The matrix's hover for an outline button is "border → mint, tint wash", and it was the
+        // one hover in the table that this file answered with a grey. An outlined control's border
+        // *is* its affordance, so warming that border is the cheapest true signal it has; the 5%
+        // fill is the wash, deliberately far below `default`'s solid mint so the two never read as
+        // the same button. `hover:text-foreground` stays — the label darkens with it.
+        //
+        // **`border-brand`, not `border-primary`, and that is a deviation from
+        // `ux-overnight-specs.md` §2.1 taken on evidence.** `--primary` is `--mint-400`
+        // (`#A8ECE2`); measured in a real browser at 1440x900, the hover *applied* and computed to
+        // `rgb(168, 236, 226)` — and a 1px band of it on a `#FAF9F6` surface is invisible at panel
+        // width. A hover nobody can perceive satisfies the letter of the spec and fails its
+        // purpose, which is a state the user can see. `--brand` is `--mint-700` (`#2E7A70`), the
+        // same family two steps down, and it reads. The wash stays at 5% of `--primary`, because
+        // that one is a tint rather than an edge and 5% of the deep mint would be a smudge.
+        //
+        // **A verifier cannot check this at 390x844, by construction.** Tailwind wraps every
+        // `hover:` utility in `@media (hover: hover)`, and a touch context reports `hover: none`,
+        // so the whole hover column of §3a's matrix is unreachable on the mobile gate viewport.
+        // Measured: at 390x844 this button's border stays `--border` and its background stays
+        // `--background`, which is correct behaviour and looks exactly like a missing feature.
+        // Check hover states at 1440x900 or with a real pointer; a screenshot of the phone proves
+        // nothing either way.
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-border bg-background hover:border-brand hover:bg-primary/5 hover:text-foreground aria-expanded:bg-card-2 aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        // **`bg-card-2`, not `bg-muted`, and `--muted` was painting nothing at all.** In `:root`
+        // `--muted` *is* `--background` (`#FAF9F6`), so a ghost button on the page ground answered
+        // a hover with its own colour — a zero-pixel change, ΔE00 **0.00**, which is what the
+        // owner hit on `Sign out`. Dark is the same defect wearing the other theme: there `--muted`
+        // is `#201F1C`, which is exactly `--card` and `--popover`, so `dark:hover:bg-muted/50` also
+        // computed to 0.00 on every card and every menu — including the sign-out row inside the
+        // profile menu. The alpha only rescued it on the bare ground (2.06), which is the one place
+        // in dark a ghost button rarely sits.
+        //
+        // `--card-2` is the token this variant should have been using since it was added: its own
+        // note in `globals.css` says it is *"where a row or an icon button goes when you hover it"*.
+        // Measured ΔE00 — light **2.19** on `--background` and **4.11** on `--card`/`--popover`;
+        // dark **6.79** on `--background` and **2.99** on `--card`/`--popover`. The floor case,
+        // 2.19, sits in the same register as `--secondary-hover`'s own signed-off step (2.60), so
+        // the quietest button in the set hovers about as hard as the second-quietest. Going darker
+        // means `--border` (3.08 further on), and `--card-2`'s note refuses that on purpose: a
+        // hovered row has to stay a surface rather than become a divider.
+        //
+        // One declaration for both themes, so the `dark:` override is gone — `--card-2` is defined
+        // in `.dark` as one step *above* `--card` exactly as it is one step below in light, which
+        // is the inversion the alpha was hand-rolling and getting wrong.
+        //
+        // `aria-expanded` carried the identical dead token here and on `outline` above, on the
+        // triggers whose whole job is to look held-open while a menu is out. Same fix, same reason.
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "hover:bg-card-2 hover:text-foreground aria-expanded:bg-card-2 aria-expanded:text-foreground",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
       },
+      // **The four radius clamps are gone and the sizes are unchanged.** They read
+      // `min(var(--radius-md), 10px)` and `min(var(--radius-md), 12px)`, which W0-1 found were
+      // rendering *square* because `--radius-md` did not exist; it now does, at `0.875rem`, so the
+      // clamps were resolving to exactly 10px and 12px. `--radius-xs` is 10px and `--radius-sm` is
+      // 12px, so `rounded-xs`/`rounded-sm` are the same pixels as named steps rather than as
+      // arithmetic over a step one size up.
+      //
+      // Not `rounded-md`, which `ux-overnight-specs.md` §2.0 suggests: that is `--radius-md` in
+      // full, 14px, and would restyle these four sizes on the way past — on the very sizes W0-1
+      // just repaired. The orchestrator has recorded the spec correction.
       size: {
         default:
           "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        xs: "h-6 gap-1 rounded-xs px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-7 gap-1 rounded-sm px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        icon: "size-8",
-        "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "size-9",
+        // `ICON_BUTTON` is the chip's 5% press rather than the filled button's 1.5% — at 24–36px a
+        // 1.5% squeeze is under half a pixel and invisible — plus the matrix's 30% disabled step.
+        // Both land after `variant` in cva's own order, so an icon-sized `default` button resolves
+        // to these rather than to the base's numbers.
+        icon: `size-8 ${ICON_BUTTON}`,
+        "icon-xs": `size-6 rounded-xs in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3 ${ICON_BUTTON}`,
+        "icon-sm": `size-7 rounded-sm in-data-[slot=button-group]:rounded-lg ${ICON_BUTTON}`,
+        "icon-lg": `size-9 ${ICON_BUTTON}`,
       },
     },
     defaultVariants: {

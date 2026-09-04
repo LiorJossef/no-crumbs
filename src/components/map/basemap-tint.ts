@@ -30,8 +30,20 @@ export interface Tint {
   readonly hue: number;
   readonly saturation: number;
   readonly maxLightness?: number;
+  /**
+   * A *floor*, and it exists for the night table (W7-3).
+   *
+   * Keeping each colour's own lightness is what makes the daytime re-tint safe, and a cap is enough
+   * to turn near-white into paper. Night needs the other direction as well: Positron's label ink is
+   * dark slate (L ≈ 0.25) and on a dark ground it has to become near-white, which no cap can do.
+   *
+   * Applied after `maxLightness`, so a role may state a band. Unset everywhere in the light table,
+   * where the behaviour is unchanged by construction.
+   */
+  readonly minLightness?: number;
 }
 
+import type { Theme } from '@/lib/theme';
 import { POI_TIER_FLOOR } from './poi-style';
 
 export type BasemapRole =
@@ -42,7 +54,8 @@ export type BasemapRole =
   | 'roadCase'
   | 'building'
   | 'label'
-  | 'labelHalo';
+  | 'labelHalo'
+  | 'houseNumber';
 
 /**
  * EXPERIMENT (exp/richer-basemap): the Mapbox Standard "Day" palette, read off the reference
@@ -68,6 +81,14 @@ export const BASEMAP_TINTS: Record<BasemapRole, Tint> = {
   // Cooler and near-neutral: Mapbox's place labels are dark slate, not brown ink.
   label: { hue: 250, saturation: 0.12 },
   labelHalo: { hue: 40, saturation: 0.08 },
+  /**
+   * **A no-op in light, on purpose.** `housenumber` was the one symbol layer `roleFor` matched
+   * nothing for, so it kept CARTO's own `#d2b17d` — which is `hsl(36.7, 0.486, 0.657)`. These are
+   * its own numbers, so the light map is unchanged to within rounding (`#d4b17b`), and the role
+   * exists only so that **night** has something to override. Changing the daytime tan is a
+   * separate decision from fixing the night, and this is the night's fix.
+   */
+  houseNumber: { hue: 36.7, saturation: 0.486 },
 };
 
 /**
@@ -79,6 +100,9 @@ export const BASEMAP_TINTS: Record<BasemapRole, Tint> = {
  * look untouched rather than wrong.
  */
 const ROLE_PATTERNS: readonly (readonly [RegExp, BasemapRole])[] = [
+  // Before the general `label` rule, which `housenumber` does not match anyway — it is first
+  // because it is the more specific statement and the ordering rule above says so.
+  [/^housenumber/, 'houseNumber'],
   [/label$|^watername|^place_|^roadname|^poi_/, 'label'],
   [/^background$|^landuse_residential$|^aeroway/, 'land'],
   [/^water|^waterway/, 'water'],
@@ -109,10 +133,194 @@ export const TINTED_PAINT_PROPERTIES = [
 
 export type TintedPaintProperty = (typeof TINTED_PAINT_PROPERTIES)[number];
 
-/** A halo is the paper showing through, not ink, so it takes the land's tint whatever the layer. */
-export function tintFor(role: BasemapRole, property: TintedPaintProperty): Tint {
-  if (property === 'text-halo-color') return BASEMAP_TINTS.labelHalo;
-  return BASEMAP_TINTS[role];
+/**
+ * **The night table. `chrome is brand, basemap is geography` — so the map stays cool.**
+ *
+ * The daytime table pushes everything warm because the product's paper is warm. Night does the
+ * opposite on purpose: the chrome around the map is a warm near-black (`--background` is `#131312`)
+ * and the map inside it is cool slate. That contrast is the rule, not an accident of taste — a
+ * night map tinted with the brand's mint would make the whole screen one material, and the thing a
+ * basemap has to stay is *geography under the product* rather than more product.
+ *
+ * Two structural differences from the light table, both forced by the ground moving:
+ *
+ * 1. **Roads are lighter than the land**, which is the inversion the whole table turns on. In
+ *    daylight the land is paper and roads are near-white lines *on* it, separated by a casing. At
+ *    night the land is nearly black and the roads have to be the light thing, or the street grid —
+ *    the part of a basemap a person actually navigates by — disappears entirely.
+ * 2. **`label` states a floor rather than a cap.** Positron's place labels are dark slate ink; a
+ *    cap cannot lighten them and on this ground they would be invisible. `labelHalo` is the mirror
+ *    image: on paper the halo is the paper showing through, at night it is the ground, so it caps
+ *    hard instead.
+ *
+ * Water is darker than the land rather than lighter, which is the convention every night basemap
+ * follows and the opposite of the daytime table's vivid sky blue: at night the sea is the quiet
+ * part of the frame and the coastline reads as land ending, not as water beginning.
+ *
+ * **That sentence was written before the value delivered it (I2-9).** The sea shipped at L\* 16.8
+ * against an L\* 13.1 land — *lighter*, not darker — and the whole coastline was being carried by
+ * colour instead. It is true now; see the `water` row.
+ */
+export const BASEMAP_TINTS_NIGHT: Record<BasemapRole, Tint> = {
+  land: { hue: 220, saturation: 0.08, maxLightness: 0.135 },
+  // **Measured, and the first draft of this was wrong.** At `L ≤ 0.10` the sea came out `#0f1924`
+  // against a `#202225` land: a coastline you cannot see. Contrast ratio hides this — it reported
+  // 1.11:1 and would report roughly that for any two near-blacks — so the number that decides this
+  // row is perceptual distance, not luminance. This product's very first screen is a coastline; a
+  // night map whose sea reads as more land is not a map. All of that still stands.
+  //
+  // **The ΔE figures it was tuned by did not (I2-9).** They were CIE76: 8.2 for that first draft
+  // and 20.3 for the fix. In CIEDE2000 — the metric `basemap-night.test.ts` argues for by name,
+  // *because CIE76 mis-ranks differences that are mostly lightness and anything in the blues*,
+  // which is this comparison exactly — they are **6.1** and **13.1**. So the fix was never the 2.5×
+  // overcorrection it looked like. It was 1.1 above the test's own floor of 12.
+  //
+  // **What the owner was actually looking at, measured off a rendered 1440×900 dark frame:** the
+  // sea was not the brightest thing (L\* 16.8, under buildings 20.7, road casings 21.7, parks 24.2
+  // and road fills 30.9). It was the *only coloured* thing. **27.3% of the map carried chroma > 18
+  // and 26.3 of those points were the sea** — 96% of the colour on a surface whose subject is the
+  // user's pins, spent on the one region with nothing in it.
+  //
+  // **And it could not be fixed by taking colour out of the sea.** Swept over hue × saturation ×
+  // lightness at the shipped land value, ΔE 13.1 is the *most* this parameterisation can buy;
+  // every point of chroma removed costs the coastline one for one. Raising the land instead makes
+  // it worse, not better, and the land cannot rise anyway — `roadFill` is pinned at 0.29 by the
+  // pin-on-a-motorway measurement below, and the land has to stay under it.
+  //
+  // So the separation is paid for in **lightness** instead, and the sea finally goes under the land
+  // the way the block comment above has always claimed. L\* 16.8 → **7.3**, and:
+  //
+  //   - coastline against the bare land polygon **13.1 → 13.3** (floor 12)
+  //   - coastline area-weighted across the *real* shoreline **14.8 → 15.1**, sampled 12 px inland
+  //     from every water pixel in a rendered frame. That measurement is also why this row is tuned
+  //     against the bare land polygon at all: **72% of the shoreline is that polygon**, the rest
+  //     parks and built-up mass, which score higher.
+  //   - perceived colourfulness **9.11 → 5.81**, a 36% drop. Lab C\* alone overstates a near-black,
+  //     so that figure is C\* scaled by √(L\*/100); raw C\* moves only 22.2 → 21.5.
+  //
+  // `saturation` at 0.95 is near its ceiling and that is the model, not a hack: at L = 0.10 the
+  // most chroma HSL can hold is `0.2 × S` (see `Tint.maxLightness`).
+  //
+  // **All of the above is still true, and it did not finish the job.** That change bought its ΔE
+  // back by raising saturation 0.60 → 0.95 while it dropped the lightness, so raw C\* moved only
+  // 22.2 → 21.5 — the sentence its own comment already contained. Measured off a rendered
+  // 1440×900 dark frame at `6b87641`, segmented by re-rendering CARTO's style one layer class at a
+  // time: **the sea is still the frame's single largest source of colour.**
+  //
+  //   | region  | share of the visible map | colourfulness | share of the frame's total colour |
+  //   |---------|--------------------------|---------------|-----------------------------------|
+  //   | sea     | 26.8%                    | 5.79          | **55.5%**                         |
+  //   | ground  | 68.4%                    | 1.45          | 35.5%                             |
+  //   | parks   | 4.5%                     | 4.51          | 7.3%                              |
+  //   | the pins| 0.33%                    | 14.7          | **1.7%**                          |
+  //
+  // Per pixel the pins already win by 2.5×. What the sea wins is *mass*: 27% of the frame at four
+  // times the ground's colourfulness, on the one region with nothing in it. That is the owner's
+  // read, stated as the number that carries it.
+  //
+  // **Why it cannot be answered at L\* 7.3.** The coastline is the sea against the bare land
+  // polygon, the land is pinned at L\* 13.1 (`land`'s own row — it cannot rise, because the six
+  // night POI colours clear AA on it by 0.11), and a ΔE00 of 13 bought from lightness alone needs
+  // ≈22 L\* of separation, which does not exist under a land at 13.1. So every point of ΔE the sea
+  // does not take from lightness it must take from chroma. Swept over hue × saturation ×
+  // maxLightness at the shipped land value, holding the coastline at its shipped 13.25, the whole
+  // frontier is *"the sea gets darker"*:
+  //
+  //   | hue | maxLightness | colour    | L\*  | colourfulness | ΔE00(land) |
+  //   |-----|--------------|-----------|------|---------------|------------|
+  //   | 214 | 0.100        | `#011632` | 7.3  | 5.81          | 13.25      | ← shipped
+  //   | 220 | 0.0825       | `#000e2a` | 4.4  | 4.25          | 13.54      |
+  //   | 225 | 0.0725       | `#000925` | 3.0  | 3.24          | 13.30      | ← here
+  //   | 230 | 0.0700       | `#000623` | 2.3  | 2.78          | 13.46      |
+  //   | 240 | 0.0600       | `#00001e` | 0.9  | 1.56          | 13.53      |
+  //
+  // **225 is chosen on a criterion rather than on taste**: it is the first point at which the sea
+  // stops being the frame's largest source of colour. At 3 places it carries 36.9% of the frame's
+  // colourfulness against the ground's 42.1%; one step lighter (220) and it is still 44.3% against
+  // 38.5%. Further down the frontier keeps helping and costs the sea its last readable difference
+  // from the chrome it sits in (`--background` is L\* 5.9), which is the direction that turns a
+  // sea into a hole. The pin-on-sea contrast the change must not break **improves**: the weakest
+  // of the four category bodies goes 6.06 → 6.60:1, and the four stay ΔE00 23.18 from each other
+  // because nothing here touches them.
+  water: { hue: 225, saturation: 0.98, maxLightness: 0.0725 },
+  /**
+   * **Parks are ground, and get exactly the distinctness the sea gets — no more (I2-9).**
+   *
+   * They shipped as the second most colourful region on the map and the *lightest* large one after
+   * the roads: composited L\* 24.2 by the raw tint, C\* 13.1, brighter than the built fabric they
+   * sit among. A park at night is unlit ground; it should not out-shine the buildings.
+   *
+   * **The number this row was tuned by was measuring the wrong colour.** Positron draws its park
+   * fills at ~⅔ opacity, so what reaches the frame is the tint composited over the land — measured
+   * `#213629`, not the `#21402b` the tint returns. The shipped ΔE from land was therefore **14.8**,
+   * not the 19.4 the raw value scores, and a change judged on the raw value overshoots badly: the
+   * first attempt at this row landed the composited park at ΔE 9.6, below the floor and nearly
+   * invisible, while the raw value still read as passing.
+   *
+   * Composited: L\* 20.5 → **15.6**, C\* 13.1 → **11.9**, colourfulness 5.93 → **4.69**, ΔE from
+   * land 14.8 → **13.2** — within a tenth of the coastline's own 13.3, which is the bar. Both are
+   * regions of the ground that have to be identifiable and nothing more.
+   */
+  green: { hue: 140, saturation: 0.41, maxLightness: 0.13 },
+  // The one role that must end up *above* the land, and by enough to read at a glance — but not so
+  // far above it that a pin cannot sit on one.
+  //
+  // **`0.29` rather than `0.32`, and the number was chosen by the pin rather than by the road.** A
+  // night pin body is a light colour and a major road is the lightest thing on the basemap, so the
+  // worst case on this whole map is a pin sitting on a motorway. Measured across the three
+  // category bodies: at `0.32` the weakest is **2.70:1**, under the 3:1 that a meaningful graphical
+  // boundary needs; at `0.29` it is **3.03:1**. The cost is the street grid's own separation from
+  // the land, 1.98:1 → 1.76:1, which is still an unmistakable difference in value.
+  //
+  // Going further keeps helping the pin (3.42 at `0.26`) and keeps costing the grid (1.56), so this
+  // is the least the pin needs rather than the most the road can give — the saved places are the
+  // subject of this surface and the basemap is what they sit on, but a night map whose streets have
+  // faded into the ground is not a map either.
+  roadFill: { hue: 220, saturation: 0.05, maxLightness: 0.29 },
+  roadCase: { hue: 220, saturation: 0.07, maxLightness: 0.21 },
+  building: { hue: 220, saturation: 0.08, maxLightness: 0.20 },
+  // A floor, not a cap: see `Tint.minLightness`.
+  label: { hue: 220, saturation: 0.05, minLightness: 0.86 },
+  labelHalo: { hue: 220, saturation: 0.10, maxLightness: 0.085 },
+  /**
+   * **The defect this role was added for, and it is a bigger one than it sounds.**
+   *
+   * `housenumber` is CARTO's `#d2b17d`, a warm tan. On near-white paper that is a whisper — which
+   * is why nobody noticed it was never being tinted. On a near-black ground it is the **brightest
+   * warm thing on the map**, there are dozens of them in a single frame, and they are within a few
+   * degrees of hue of the café pins. The user's own saved places stop being the subject of the
+   * surface, which is the one thing `poi-style.ts` says this basemap must never do.
+   *
+   * Cool, and deliberately dimmer than `label`'s 0.86: a house number is an annotation you read
+   * when you are already looking, not a name you navigate by. Above `building` (0.20) so it is
+   * legible against the block it sits on, well below the street names so the hierarchy CARTO
+   * designed survives the inversion.
+   */
+  houseNumber: { hue: 220, saturation: 0.05, minLightness: 0.46 },
+};
+
+/** The table for one theme. The light one is the default so that every existing caller — including
+ *  `basemap-tint-layer.tsx`, which belongs to another lane — keeps its exact behaviour until it
+ *  chooses to pass a theme. */
+export function basemapTints(theme: Theme = 'light'): Record<BasemapRole, Tint> {
+  return theme === 'dark' ? BASEMAP_TINTS_NIGHT : BASEMAP_TINTS;
+}
+
+/**
+ * A halo is the paper showing through, not ink, so it takes the halo tint whatever the layer —
+ * and at night "the paper" is the ground, which is why the night table caps it near black.
+ *
+ * `theme` is optional and defaults to light for the reason `basemapTints` gives: the application
+ * site is in another lane's file and must not change behaviour until it opts in.
+ */
+export function tintFor(
+  role: BasemapRole,
+  property: TintedPaintProperty,
+  theme: Theme = 'light',
+): Tint {
+  const tints = basemapTints(theme);
+  if (property === 'text-halo-color') return tints.labelHalo;
+  return tints[role];
 }
 
 interface Rgba {
@@ -191,7 +399,8 @@ function hslToRgb(hue: number, saturation: number, lightness: number): [number, 
 export function tintColor(value: string, tint: Tint): string {
   const parsed = parseColor(value);
   if (!parsed) return value;
-  const lightness = Math.min(lightnessOf(parsed), tint.maxLightness ?? 1);
+  const capped = Math.min(lightnessOf(parsed), tint.maxLightness ?? 1);
+  const lightness = Math.max(capped, tint.minLightness ?? 0);
   const [r, g, b] = hslToRgb(tint.hue, tint.saturation, lightness);
   return parsed.a >= 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${parsed.a})`;
 }

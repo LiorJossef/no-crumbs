@@ -1,0 +1,4 @@
+{"vp":"phone","case":"weak-password","shown":["Choose a password with at least 6 characters."],"diagnostic":[]}
+{"vp":"phone","case":"existing-account","shown":["An account with this email already exists — try signing in instead."],"diagnostic":[]}
+{"vp":"desktop","case":"weak-password","shown":["Choose a password with at least 6 characters."],"diagnostic":[]}
+{"vp":"desktop","case":"existing-account","shown":["An account with this email already exists — try signing in instead."],"diagnostic":[]}

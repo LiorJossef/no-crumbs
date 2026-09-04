@@ -160,3 +160,86 @@ export function nearMeNotice(state: NearMeState, hasPlacesNearby: boolean): stri
         : null;
   }
 }
+
+/* -------------------------------------------------------------------------------------------- *
+ * The offer (feedback 7.3)
+ *
+ * The complaint was that the permission is only ever discovered by finding the locate control. The
+ * answer is **a second control that calls the same `request`**, not a second path to the browser:
+ * the native prompt still fires from a tap, because the only thing that changed is which pixels the
+ * user tapped. Nothing here reads a position, and rule 1 at the top of this file is untouched.
+ *
+ * The offer is an offer and not a nag, so everything below is about the cases where it must *not*
+ * appear — which is most of them.
+ * -------------------------------------------------------------------------------------------- */
+
+/**
+ * The browser's answer about the geolocation permission, plus the honest fourth value.
+ *
+ * `unknown` is not a placeholder: Firefox and older Safari reject the `geolocation` descriptor, and
+ * an insecure context has no `permissions` object at all. Merging that into `prompt` would be a
+ * guess dressed as a reading, and the two are treated the same only at the one call site that has
+ * decided showing the offer once is the right answer under uncertainty.
+ */
+export type GeolocationPermission = 'granted' | 'denied' | 'prompt' | 'unknown';
+
+/** `localStorage` key holding "this user has answered the offer". Namespaced because the origin is
+ *  shared with everything else the app stores. */
+export const NEAR_ME_OFFER_KEY = 'no-crumbs:near-me-offer';
+
+/** The value written on accept or dismiss. A single opaque token: the offer is one-shot either way,
+ *  so *which* answer was given is not something any code is allowed to branch on. */
+export const NEAR_ME_OFFER_SETTLED = 'settled';
+
+/**
+ * How long after arriving on the map the offer appears.
+ *
+ * `ENTRANCE_BEATS.wordmark` is 1100 ms, so this lands after the entrance has finished rather than
+ * inside it. "Shortly after login" has to mean *after the map has explained itself* — an offer that
+ * arrives during the descent is competing with the pins for the one thing the user is looking at.
+ */
+export const NEAR_ME_OFFER_DELAY_MS = 2600;
+
+/** The line that says what the user gets, before anything is asked of them. */
+export const NEAR_ME_OFFER_LINE = 'See which of your places are near you.';
+
+/** The accept control. Says what pressing it does; the line above says why. */
+export const NEAR_ME_OFFER_ACCEPT = 'Use my location';
+
+/**
+ * Whether a stored value means the offer has been answered.
+ *
+ * Anything that is not the token we write is "not answered" — a `null` from a first visit, and
+ * equally the empty string, an old value, or whatever another tab left there. The offer showing one
+ * extra time is a smaller failure than an unreadable value silencing it forever.
+ */
+export function nearMeOfferSettled(stored: string | null): boolean {
+  return stored === NEAR_ME_OFFER_SETTLED;
+}
+
+export interface NearMeOfferInput {
+  /** What the browser says about the permission, or `unknown` where it will not say. */
+  readonly permission: GeolocationPermission;
+  /** Whether this browser has already answered the offer, accept or dismiss. */
+  readonly settled: boolean;
+  /** Whether near-me has been used this session — the user found the control on their own. */
+  readonly status: NearMeStatus;
+}
+
+/**
+ * **Whether there is anything to offer.** The whole feature is this function saying `false`.
+ *
+ * - `granted` and `denied` are both settled facts, so there is nothing to ask. A denial in
+ *   particular renders *nothing*: the browser gives one prompt per origin and it has been spent, so
+ *   a card saying so would be a dead end. Explaining that is the locate control's job, on a tap.
+ * - `settled` is the dismissal, and it is permanent. Accepting writes it too — an offer that
+ *   reappears after it worked is a bug with a good excuse.
+ * - Any `status` other than `idle` means the user has already pressed the control this session, so
+ *   the offer would be teaching something that just happened.
+ * - `prompt` and `unknown` are the only cases left, and both mean the prompt is still available.
+ */
+export function shouldOfferNearMe({ permission, settled, status }: NearMeOfferInput): boolean {
+  if (settled) return false;
+  if (permission === 'granted' || permission === 'denied') return false;
+  return status === 'idle';
+}

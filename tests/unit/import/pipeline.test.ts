@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMAIN_ERROR_CODES,
   extractorInvalidOutput,
+  extractorQuotaExhausted,
   extractorUnavailable,
   notAuthenticated,
   postUnavailable,
-  rateLimitedLocal,
   rateLimitedUpstream,
   shortLinkUnresolved,
   upstreamTimeout,
@@ -159,7 +159,7 @@ function makePorts(overrides: Partial<Ports> = {}): Ports {
   const extractor: PlaceExtractor = {
     version: 'v1',
     promptVersion: 'p1',
-    extract: async () => ({ candidates: [oneCandidate], cityHint: 'Tokyo' }),
+    extract: async () => ({ candidates: [oneCandidate], cityHint: 'Tokyo', postIntent: null }),
   };
   const store: ImportStore = {
     recordStage: async () => {},
@@ -233,7 +233,7 @@ describe('runImport — the golden path (07 §5)', () => {
 describe('runImport — NO_PLACES_FOUND is a success, not an error (07 §9)', () => {
   it('zero candidates from extraction ends the sequence after the extract stage, kind: no_places', async () => {
     const ports = makePorts({
-      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: [], cityHint: null }) },
+      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: [], cityHint: null, postIntent: null }) },
     });
     const events = await collect(ports, makeInput());
 
@@ -249,9 +249,9 @@ describe('runImport — NO_PLACES_FOUND is a success, not an error (07 §9)', ()
   });
 });
 
-describe('runImport — MAX_CANDIDATES = 7 is enforced (07 §7)', () => {
-  it('caps resolution at 7 even when extraction returns 10; the rest are visible and capped', async () => {
-    expect(MAX_CANDIDATES).toBe(7);
+describe('runImport — MAX_CANDIDATES = 8 is enforced (07 §7)', () => {
+  it('caps resolution at 8 even when extraction returns 10; the rest are visible and capped', async () => {
+    expect(MAX_CANDIDATES).toBe(8);
 
     const tenCandidates: PlaceCandidate[] = Array.from({ length: 10 }, (_, i) => ({
       ...oneCandidate,
@@ -259,7 +259,7 @@ describe('runImport — MAX_CANDIDATES = 7 is enforced (07 §7)', () => {
     }));
     let resolveCalls = 0;
     const ports = makePorts({
-      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: tenCandidates, cityHint: null }) },
+      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: tenCandidates, cityHint: null, postIntent: null }) },
       resolver: {
         provider: 'overture',
         resolve: async () => {
@@ -270,20 +270,83 @@ describe('runImport — MAX_CANDIDATES = 7 is enforced (07 §7)', () => {
     });
 
     const events = await collect(ports, makeInput());
-    expect(resolveCalls).toBe(7);
+    expect(resolveCalls).toBe(8);
 
     const candidateEvents = events.filter((e): e is Extract<ImportEvent, { t: 'candidate' }> => e.t === 'candidate');
-    expect(candidateEvents).toHaveLength(7);
-    expect(candidateEvents.every((e) => e.total === 7)).toBe(true);
+    expect(candidateEvents).toHaveLength(8);
+    expect(candidateEvents.every((e) => e.total === 8)).toBe(true);
 
     const outcome = terminalOutcome(events);
     expect(outcome.kind).toBe('ready');
     if (outcome.kind === 'ready') {
       expect(outcome.candidates).toHaveLength(10);
-      const capped = outcome.candidates.slice(7);
+      const capped = outcome.candidates.slice(8);
       expect(capped.every((c) => c.resolution.status === 'unresolved' && c.resolution.reason === 'capped')).toBe(true);
-      const inBudget = outcome.candidates.slice(0, 7);
+      const inBudget = outcome.candidates.slice(0, 8);
       expect(inBudget.every((c) => c.resolution.status === 'resolved')).toBe(true);
+    }
+  });
+
+  /**
+   * The G3 regression (growth-plan §2). Our only real listicle, the `exploringlondon` post, names
+   * exactly eight venues; at `MAX_CANDIDATES = 7` the eighth was extracted, never resolved, and
+   * shown `capped`. This is the case the cap must not truncate, asserted at the size the corpus
+   * actually produces rather than at an abstract boundary — the previous test proves the cap still
+   * *exists*, this one proves it no longer bites the post we have.
+   */
+  it('resolves all eight of an eight-venue listicle — none comes back capped (G3)', async () => {
+    const eightVenues = [
+      'Dishoom Shoreditch',
+      'Padella',
+      'Bao Soho',
+      'Gloria',
+      'Smoking Goat',
+      'Kiln',
+      'Brat',
+      'Lyle\u2019s',
+    ];
+    const eightCandidates: PlaceCandidate[] = eightVenues.map((rawName) => ({
+      ...oneCandidate,
+      rawName,
+      cityHint: 'London',
+      countryHint: 'GB',
+      evidence: `${rawName} is unmissable`,
+    }));
+
+    const resolvedNames: string[] = [];
+    const ports = makePorts({
+      extractor: {
+        version: 'v1',
+        promptVersion: 'p1',
+        extract: async () => ({ candidates: eightCandidates, cityHint: 'London', postIntent: null }),
+      },
+      resolver: {
+        provider: 'overture',
+        resolve: async (query) => {
+          resolvedNames.push(query.text);
+          return preselectResult(`p${resolvedNames.length}`);
+        },
+      },
+    });
+
+    const events = await collect(ports, makeInput());
+
+    // Every one of the eight reached the resolver, in the order the post named them.
+    expect(resolvedNames).toEqual(eightVenues);
+
+    const candidateEvents = events.filter((e): e is Extract<ImportEvent, { t: 'candidate' }> => e.t === 'candidate');
+    expect(candidateEvents).toHaveLength(8);
+    expect(candidateEvents.every((e) => e.total === 8)).toBe(true);
+
+    const outcome = terminalOutcome(events);
+    expect(outcome.kind).toBe('ready');
+    if (outcome.kind === 'ready') {
+      expect(outcome.candidates).toHaveLength(8);
+      expect(outcome.candidates.map((c) => c.resolution.status)).toEqual(Array(8).fill('resolved'));
+      // The defect, stated as the thing that must not happen again.
+      expect(
+        outcome.candidates.some((c) => c.resolution.status === 'unresolved' && c.resolution.reason === 'capped'),
+      ).toBe(false);
     }
   });
 });
@@ -293,7 +356,7 @@ describe('runImport — partial success is first-class (07 §8)', () => {
     const twoCandidates: PlaceCandidate[] = [oneCandidate, { ...oneCandidate, rawName: 'Unknown Place' }];
     let call = 0;
     const ports = makePorts({
-      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: twoCandidates, cityHint: 'Tokyo' }) },
+      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: twoCandidates, cityHint: 'Tokyo', postIntent: null }) },
       resolver: {
         provider: 'overture',
         resolve: async () => {
@@ -451,18 +514,18 @@ describe('runImport — every one of the 13 DomainErrorCodes is a reachable fail
     await expectFailed(ports, makeInput(), 'RATE_LIMITED_UPSTREAM');
   });
 
-  it('RATE_LIMITED_LOCAL — raised, in production, by the route handler before this pipeline is ' +
-    'ever invoked (07 §9); proven reachable here via a fake ImportStore to show runImport maps ' +
-    'any DomainError from any port uniformly, not by special-casing which stage raised it', async () => {
+  it('EXTRACTOR_QUOTA_EXHAUSTED — the model provider answers correctly and declines: the day\u2019s ' +
+    'allowance is spent, which is a different failure from the transient one beside it', async () => {
     const ports = makePorts({
-      store: {
-        recordStage: async () => {
-          throw rateLimitedLocal();
+      extractor: {
+        version: 'v1',
+        promptVersion: 'p1',
+        extract: async () => {
+          throw extractorQuotaExhausted();
         },
-        finish: async () => {},
       },
     });
-    await expectFailed(ports, makeInput(), 'RATE_LIMITED_LOCAL');
+    await expectFailed(ports, makeInput(), 'EXTRACTOR_QUOTA_EXHAUSTED');
   });
 
   it('NO_CAPTION — every content extractor declines or returns nothing usable', async () => {
@@ -497,7 +560,8 @@ describe('runImport — every one of the 13 DomainErrorCodes is a reachable fail
   });
 
   it('NOT_AUTHENTICATED — raised, in production, by the route handler pre-A (07 §9); proven ' +
-    'reachable here the same way as RATE_LIMITED_LOCAL, via a fake port, for the same reason', async () => {
+    'reachable here via a fake port, to show runImport maps any DomainError from any port ' +
+    'uniformly rather than special-casing which stage raised it', async () => {
     const ports = makePorts({ content: [{ id: 'caption', supports: () => true, extract: async () => {
       throw notAuthenticated();
     } }] });

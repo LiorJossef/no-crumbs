@@ -26,8 +26,8 @@
  * small model's geographic recall, not something prompt wording can fix. `gemini-3.5-flash-lite`
  * on the exact same prompt/schema got every one of those venues right, repeatably.
  */
-import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
-import { parseExtractionResultPartial, toPlaceCandidate } from '@/domain/extraction/schema';
+import { extractorInvalidOutput, extractorQuotaExhausted, extractorUnavailable } from '@/domain/errors';
+import { CANDIDATE_CAP, parseExtractionResultPartial, toPlaceCandidate } from '@/domain/extraction/schema';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
 
@@ -62,9 +62,13 @@ const GEMINI_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/m
  * behaves like a budget over (root array length x item complexity), and the root cap is the only
  * lever that moves it.
  *
- * Dropping 12 -> 8 costs nothing real: `domain/import/pipeline.ts` enforces `MAX_CANDIDATES = 7`
- * (`07` §7) before any of these candidates is resolved, so a ninth candidate would have been
- * discarded a step later anyway. The shared `EXTRACTION_JSON_SCHEMA` keeps its own 12 for the
+ * Dropping 12 -> 8 used to cost nothing real, because `domain/import/pipeline.ts` enforced
+ * `MAX_CANDIDATES = 7` (`07` §7) and a ninth candidate would have been discarded a step later
+ * anyway. That headroom is gone: `MAX_CANDIDATES` was raised 7 -> 8 on 2026-08-31 (growth-plan
+ * G3, so an eight-venue listicle survives whole), and **the two caps now meet exactly.** Every
+ * candidate this schema permits is one the pipeline resolves, and nothing absorbs a change to
+ * either number — lowering this one silently loses a place, and raising it is a live re-bisection
+ * against the endpoint, not an edit. The shared `EXTRACTION_JSON_SCHEMA` keeps its own 12 for the
  * Anthropic adapter, which has no such limit.
  */
 const GEMINI_MAX_CANDIDATES = 8;
@@ -202,7 +206,18 @@ export function geminiPlaceExtractor(config: {
       }
 
       if (!response.ok) {
-        throw extractorUnavailable(`Gemini returned HTTP ${response.status}`);
+        // A 429 here is the shared daily budget being spent, not a transient fault — the calls do
+        // not come back within a retry's reach, so it carries its own code and its own screen
+        // (`product-ruling-quota-copy-2026-08-31.md` R4/§5). Every other non-OK status keeps
+        // `extractorUnavailable`, whose copy correctly offers a retry.
+        //
+        // **`anthropic.place-extractor.ts` is byte-similar here and must NOT get this.** Anthropic's
+        // 429 is a short per-minute rate limit that a retry genuinely clears; Gemini's is the day's
+        // budget gone. Same status code, opposite meaning — this is the line a build lane copies
+        // across without thinking.
+        throw response.status === 429
+          ? extractorQuotaExhausted(`Gemini returned HTTP ${response.status}`)
+          : extractorUnavailable(`Gemini returned HTTP ${response.status}`);
       }
 
       let json: unknown;
@@ -270,10 +285,31 @@ export function geminiPlaceExtractor(config: {
           total: parsed.value.total,
         });
       }
+      if (parsed.value.truncated > 0) {
+        // The other half of the same silence. Not a fault — the model read the caption well and
+        // named more places than we carry — but the return type has no more room for this fact
+        // than it has for `dropped`, so this line is the only place it exists.
+        //
+        // Its own event rather than a second `reason` on `candidates_dropped`: anything counting
+        // that event is counting replies we could not read, and a caption naming fourteen real
+        // venues is not one of those. Two facts, two names.
+        ctx.log.event('extraction.candidates_truncated', {
+          extractorVersion: version,
+          promptVersion: PROMPT_VERSION,
+          cap: CANDIDATE_CAP,
+          truncated: parsed.value.truncated,
+          kept: parsed.value.candidates.length,
+          total: parsed.value.total,
+        });
+      }
 
       const candidates = postProcessCandidates(parsed.value.candidates.map(toPlaceCandidate), caption, ctx);
 
-      return { candidates, cityHint: parsed.value.cityHint };
+      // `postIntent` is passed straight through, unread. It is an explanation for the screen the
+      // ~73% no-place imports land on, and by design nothing here — not the parse, not
+      // `postProcessCandidates`, not this return — may let it change which candidates survive
+      // (`domain/extraction/schema.ts`'s `PostIntentSchema`).
+      return { candidates, cityHint: parsed.value.cityHint, postIntent: parsed.value.postIntent };
     },
   };
 }

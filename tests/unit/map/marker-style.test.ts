@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
+import { PIN_BAND_MIN } from '@/components/map/zoom-bands';
+
 import {
   CATEGORY_ORDER,
   CATEGORY_STYLES,
-  LABEL_MIN_ZOOM,
+  LABEL_ALL_ZOOM,
+  LABEL_CLEARANCE_PX,
+  LABEL_TIER_ZOOMS,
+  labelTierFor,
+  metresPerPixel,
+  separationZoom,
   PIN,
   allPinImageIds,
   categoryStyle,
@@ -140,8 +147,77 @@ describe('features', () => {
 });
 
 describe('labels', () => {
-  it('waits until the pins have separated', () => {
-    expect(LABEL_MIN_ZOOM).toBeGreaterThanOrEqual(14);
+  /**
+   * **The rule that replaced the flat gate** (`W2-3`). It used to be one number, asserted `>= 14`,
+   * on the grounds that *"at 13.5 a dense neighbourhood stacked two or three names on top of each
+   * other; by 14 the pins have separated"*. That sentence is about **separation**, not about zoom —
+   * zoom was only ever a proxy for it — and once the home camera came to rest on the user's own
+   * pins at z8.8–13 (`W2-1`), the proxy stopped working: the overview had pins and no names.
+   *
+   * So the test is now on the thing the number was standing in for. A name appears at the zoom
+   * where its pin has a label's width of room, and 14 is where the ladder *ends* rather than where
+   * it starts — every place is still named by 14, so nothing that is visible today is hidden.
+   */
+  it('still names everything by the zoom the flat gate used to sit at', () => {
+    expect(LABEL_ALL_ZOOM).toBe(14);
+    expect(LABEL_TIER_ZOOMS[LABEL_TIER_ZOOMS.length - 1]).toBe(LABEL_ALL_ZOOM);
+  });
+
+  it('rises, and never starts below the zoom the pins are drawn at', () => {
+    expect(LABEL_TIER_ZOOMS[0]).toBe(PIN_BAND_MIN);
+    for (let index = 1; index < LABEL_TIER_ZOOMS.length; index += 1) {
+      expect(LABEL_TIER_ZOOMS[index] as number).toBeGreaterThan(
+        LABEL_TIER_ZOOMS[index - 1] as number,
+      );
+    }
+  });
+
+  /** The derivation, checked as arithmetic rather than as a table: at the zoom `separationZoom`
+   *  returns, two points that far apart are exactly a label's width apart on screen. */
+  it('computes the zoom at which a name stops touching the next pin', () => {
+    for (const [metres, lat] of [
+      [500, 32.08],
+      [12_000, 51.5],
+      [80, 0],
+    ] as const) {
+      const zoom = separationZoom(metres, lat);
+      expect(metres / metresPerPixel(zoom, lat)).toBeCloseTo(LABEL_CLEARANCE_PX, 6);
+    }
+  });
+
+  /** A place alone in its city is named on the overview; nine on one street wait for the top of
+   *  the ladder. Both stated in metres, which is what the library actually varies in. */
+  it('names an isolated pin early and a crowded one late', () => {
+    expect(labelTierFor(Number.POSITIVE_INFINITY, 32)).toBe(LABEL_TIER_ZOOMS[0]);
+    expect(labelTierFor(45_000, 32)).toBe(LABEL_TIER_ZOOMS[0]);
+    expect(labelTierFor(30, 32)).toBe(LABEL_ALL_ZOOM);
+    expect(labelTierFor(0, 32)).toBe(LABEL_ALL_ZOOM);
+  });
+
+  /** Every answer is one of the tiers, at every separation and every latitude — a `text-field` is
+   *  a *layout* property, so a value off the ladder would be a symbol relayout nobody budgeted. */
+  it('answers only ever with a tier', () => {
+    for (const lat of [0, 32, 51.5, 60]) {
+      for (let metres = 1; metres < 200_000; metres *= 1.3) {
+        expect(LABEL_TIER_ZOOMS).toContain(labelTierFor(metres, lat));
+      }
+    }
+  });
+
+  /**
+   * **The budget, as the property that keeps it.** `06` §9.1 measured 2 000 pins at 19.0 ms median
+   * with labels gated and 34.0 ms / ~29 fps forced on. The flat gate defended that by zoom; the
+   * ladder defends it by geometry, and this is why that is stronger: the pins that are labelled at
+   * a given tier are at least `LABEL_CLEARANCE_PX` apart on screen, so their number is bounded by
+   * the **viewport**, not by the library. A thousand places in one city label none of themselves at
+   * the floor.
+   */
+  it('bounds what a dense library can shape at the bottom of the ladder', () => {
+    const oneCity = Array.from({ length: 1000 }, (_, index) => 40 + index * 7); // metres apart
+    const labelledAtFloor = oneCity.filter(
+      (metres) => labelTierFor(metres, 32) === LABEL_TIER_ZOOMS[0],
+    );
+    expect(labelledAtFloor).toHaveLength(0);
   });
 });
 

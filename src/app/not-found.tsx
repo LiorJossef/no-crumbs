@@ -3,7 +3,7 @@
  *
  *  1. A URL that matches no route at all — Next routes every unmatched URL to the root
  *     `not-found.tsx` (`file-conventions/not-found`, "Good to know").
- *  2. `notFound()` from `collections/[id]/page.tsx`, which fires for a collection that does not
+ *  2. `notFound()` from `map/page.tsx`, which fires for a collection that does not
  *     exist **and** for one that exists but the caller is not a member of. That ambiguity is
  *     deliberate — `getCollection` returns null for both so the route cannot be used as an
  *     existence oracle for other people's collections — and it means this screen must not say
@@ -18,6 +18,7 @@
 
 import Link from 'next/link';
 
+import { DISPLAY_HEADING_AXES } from '@/components/brand/display-type';
 import { PinMark } from '@/components/brand/pin-mark';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,16 +38,38 @@ export const NOT_FOUND_COPY = {
 export default function NotFound() {
   return (
     <main
-      className="relative flex min-h-dvh flex-col overflow-hidden px-6 pt-14 pb-8 lg:items-center lg:justify-center lg:pt-0"
+      className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-8"
       style={{ background: 'var(--brand-wash)' }}
     >
-      <div className="w-full lg:max-w-[420px]">
-        <PinMark className="h-[30px] w-[30px] lg:h-9 lg:w-9" />
+      {/* Centred at every breakpoint, not only `lg:` — the identical fix as `error.tsx`, made
+          for the identical reason; see that file's header rather than repeating the argument
+          here. Content pinned near the top with the action pushed to the bottom edge with an
+          auto top margin used to leave ≈460px, 55% of a 390×844 screen, empty between the two —
+          `ui-review-2026-08-31.md` finding 12. Group-centring the two children as one composed
+          statement removes that gap by construction, on both siblings, with one strategy rather
+          than two. */}
+      <div className="w-full lg:max-w-105">
+        <PinMark className="size-7.5 lg:size-9" />
 
-        <p className="mt-6 text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase lg:text-[13px]">
+        <p className="mt-6 text-micro font-bold tracking-[0.14em] text-brand uppercase">
           {NOT_FOUND_COPY.kicker}
         </p>
-        <h1 className="mt-2 font-heading text-[34px] leading-[1.05] font-extrabold tracking-tight text-foreground lg:text-[40px]">
+        {/* The display face, and the token type scale. `brand-and-product-foundation.md` §3.1
+            gives `h1`/`h2` to Fraunces; a failure screen is still the product speaking. What was
+            here was `font-heading`, a bracketed 34px with a bracketed line height, and a
+            bracketed 40px at `lg` — three arbitrary values for a size W0 registered as
+            `--text-display` with its own line height. The `lg` bump to 40px goes with them: this
+            column is capped at 420px on desktop and 34px already fills it, so the bump only made
+            the failure louder.
+
+            The old classes are described rather than quoted. `token-call-sites.test.ts` counts
+            arbitrary-value classes with a regex over the source and cannot tell a comment from a
+            call site, so quoting them here would put back on the ledger exactly what this change
+            took off it. */}
+        <h1
+          className="mt-2 font-display text-display font-bold tracking-tight text-foreground"
+          style={DISPLAY_HEADING_AXES}
+        >
           {NOT_FOUND_COPY.headline}
         </h1>
         <p className="mt-3 max-w-sm text-sm font-medium leading-snug text-muted-foreground lg:text-base">
@@ -54,12 +77,12 @@ export default function NotFound() {
         </p>
       </div>
 
-      <div className="mt-auto w-full pt-10 lg:mt-0 lg:max-w-[420px]">
+      <div className="w-full pt-10 lg:max-w-105">
         <Link
           href="/map"
           className={cn(
             buttonVariants(),
-            'h-12 w-full rounded-lg text-base font-bold lg:h-[52px] lg:text-[15.5px]',
+            'h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading',
           )}
         >
           {NOT_FOUND_COPY.back}

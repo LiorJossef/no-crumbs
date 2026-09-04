@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "rawName": "Shuk HaCarmel",
+      "cityHint": "Tel Aviv",
+      "countryHint": "Israel",
+      "areaHint": "Carmel Market",
+      "categoryHint": null,
+      "addressHint": null,
+      "evidence": "#shukhacarmel",
+      "modelConfidence": 0.5,
+      "identifiedName": "Shuk HaCarmel",
+      "nameVariants": [
+        "שוק הכרמל"
+      ],
+      "tags": [],
+      "dishes": [],
+      "whyGo": null,
+      "coordinates": {
+        "lat": 32.0667,
+        "lng": 34.7683
+      }
+    }
+  ],
+  "cityHint": "Tel Aviv",
+  "postIntent": "place_recommendation",
+  "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+  "promptVersion": "p16-s5",
+  "captionSha": "15c114ea45fb08e8ffd42e1c835e48cd8f13f7d8ee6f8bd573581970c56045fe",
+  "inputTokens": 6423,
+  "outputTokens": 213,
+  "costUsd": 0,
+  "costModel": "unmeasured",
+  "extractedAt": "2026-08-31T21:56:19.732Z"
+}

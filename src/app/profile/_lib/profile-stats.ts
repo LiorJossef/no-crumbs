@@ -23,7 +23,6 @@
 
 import { clusterByProximity, type GeoCluster, type GeoPoint } from '@/domain/places/clusters';
 import { categoryFacets, type CategoryFacet } from '@/domain/places/category-filter';
-import { toCountryName } from '@/domain/places/country-code';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { buildAreas } from '@/ui/place/active-area';
 import { summariseByCountry } from '@/ui/place/library-summary';
@@ -53,12 +52,15 @@ export interface ProfileCreator {
 export interface ProfileStats {
   readonly saved: number;
   /**
-   * **Coordinate clusters, never `places.locality`.** The local library holds six distinct
-   * locality strings for two cities — `London`, `Tel Aviv-Yafo`, `Tel Aviv`, `תל אביב - יפו`,
-   * `תל אביב-יפו`, `ת״א` — so `count(distinct locality)` would print `6 cities` to someone who has
-   * saved places in two. That is the failure `current-state` §9.1 rules against, and
-   * `clusterByProximity` at its default 50 km radius is the primitive already in the tree for it: a
-   * single-link cluster of that radius is one metropolitan area by construction.
+   * **Coordinate clusters, never `count(distinct places.locality)`.** The local library holds six
+   * distinct locality strings for one city — `Tel Aviv-Yafo`, `Tel Aviv`, `תל אביב - יפו`,
+   * `תל אביב-יפו`, `ת״א` and its variants — so counting strings would print a number nobody could
+   * reconcile with their own map. `clusterByProximity` is the primitive already in the tree for it.
+   *
+   * The clustering is the map's, veto and all — see `clusters()`. A cluster is one city: proximity
+   * joins, and a *differing* locality name vetoes the join, so `כפר סבא` stays its own area rather
+   * than being absorbed by Tel Aviv 25 km away. That is what makes this number and the pills on the
+   * map the same fact.
    */
   readonly cities: number;
   /** Distinct countries, by the same plurality rule the map's band uses — so a place with no
@@ -76,8 +78,9 @@ export interface ProfileStats {
 export interface CountryCount {
   /** ISO-3166 alpha-2, or `null` for the group whose places carry no usable country at all. */
   readonly countryCode: string | null;
-  /** The country's English name, or — where there is no code — the area's own name, which is the
-   *  honest label for a group we could not name a country for. */
+  /** The country's English name, or — where there is no code — `Another area`. Never a city's
+   *  name: a group we could not name a country for is a gap, and printing the city there would put
+   *  `חיפה` in the list as a peer of `Israel`. See `CountrySummary.label`. */
   readonly label: string;
   readonly count: number;
 }
@@ -108,9 +111,19 @@ function toPoint(place: ProfilePlace): GeoPoint {
  * The library's clusters. `clusterByProximity` drops items whose coordinate is invalid, so a broken
  * row cannot mint a phantom city at Null Island; it stays counted in `saved`, which is what the
  * user's library actually contains.
+ *
+ * **`toLocality` is passed, and its absence was this page's real defect** (found 2026-09-02). The
+ * header above claims these numbers come out of the same chain the map runs. They did not:
+ * `map-page-client.tsx` hands `clusterByProximity` the locality projection — the veto that stops a
+ * 50 km join from swallowing every city inside it — and this call omitted it. On the owner's own
+ * 60 rows that is 4 clusters here against 12 on the map: `/profile` said `4 Cities` while the map
+ * one tab away drew twelve named pills, `הרצליה` and `כפר סבא` and `ראשון לציון` among them. Both
+ * numbers were honest and they described different groupings, which is the exact failure the
+ * one-pass rule was written to prevent — it was enforced inside this file and not across the two
+ * files that matter.
  */
 function clusters(places: readonly ProfilePlace[]): readonly GeoCluster<ProfilePlace>[] {
-  return clusterByProximity(places, toPoint);
+  return clusterByProximity(places, toPoint, { toLocality: (place) => place.locality });
 }
 
 /**
@@ -125,19 +138,30 @@ function geography(places: readonly ProfilePlace[]): {
     toId: (place) => place.id,
     toPoint,
     toLocality: (place) => place.locality,
+    // Names an area whose members carry no locality at all after the country they do agree on, so
+    // `Cities` never counts a group this page cannot put a word to. Never a grouping input.
+    toCountryCode: (place) => place.countryCode ?? null,
   });
 
-  const countries = summariseByCountry(areas, (place) => place.countryCode ?? null, toPoint).map(
+  const summaries = summariseByCountry(areas, (place) => place.countryCode ?? null, toPoint);
+
+  const countries = summaries.map(
     (summary): CountryCount => ({
       countryCode: summary.countryCode,
-      // `summariseByCountry` already falls back to the area's own name where there is no code;
-      // `toCountryName` is re-applied for nothing but clarity about where the name comes from.
-      label: toCountryName(summary.countryCode) ?? summary.label,
+      // `summariseByCountry` owns the label, including the countryless group's — which is
+      // `Another area`, never a city's name. See `CountrySummary.label`.
+      label: summary.label,
       count: summary.count,
     }),
   );
 
-  return { cities: areas.length, countries };
+  // **`cities` is counted off the same summaries the list renders, not off `areas`.** They differ
+  // whenever `bucketAreasByCountry` drops a bucket it cannot place a marker for (every member's
+  // coordinate invalid), and a headline saying `4 Cities` above three listed groups is exactly the
+  // contradiction this page must not be able to produce. One pass, one list, both numbers.
+  const cities = summaries.reduce((sum, summary) => sum + summary.areas.length, 0);
+
+  return { cities, countries };
 }
 
 export function countryBreakdown(places: readonly ProfilePlace[]): readonly CountryCount[] {
@@ -212,7 +236,9 @@ function statsFrom(
   return {
     saved: places.length,
     cities,
-    // The unnamed group is a gap, not a country, so it is listed and not counted.
+    // The countryless group is a gap, not a country: it is listed — under `Another area`, with no
+    // flag and sorted last — and it is not counted here. Both halves come from the one `countries`
+    // array above, so `N Countries` is always the number of *named* rows beneath it.
     countries: countries.filter((country) => country.countryCode !== null).length,
     been,
     notBeenYet: places.length - been,
@@ -235,32 +261,75 @@ export function deriveProfileBreakdown(places: readonly ProfilePlace[]): Profile
 }
 
 export interface AccountIdentity {
-  /** The strongest name we hold. Never invented — see below. */
-  readonly title: string;
-  /** The email, when it is not already the title. */
-  readonly subtitle: string | null;
+  /**
+   * The name to print **as a name**, or null when we hold none. Nothing else is ever promoted into
+   * this slot — see below, because something was.
+   */
+  readonly name: string | null;
+  /**
+   * The line beneath it: the address this account signs in with. `Your account` only when there is
+   * neither a name nor an email, so the block is never blank; null when there is a name and no
+   * email, because the name has already said whose account this is.
+   */
+  readonly account: string | null;
 }
 
 /**
- * **We hold a display name or we hold nothing.** `profiles.display_name` (migration `0002`) is
- * nullable and is only ever populated from the signup metadata, so most accounts have none — the
- * local database has one of three. When it is absent the email is shown *as* the identity rather
- * than being split, initial-capped or otherwise dressed up into a name the user never gave us.
+ * Who this account is, on the one screen where the product is talking to **you** about **you**.
+ *
+ * ## The bug this replaced, which was a fallback working exactly as written
+ *
+ * Until 2026-09-01 this function took a display name and an email, and when the display name was
+ * absent it returned **the email address as the `title`** — rendered beside the avatar at
+ * `text-lg font-bold`, in the slot a name goes in. `profiles.display_name` is null for all eight
+ * local accounts and has been for the life of the product (nothing ever wrote it: the only writer
+ * is the invite-join prompt, and none of the eight has ever joined a collection by link), so **that
+ * branch was not the edge case, it was the only case.** The owner reported the symptom weeks ago as
+ * *"the profile screen shows a demo email"* — `demo@example.com` is the first of those eight rows —
+ * and it was never root-caused, because nothing was failing: a `??` chain was doing precisely what
+ * it said, one slot further up the page than it should have been.
+ *
+ * An email address is not a name. Putting one where a name goes states something false about the
+ * user in the largest type on their own account screen. So the email keeps its place on this
+ * screen — it is the useful answer to *which account am I signed in as* — and it never takes the
+ * name's.
+ *
+ * ## Where the name comes from, in order
+ *
+ * 1. **`profile_names.first_name`** (`0035`) — the private name, given at sign-up, readable by its
+ *    owner and by nobody else. This is what the product calls you, and this screen is the product
+ *    talking to you.
+ * 2. **`profiles.display_name`** — the label the user confirmed for collection peers to see. Second
+ *    rather than first because it answers a different question (*what should other people call
+ *    me*), but it is still a name this user typed about themselves, so addressing them by it on
+ *    their own screen claims nothing they did not already say. It is the only name the eight
+ *    pre-`0035` accounts can ever acquire without a new surface.
+ * 3. **Nothing.** Never the email, never its local part, never a split or an initial-cap of either.
+ *
+ * The reverse direction — `first_name` reaching a peer — is closed in the schema rather than here:
+ * `0035` writes no trigger onto `profiles` and grants no peer any read of `profile_names`.
+ *
+ * `last_name` is not read. It is stored because the owner asked for it and, as `0035`'s own column
+ * comment records, it has no consumer anywhere in `src/`. That tension is the owner's to resolve
+ * and is left visible rather than quietly closed by rendering a full name here.
  */
 export function accountIdentity(input: {
+  readonly firstName?: string | null;
   readonly displayName?: string | null;
   readonly email?: string | null;
 }): AccountIdentity {
+  const firstName = (input.firstName ?? '').trim();
   const displayName = (input.displayName ?? '').trim();
   const email = (input.email ?? '').trim();
 
-  if (displayName !== '') {
-    return { title: displayName, subtitle: email === '' ? null : email };
-  }
-  if (email !== '') return { title: email, subtitle: null };
-  // Reachable only if Supabase hands back a session with no email at all. Better than an empty
-  // heading, and it still claims nothing.
-  return { title: 'Your account', subtitle: null };
+  const name = firstName !== '' ? firstName : displayName !== '' ? displayName : null;
+  if (name !== null) return { name, account: email === '' ? null : email };
+
+  // No name at all: the eight accounts that predate `0035`, and anyone who signs up through a path
+  // that does not collect one. The email carries the block on its own — as an address, which is
+  // what `/profile` styles it as — and `Your account` is the last resort for a session Supabase
+  // handed back with no email either. It claims nothing.
+  return { name: null, account: email === '' ? 'Your account' : email };
 }
 
 /**

@@ -79,15 +79,39 @@ describe('the saved-places source is not clustered', () => {
 
   it('keeps the label gate that makes a world-zoom "show everything" an icons-only case', () => {
     // Not a clustering property, but the thing that took clustering's place as the answer to the
-    // 2 000-point zoom-out: below this zoom the `step` yields '' and MapLibre shapes zero glyphs.
-    // If someone removes the gate, the removal stops being cheap — see `06` §9.1.
-    expect(pinLayerLayout(['Open Sans Regular'])['text-field']).toEqual([
-      'step',
-      ['zoom'],
-      '',
-      markerStyle.LABEL_MIN_ZOOM,
-      ['get', 'name'],
+    // 2 000-point zoom-out: below the lowest tier the `step` yields the literal '' and MapLibre
+    // shapes zero glyphs. If someone removes the gate, the removal stops being cheap — `06` §9.1.
+    //
+    // **This asserted a single flat gate at 14 until `W2-3`.** It is now a ladder, because the home
+    // camera comes to rest on the user's own pins (`W2-1`) at z8.8–13 and a flat gate at 14 meant
+    // an overview with pins and not one name on it. The property that made the flat gate cheap is
+    // asserted directly rather than as a shape: the first branch is the empty *string*, and the
+    // per-pin test lives inside the later branches where it costs an expression evaluation and
+    // never a glyph.
+    const field = pinLayerLayout(['Open Sans Regular'])['text-field'] as unknown[];
+    expect(field[0]).toBe('step');
+    expect(field[1]).toEqual(['zoom']);
+    expect(field[2]).toBe('');
+    expect(field.slice(3).filter((_, index) => index % 2 === 0)).toEqual([
+      ...markerStyle.LABEL_TIER_ZOOMS,
     ]);
+    // The ladder ends where the flat gate was, and ends unconditionally: every name is drawn by 14,
+    // exactly as before, so nothing this change does can hide a label that is visible without it.
+    expect(field[field.length - 2]).toBe(markerStyle.LABEL_ALL_ZOOM);
+    expect(markerStyle.LABEL_ALL_ZOOM).toBe(14);
+  });
+
+  /**
+   * The tiering's cost, as the property that bounds it. Every branch above the floor is a `case`
+   * over a **feature** property, so the zoom expression is still evaluated once per feature per
+   * tile rather than resolving to a glyph run: what decides whether a name is shaped is
+   * `labelZoom`, and `labelZoom` is bounded by screen geometry (`withLabelZooms`).
+   */
+  it('tests the pin, not the library, in every branch above the floor', () => {
+    const field = pinLayerLayout(['Open Sans Regular'])['text-field'] as unknown[];
+    for (const branch of field.slice(4).filter((_, index) => index % 2 === 0)) {
+      expect(JSON.stringify(branch)).toContain("[\"get\",\"labelZoom\"]");
+    }
   });
 
   it('keeps overlap on, which is what makes a dense pair two visible pins', () => {
@@ -141,9 +165,13 @@ describe('two saved places 50 m apart are two pins', () => {
 
   it('carries no count property for anything to render as a number', () => {
     for (const feature of toPlaceFeatures(near).features) {
+      // The exact key set, still — the assertion is that nothing here is a count. `label` joined
+      // it in MAP-01: the name with a hard break at each direction boundary, which is what the
+      // `text-field` draws (`label-lines.ts`). Not a count, and not a merge of two places.
       expect(Object.keys(feature.properties).sort()).toEqual([
         'category',
         'id',
+        'label',
         'name',
         'visited',
       ]);

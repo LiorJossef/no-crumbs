@@ -1,0 +1,13 @@
+{
+  "candidates": [],
+  "cityHint": null,
+  "postIntent": "not_a_place",
+  "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+  "promptVersion": "p16-s5",
+  "captionSha": "a210762226296257e6c7e88e0934362d7a8316cadd804574fcc57501e062455e",
+  "inputTokens": 6367,
+  "outputTokens": 30,
+  "costUsd": 0,
+  "costModel": "unmeasured",
+  "extractedAt": "2026-08-31T21:56:12.732Z"
+}

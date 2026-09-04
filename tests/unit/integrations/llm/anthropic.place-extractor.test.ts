@@ -308,6 +308,42 @@ describe('anthropicPlaceExtractor', () => {
     expect(events.find((e) => e.name === 'extraction.candidates_dropped')).toBeUndefined();
   });
 
+  it('logs an over-long reply as truncation, which is not the same fact as a drop', async () => {
+    // `growth-plan.md` G2's other half. Thirteen valid candidates now yield twelve places instead
+    // of none, and the thirteenth is a fact about the model's reply that nothing downstream can
+    // carry — `PlaceExtractor` returns candidates and a `cityHint` — so this line is where it
+    // lives. It must not arrive as `candidates_dropped`: nothing here was malformed.
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const names = Array.from({ length: 13 }, (_, i) => `Cafe Number ${i}`);
+    const fetchImpl = async () =>
+      toolUseResponse({ candidates: names.map((name) => candidate(name, name)), cityHint: null });
+    const extractor = anthropicPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    const result = await extractor.extract(
+      [{ kind: 'caption', text: names.join(', '), origin: 'tiktok-oembed-title' }],
+      ctx(events),
+    );
+
+    expect(result.candidates).toHaveLength(12);
+    expect(events.find((e) => e.name === 'extraction.candidates_truncated')?.fields).toMatchObject({
+      cap: 12,
+      truncated: 1,
+      kept: 12,
+      total: 13,
+    });
+    expect(events.find((e) => e.name === 'extraction.candidates_dropped')).toBeUndefined();
+  });
+
+  it('says nothing about truncation when the reply fits the cap', async () => {
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const fetchImpl = async () => toolUseResponse({ candidates: [candidate('Cafe Fiori', 'Cafe Fiori')], cityHint: null });
+    const extractor = anthropicPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    await extractor.extract([{ kind: 'caption', text: 'Cafe Fiori', origin: 'tiktok-oembed-title' }], ctx(events));
+
+    expect(events.find((e) => e.name === 'extraction.candidates_truncated')).toBeUndefined();
+  });
+
   it('carries a stable version and passes the current prompt version through unchanged', () => {
     // The literal value is pinned once, in `tests/unit/extraction/schema.test.ts`. What matters
     // here is only that the adapter reports the prompt it actually sent — pinning the string in
@@ -315,5 +351,76 @@ describe('anthropicPlaceExtractor', () => {
     const extractor = anthropicPlaceExtractor({ apiKey: 'test-key' });
     expect(extractor.version).toBe('2026-08-anthropic-haiku-4-5');
     expect(extractor.promptVersion).toBe(PROMPT_VERSION);
+  });
+});
+
+/**
+ * `postIntent` (v5, E2-T3) at the adapter seam — the same five properties the Gemini adapter is
+ * held to, because the two share `parseExtractionResultPartial` and must not drift.
+ */
+describe('anthropicPlaceExtractor — postIntent', () => {
+  async function extractWith(input: Record<string, unknown>, caption = 'Cafe Fiori was great') {
+    const fetchImpl = async () => toolUseResponse(input);
+    const extractor = anthropicPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+    return extractor.extract([{ kind: 'caption', text: caption, origin: 'tiktok-oembed-title' }], ctx());
+  }
+
+  it('returns the model\'s postIntent unchanged', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+      postIntent: 'place_question',
+    });
+    expect(result.postIntent).toBe('place_question');
+    expect(result.candidates).toHaveLength(1);
+  });
+
+  it('returns place_recommendation with zero candidates — the case the field exists for', async () => {
+    const result = await extractWith({ candidates: [], cityHint: null, postIntent: 'place_recommendation' });
+    expect(result.candidates).toEqual([]);
+    expect(result.postIntent).toBe('place_recommendation');
+  });
+
+  it('returns null when the reply omits postIntent, and still returns the candidates', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+    });
+    expect(result.postIntent).toBeNull();
+    expect(result.candidates).toHaveLength(1);
+  });
+
+  it('returns null for an unrecognised value rather than failing the extraction', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+      postIntent: 42,
+    });
+    expect(result.postIntent).toBeNull();
+    expect(result.candidates).toHaveLength(1);
+  });
+
+  it('keeps two real venues on a reply the model labelled not_a_place', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori'), candidate('Kohi', 'Kohi')],
+      cityHint: null,
+      postIntent: 'not_a_place',
+    }, 'Cafe Fiori and Kohi, both great');
+    expect(result.candidates).toHaveLength(2);
+    expect(result.postIntent).toBe('not_a_place');
+  });
+
+  it('sends postIntent in the forced tool\'s input schema', async () => {
+    let capturedBody: Record<string, unknown> | undefined;
+    const fetchImpl = async (_url: string | URL | Request, init?: RequestInit) => {
+      capturedBody = JSON.parse(init?.body as string);
+      return toolUseResponse({ candidates: [], cityHint: null, postIntent: null });
+    };
+    const extractor = anthropicPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+    await extractor.extract([{ kind: 'caption', text: 'a cat', origin: 'tiktok-oembed-title' }], ctx());
+
+    const tools = capturedBody?.tools as { input_schema: { required: string[]; properties: Record<string, unknown> } }[];
+    expect(tools[0]?.input_schema.required).toContain('postIntent');
+    expect(Object.keys(tools[0]?.input_schema.properties ?? {})).toContain('postIntent');
   });
 });

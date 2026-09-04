@@ -33,7 +33,7 @@
  *    express. The only id ever placed in it here is the viewer's own saved-place id, read off
  *    their own library row.
  *  - **the facts object.** Every private block in `PlaceDetail` — the thumbnail, the caption quote,
- *    the model's sentence, the tags, `Open TikTok`, the match-certainty line, the saved-on line —
+ *    the model's sentence, the tags, `Open on TikTok`, the match-certainty line, the saved-on line —
  *    renders only when its field is present. For a place the viewer does not own, what is passed
  *    is a `SharedOnlyPlaceFacts` literal, whose type pins each of those keys to `never`: the
  *    boundary is a property of the data rather than of a `readOnly` flag somebody has to remember,
@@ -50,18 +50,26 @@
  * about this place *in this collection*; it is placed and weighted like one.
  */
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, Check, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { InlinePanel } from '@/components/ui/inline-menu';
 import { InlineConfirm } from '@/components/collections/collection-content';
-import {
-  HostedPaneBackContext,
-  type HostedPaneBackControl,
-} from '@/components/collections/add-to-collection';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
-import { canEdit, memberLabel, FORMER_MEMBER_LABEL } from '@/domain/collections/collection';
+import {
+  DETAIL_FIELD_ROW,
+  DETAIL_FIELD_VALUE,
+  DisclosureChevron,
+} from '@/components/sheet/saved-place-edits';
+import { useDetailPanelOpen } from '@/ui/place/detail-panel-open';
+import {
+  canEdit,
+  memberLabel,
+  COLLECTION_ITEM_NOTE_MAX_LENGTH,
+  FORMER_MEMBER_LABEL,
+} from '@/domain/collections/collection';
 import { SECTION_LABEL } from '@/ui/place/section-label';
 import {
   removeCollectionItem,
@@ -70,14 +78,10 @@ import {
 } from '@/app/actions/collections';
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
+import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
+import { cn } from '@/lib/utils';
 import type { MapPlace } from '@/components/map/map-surface';
 import type { PlaceDetailFacts, SharedOnlyPlaceFacts } from '@/domain/places/spot';
-
-/** The quiet mint text action, as used for the external links and the note affordance in the
- *  standard detail view. `min-h-11` is the one addition: the note's affordance sits alone in
- *  whitespace on a phone rather than in that view's dense row of links. */
-const TEXT_ACTION =
-  'inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-bold text-[var(--mint-700)] underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50';
 
 export function CollectionPlaceDetail({
   collectionId,
@@ -86,11 +90,23 @@ export function CollectionPlaceDetail({
   currentUserId,
   library,
   onBack,
+  floatingBarPx,
 }: {
   collectionId: string;
   place: CollectionPlace;
   role: CollectionRole;
   currentUserId: string;
+  /**
+   * What `BottomNav` covers at the bottom of this column, from `floatingBarClearancePx(stop)`.
+   *
+   * Passed down rather than decided here for the reason `PlaceDetail`'s own prop names: this
+   * component is mounted **twice at once** — in the collection's sheet, where the bar floats over
+   * the last 68 px, and in the `lg+` panel, where the bar does not render at all — and only
+   * `CollectionContent` knows which of the two it is building. Measured before it was wired, at
+   * 390×844 and at maximum scroll: `Remove from this collection` came to rest at y 770–814 against
+   * a bar occupying 776–844, five of five hit-test points blocked.
+   */
+  floatingBarPx: number;
   /** The viewer's **own** saved places — the same list the picker uses. Required, not optional:
    *  see the header for why an omitted library is a silently wrong screen rather than a safe one. */
   library: readonly MapPlace[];
@@ -101,11 +117,6 @@ export function CollectionPlaceDetail({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  /** Set while a pane inside `PlaceDetail` — today only the add-to-a-collection picker — has
-   *  borrowed the header's one back control. See `HostedPaneBackContext`. */
-  const [paneBack, setPaneBack] = useState<HostedPaneBackControl | null>(null);
-  const backHost = useMemo(() => ({ setBack: setPaneBack }), []);
 
   /**
    * The viewer's own save of this place, if they have one.
@@ -147,16 +158,19 @@ export function CollectionPlaceDetail({
           not jump when the view changes — which is why it is a header row of this component and not
           something `PlaceDetail` draws inside its own scrolling column (`variant="hosted"` is that
           component agreeing to render no navigation of its own). */}
-      {/* One control, whatever is showing underneath: while a pane has borrowed it, it dismisses
-          the pane instead of the detail, in the same slot and at the same size. Two back-shaped
-          controls on one screen is what `ux-collections-as-scope.md` §2.2 forbids. */}
+      {/* One back control on this screen, always this one. It used to be lendable: the
+          add-to-a-collection picker replaced the whole pane and borrowed this slot for its own
+          dismissal (`HostedPaneBackContext`, deleted once it had no consumers). Since 2026-09-03
+          the picker opens as a panel under
+          its own row and replaces nothing, so there is no second pane to come back from and
+          nothing ever borrows it. */}
       <div className="flex shrink-0 items-center gap-1 px-4 pb-1 pt-1">
         <Button
           type="button"
           variant="ghost"
           size="icon-lg"
-          aria-label={paneBack ? paneBack.label : 'Back to the collection'}
-          onClick={paneBack ? paneBack.onBack : onBack}
+          aria-label="Back to the collection"
+          onClick={onBack}
           data-vaul-no-drag
           className="-ms-2 size-11 shrink-0 rounded-full text-muted-foreground"
         >
@@ -164,182 +178,203 @@ export function CollectionPlaceDetail({
         </Button>
       </div>
 
-      <HostedPaneBackContext value={backHost}>
-        <PlaceDetail
-          place={{
-            // **Both of these follow `mine`, not `place`, and they must move together with
-            //  `detail`.** `CollectionPlace` carries the shared `places` name and a category
-            //  `getCollection` derives with `override: null` — correct for somebody else's place,
-            //  and stale for your own. Mixing the two sources is worse than either: `detail`
-            //  supplies `categoryIsOverridden`, so a screen showing the derived category *and*
-            //  `isOverridden: true` prints a system guess as if it were your choice, and ticks the
-            //  wrong chip — one tap on the chip that already looks selected then overwrites the
-            //  override you actually set.
-            name: mine ? mine.name : place.name,
-            category: mine ? mine.category : place.category,
-            lat: place.lat,
-            lng: place.lng,
-            // Your own TikTok when this is your place; otherwise nothing — the adder's is theirs.
-            // Stated rather than omitted, because the prop is required.
-            sourceUrl: mine ? mine.sourceUrl : undefined,
-            detail: facts,
-          }}
-          /* **The id here must be a `saved_places` id and nothing else.** `place.itemId` is a
-             collection item and `place.placeId` is a shared place; aiming a write at either would
-             hit a row this caller does not own, which is the exact hazard that made this prop
-             required and undefaulted. `mine.id` is the viewer's own saved-place id, so it is the
-             only value that may appear here. `null` when they have no row: every mutation in
-             `PlaceDetail` is gated on this object. */
-          savedPlace={
-            mine
-              ? {
-                  id: mine.id,
-                  visited: mine.visited,
-                  // Spread rather than passed as `undefined`: `exactOptionalPropertyTypes` is on and
-                  // "absent" is the honest shape for a marked row with no timestamp. Same
-                  // construction as `/map`'s call site (`place-sheet.tsx`), deliberately.
-                  ...(mine.detail?.visitedAt ? { visitedAt: mine.detail.visitedAt } : {}),
+      <PlaceDetail
+        place={{
+          // **Both of these follow `mine`, not `place`, and they must move together with
+          //  `detail`.** `CollectionPlace` carries the shared `places` name and a category
+          //  `getCollection` derives with `override: null` — correct for somebody else's place,
+          //  and stale for your own. Mixing the two sources is worse than either: `detail`
+          //  supplies `categoryIsOverridden`, so a screen showing the derived category *and*
+          //  `isOverridden: true` prints a system guess as if it were your choice, and ticks the
+          //  wrong chip — one tap on the chip that already looks selected then overwrites the
+          //  override you actually set.
+          name: mine ? mine.name : place.name,
+          category: mine ? mine.category : place.category,
+          lat: place.lat,
+          lng: place.lng,
+          // Your own TikTok when this is your place; otherwise nothing — the adder's is theirs.
+          // Stated rather than omitted, because the prop is required.
+          sourceUrl: mine ? mine.sourceUrl : undefined,
+          detail: facts,
+        }}
+        /* **The id here must be a `saved_places` id and nothing else.** `place.itemId` is a
+           collection item and `place.placeId` is a shared place; aiming a write at either would
+           hit a row this caller does not own, which is the exact hazard that made this prop
+           required and undefaulted. `mine.id` is the viewer's own saved-place id, so it is the
+           only value that may appear here. `null` when they have no row: every mutation in
+           `PlaceDetail` is gated on this object. */
+        savedPlace={
+          mine
+            ? {
+                id: mine.id,
+                visited: mine.visited,
+                // Spread rather than passed as `undefined`: `exactOptionalPropertyTypes` is on and
+                // "absent" is the honest shape for a marked row with no timestamp. Same
+                // construction as `/map`'s call site (`place-sheet.tsx`), deliberately.
+                ...(mine.detail?.visitedAt ? { visitedAt: mine.detail.visitedAt } : {}),
+              }
+            : null
+        }
+        onClose={onBack}
+        floatingBarPx={floatingBarPx}
+        variant="hosted"
+        primaryAction={
+          <div className="flex flex-col gap-3">
+            {/* Attribution is shown only when it was not you: a twelve-row collection where every
+                line reads "Added by you" is noise dressed as information.
+
+                It leads this block rather than sitting down with the provenance the standard sheet
+                puts at its foot, because in a shared collection *who recommended this* is a reason
+                to read on, not a footnote about how the row got here. */}
+            {place.addedBy !== currentUserId ? (
+              <p className="flex items-center gap-1 text-micro font-medium text-muted-foreground">
+                <span>Added by</span>
+                <span className="font-bold">
+                  {place.addedBy === null
+                    ? FORMER_MEMBER_LABEL
+                    : memberLabel({ displayName: place.addedByName, isYou: false })}
+                </span>
+              </p>
+            ) : null}
+
+            {/* Somebody adds a place, and everyone else can take it. It saves as `origin = 'manual'`
+                because that is true — the recommendation came from a person, not from a TikTok this
+                user imported.
+
+                Nothing at all once the viewer's own row is in hand: the Been-here toggle now
+                occupies this position, and an inert `Already in your places` sitting beside a live
+                control that says more is noise. */}
+            {mine ? null : place.savedByMe ? (
+              // Deliberately not the button shape: nothing here can undo a save, so an element that
+              // looks like the control above it would be a false affordance.
+              <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <Check className="size-4 shrink-0" aria-hidden />
+                Already in your places
+              </p>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-11 w-full justify-center gap-2 rounded-lg text-sm font-bold"
+                disabled={pending}
+                data-vaul-no-drag
+                onClick={() =>
+                  startTransition(async () => {
+                    setError(null);
+                    const result = await saveCollectionPlace(place.placeId);
+                    if (!result.ok) {
+                      setError(result.message);
+                      return;
+                    }
+                    router.refresh();
+                  })
                 }
-              : null
-          }
-          onClose={onBack}
-          variant="hosted"
-          primaryAction={
-            <div className="flex flex-col gap-3">
-              {/* Attribution is shown only when it was not you: a twelve-row collection where every
-                  line reads "Added by you" is noise dressed as information.
+              >
+                <Plus className="size-4 shrink-0" aria-hidden />
+                Save to your places
+              </Button>
+            )}
 
-                  It leads this block rather than sitting down with the provenance the standard sheet
-                  puts at its foot, because in a shared collection *who recommended this* is a reason
-                  to read on, not a footnote about how the row got here. */}
-              {place.addedBy !== currentUserId ? (
-                <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <span>Added by</span>
-                  <span className="font-bold">
-                    {place.addedBy === null
-                      ? FORMER_MEMBER_LABEL
-                      : memberLabel({ displayName: place.addedByName, isYou: false })}
-                  </span>
-                </p>
-              ) : null}
-
-              {/* Somebody adds a place, and everyone else can take it. It saves as `origin = 'manual'`
-                  because that is true — the recommendation came from a person, not from a TikTok this
-                  user imported.
-
-                  Nothing at all once the viewer's own row is in hand: the Been-here toggle now
-                  occupies this position, and an inert `Already in your places` sitting beside a live
-                  control that says more is noise. */}
-              {mine ? null : place.savedByMe ? (
-                // Deliberately not the button shape: nothing here can undo a save, so an element that
-                // looks like the control above it would be a false affordance.
-                <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                  <Check className="size-4 shrink-0" aria-hidden />
-                  Already in your places
-                </p>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  className="h-11 w-full justify-center gap-2 rounded-lg text-sm font-bold"
-                  disabled={pending}
-                  data-vaul-no-drag
-                  onClick={() =>
-                    startTransition(async () => {
+            {error && !confirming ? (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
+          </div>
+        }
+        /* The shared note is a field row, so it joins the card's field-row list flush under
+           `Your note` rather than sitting below the destructive action. */
+        fields={
+          <SharedNote
+            collectionId={collectionId}
+            itemId={place.itemId}
+            note={place.note}
+            editable={editable}
+          />
+        }
+        footer={
+          <>
+            {editable ? (
+              <div className="flex flex-col">
+                {confirming ? (
+                  <InlineConfirm
+                    prompt="Remove from this collection?"
+                    confirmLabel="Remove"
+                    pending={pending}
+                    error={error}
+                    onCancel={() => setConfirming(false)}
+                    onConfirm={() =>
+                      startTransition(async () => {
+                        const result = await removeCollectionItem(collectionId, place.itemId);
+                        if (!result.ok) {
+                          setError(result.message);
+                          return;
+                        }
+                        router.refresh();
+                        onBack();
+                      })
+                    }
+                  />
+                ) : (
+                  // The same component as `Remove from your places` directly above it, because
+                  // it is the same kind of act: start-aligned, muted until hover, one trash
+                  // glyph. Two removals on one screen are told apart by *wording and position*
+                  // — `from this collection` versus `from your places` — which is what
+                  // `docs/ux-two-removals-one-screen.md` §2.3 actually asks for; drawing them as
+                  // two different components said they were two different kinds of thing.
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex min-h-11 items-center gap-1.5 self-start text-sm font-bold text-muted-foreground underline-offset-4 hover:text-destructive hover:underline',
+                      PRESS_CHIP,
+                    )}
+                    onClick={() => {
                       setError(null);
-                      const result = await saveCollectionPlace(place.placeId);
-                      if (!result.ok) {
-                        setError(result.message);
-                        return;
-                      }
-                      router.refresh();
-                    })
-                  }
-                >
-                  <Plus className="size-4 shrink-0" aria-hidden />
-                  Save to your places
-                </Button>
-              )}
-
-              {error && !confirming ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {error}
-                </p>
-              ) : null}
-            </div>
-          }
-          footer={
-            <>
-              <SharedNote
-                collectionId={collectionId}
-                itemId={place.itemId}
-                note={place.note}
-                editable={editable}
-              />
-
-              {editable ? (
-                <div className="border-t border-border/70 pt-4">
-                  {confirming ? (
-                    <InlineConfirm
-                      prompt="Remove from this collection?"
-                      confirmLabel="Remove"
-                      pending={pending}
-                      error={error}
-                      onCancel={() => setConfirming(false)}
-                      onConfirm={() =>
-                        startTransition(async () => {
-                          const result = await removeCollectionItem(collectionId, place.itemId);
-                          if (!result.ok) {
-                            setError(result.message);
-                            return;
-                          }
-                          router.refresh();
-                          onBack();
-                        })
-                      }
-                    />
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="lg"
-                      className="h-11 w-full justify-start px-1 text-destructive"
-                      onClick={() => {
-                        setError(null);
-                        setConfirming(true);
-                      }}
-                      data-vaul-no-drag
-                    >
-                      Remove from this collection
-                    </Button>
-                  )}
-                  {/* Both strings say "from this collection" so it is never mistaken for deleting the
-                      place out of anyone's own library, which this does not do. */}
-                </div>
-              ) : null}
-            </>
-          }
-        />
-      </HostedPaneBackContext>
+                      setConfirming(true);
+                    }}
+                    data-vaul-no-drag
+                  >
+                    <Trash2 className="size-3.5 shrink-0" aria-hidden />
+                    Remove from this collection
+                  </button>
+                )}
+                {/* Both strings say "from this collection" so it is never mistaken for deleting the
+                    place out of anyone's own library, which this does not do. */}
+              </div>
+            ) : null}
+          </>
+        }
+      />
     </div>
   );
 }
 
 /**
- * The shared note, as a card.
+ * The shared note, as **the same row, opening the same way, as every other field on this card**.
  *
- * Closed by default, and that is the fix. An always-open textarea is a 90 px bordered box whose
- * resting state is empty, and it was sitting above every action on the screen — so the loudest
- * thing about a place somebody recommended was a form nobody had filled in. Closed, it is a label
- * and one line: either the note, or a `Add a shared note` affordance in the same quiet mint the
- * standard sheet's own note editor uses.
+ * It has been three shapes in three days and the last one is the reason this exists. It was a
+ * bordered, muted-filled card with a `SHARED NOTE` kicker and a mint `Edit` link; on 2026-09-02 it
+ * became a `DETAIL_FIELD_ROW` with a pencil and its own always-visible editor. Then `bd6f46a`
+ * rebuilt `Add to a collection`, `Category` and `Your note` so that all three **disclose one
+ * panel** under a rotating chevron — and this row, on the one screen where all four are drawn
+ * together, kept the pencil and kept replacing itself. Three rows answering one way and a fourth
+ * answering another, in a single flush list, is the owner's "patches" complaint reproduced
+ * (feedback 2.1). The row now matches: label, value, `DisclosureChevron`, and an `InlinePanel`
+ * directly underneath.
  *
- * Save-on-blur is kept — the field is the control, and this feature has no Save buttons anywhere
- * else — and blurring also closes it, so an empty textarea can never be what the screen comes to
- * rest on. Escape cancels without writing, which is what a keyboard user reaches for and what the
- * standard note editor already does; `stopPropagation` keeps it from being read as "close the
- * sheet".
+ * **The shared qualifier stays in the words, never in the shape.** A shared note and a private one
+ * are different fields with different audiences, and the label is where that is said — `Shared
+ * note` inline once there is one, `Add a shared note` as the offer, and the placeholder saying who
+ * can read it at the moment you are writing it. Nothing about *what* this field is, who may edit
+ * it or where it is written has changed here; only how it opens.
+ *
+ * **Save-on-blur is gone, and it had to be.** Inside a panel the commit pair is what you press, so
+ * a blur commit would fire on the way to `Cancel` and write the draft the user was abandoning.
+ * `Your note` directly above already commits with a button pair; two adjacent notes with two
+ * commit models is exactly the incoherence being removed. Escape still cancels without writing,
+ * and an outside press still leaves the draft alone — the note is the one thing on this card the
+ * user made themselves, and a mistimed tap must not take it.
  */
 function SharedNote({
   collectionId,
@@ -354,12 +389,13 @@ function SharedNote({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(note ?? '');
+  const [draft, setDraft] = useState(note ?? '');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  /** Set by Escape so the blur that follows the unmount cannot write the draft it just discarded. */
-  const cancelled = useRef(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  const raiseSheet = useDetailPanelOpen();
 
   useEffect(() => {
     if (editing) textareaRef.current?.focus();
@@ -370,99 +406,177 @@ function SharedNote({
 
   const fieldId = `shared-note-${itemId}`;
 
-  function commit() {
-    if (cancelled.current) {
-      cancelled.current = false;
-      return;
-    }
-    if ((value.trim() || null) === note) {
-      setEditing(false);
-      return;
-    }
+  function open() {
+    setDraft(note ?? '');
+    setError(null);
+    // The sheet goes to `full` before the panel takes room in the column — the same channel the
+    // three rows above use, and `undefined` on every host that provides none.
+    raiseSheet?.();
+    setEditing(true);
+  }
+
+  function close() {
+    setEditing(false);
+    setError(null);
+    // Focus returns to the row that opened the panel, never to `<body>`. `requestAnimationFrame`
+    // because the panel is unmounted in this same commit, and `preventScroll` because the card is
+    // a scrolling column inside a drag sheet.
+    requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
+  }
+
+  const trimmed = draft.trim();
+  const tooLong = trimmed.length > COLLECTION_ITEM_NOTE_MAX_LENGTH;
+  const unchanged = (trimmed || null) === note;
+
+  function save() {
+    setError(null);
     startTransition(async () => {
-      const result = await updateCollectionItemNote(collectionId, itemId, value);
+      const result = await updateCollectionItemNote(collectionId, itemId, draft);
       if (!result.ok) {
-        // Stays open: the draft is still the only copy of what the user wrote.
+        // Stays open with the draft in the field: it is still the only copy of what was written.
         setError(result.message);
         return;
       }
       setError(null);
       setEditing(false);
+      requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
       router.refresh();
     });
   }
 
-  return (
-    <section className="rounded-lg border border-border/70 bg-muted/40 p-3">
-      <div className="flex items-center justify-between gap-2">
-        {/* A `<label>` exactly when there is a field for it to name, and the same words either way,
-            so the section never renames itself as it opens. */}
-        {editing ? (
-          <label htmlFor={fieldId} className={SECTION_LABEL}>
-            Shared note
-          </label>
-        ) : (
-          <p className={SECTION_LABEL}>Shared note</p>
+  // **One line, label leading**, exactly as `Your note` draws it: the label appears only once
+  // there is a note to name, because `Shared note` over `Add a shared note` says the same thing
+  // twice and empty is the state most rows are in. The value is clamped — pressing the row opens
+  // the editor with the whole note in it, and an unbounded prose block in a resting row is what
+  // pushed this card's controls below the fold.
+  const line = (
+    <span className="flex min-w-0 flex-1 items-baseline gap-2">
+      {note && <span className={cn(SECTION_LABEL, 'shrink-0')}>Shared note</span>}
+      {/* `dir="auto"`: a shared note is free-form prose and is routinely Hebrew. */}
+      <span
+        dir="auto"
+        className={cn(
+          DETAIL_FIELD_VALUE,
+          'min-w-0 flex-1',
+          note ? 'line-clamp-2 whitespace-pre-wrap text-foreground' : 'text-muted-foreground',
         )}
-        {editable && !editing ? (
-          <button
-            type="button"
-            data-vaul-no-drag
-            onClick={() => {
-              setValue(note ?? '');
-              setError(null);
-              cancelled.current = false;
-              setEditing(true);
-            }}
-            className={`${TEXT_ACTION} -my-1 shrink-0 text-xs`}
-          >
-            <Pencil className="size-3" aria-hidden />
-            {note ? 'Edit' : 'Add a shared note'}
-          </button>
-        ) : null}
-      </div>
+      >
+        {note ?? 'Add a shared note'}
+      </span>
+    </span>
+  );
 
-      {editing ? (
-        <textarea
-          id={fieldId}
-          ref={textareaRef}
-          dir="auto"
-          value={value}
-          maxLength={500}
-          rows={3}
-          aria-busy={pending || undefined}
+  return (
+    <div className="flex flex-col">
+      {/* A viewer who may not edit still sees the note; they get a paragraph rather than a control,
+          at the same inset and the same height so the column's edge and rhythm do not move. */}
+      {editable ? (
+        <button
+          ref={triggerRef}
+          type="button"
           data-vaul-no-drag
-          placeholder="Everyone in this collection can see this"
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event) => {
-            // Escape cancels. Enter does not submit — a shared note is prose, and stealing Enter
-            // would make a second line impossible to type.
-            if (event.key !== 'Escape') return;
-            event.stopPropagation();
-            cancelled.current = true;
-            setValue(note ?? '');
-            setError(null);
-            setEditing(false);
-          }}
-          onBlur={commit}
-          className="mt-2 w-full rounded-lg border border-input bg-card px-3 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
-        />
-      ) : note ? (
-        <p dir="auto" className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-          {note}
-        </p>
+          aria-haspopup="dialog"
+          aria-expanded={editing}
+          aria-controls={editing ? panelId : undefined}
+          onClick={() => (editing ? close() : open())}
+          className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
+        >
+          {line}
+          <DisclosureChevron open={editing} />
+        </button>
       ) : (
-        // Editors only — a viewer with no note returned above.
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          Nothing yet — everyone here will see what you write.
-        </p>
+        <div className="flex min-h-12 w-full items-center gap-2 px-1">{line}</div>
       )}
 
-      {error ? (
-        <p role="alert" className="mt-1.5 text-sm text-destructive">
+      {editing && (
+        <InlinePanel
+          id={panelId}
+          axisClear={null}
+          triggerRef={triggerRef}
+          onEscape={close}
+          // A press elsewhere does not discard a draft — same rule as `Your note`.
+          onOutsidePress={() => {}}
+        >
+          {/* The panel is the surface, so the field draws nothing of its own: no border, no fill,
+              no radius, no ring. A bordered box inside a bordered panel is the "patch" material
+              the card spent this week removing. */}
+          <div className="flex flex-col gap-2 px-2 py-1.5">
+            <label htmlFor={fieldId} className={cn(SECTION_LABEL, 'sr-only')}>
+              Shared note
+            </label>
+            <textarea
+              id={fieldId}
+              ref={textareaRef}
+              dir="auto"
+              value={draft}
+              rows={3}
+              disabled={pending}
+              aria-busy={pending || undefined}
+              aria-invalid={tooLong || undefined}
+              aria-describedby={error ? `shared-note-error-${itemId}` : undefined}
+              data-vaul-no-drag
+              // Who can see it, said at the moment it is being written, which is where it is
+              // actionable — and it is why this field needs no kicker of its own.
+              placeholder="Everyone in this collection can see this"
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                // Escape cancels. Enter does not submit — a shared note is prose, and stealing
+                // Enter would make a second line impossible to type.
+                if (event.key !== 'Escape') return;
+                event.stopPropagation();
+                close();
+              }}
+              className={cn(
+                // `text-base` is the iOS zoom floor; `md:text-sm` is the desktop step.
+                // `resize-none` because the panel caps its own height and a hand-dragged field
+                // would fight that cap.
+                'w-full resize-none bg-transparent text-base leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-50 md:text-sm',
+                tooLong && 'text-destructive',
+              )}
+            />
+
+            {/* The house commit pair, in the order and at the size `Your note` uses. */}
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={pending}
+                data-vaul-no-drag
+                onClick={close}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={pending || tooLong || unchanged}
+                data-vaul-no-drag
+                onClick={save}
+              >
+                {pending ? 'Saving…' : 'Save note'}
+              </Button>
+            </div>
+
+            {error ? (
+              <p
+                id={`shared-note-error-${itemId}`}
+                role="alert"
+                className="text-micro font-medium text-destructive"
+              >
+                {error}
+              </p>
+            ) : null}
+          </div>
+        </InlinePanel>
+      )}
+
+      {/* A failure that happens while the panel is closed still has to be said somewhere. */}
+      {error && !editing ? (
+        <p role="alert" className="px-1 pt-1 text-micro font-medium text-destructive">
           {error}
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }

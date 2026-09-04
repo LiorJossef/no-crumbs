@@ -101,6 +101,7 @@ import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 import { oembedSourceAdapter, canonicalUrlFor } from '@/integrations/tiktok/oembed-source-adapter';
 import { captionContentExtractor } from '@/integrations/tiktok/caption-content-extractor';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
+import { noteExtractor } from '@/integrations/llm/note-extractor';
 import { createPlaceResolver, placeResolverEnv } from '@/integrations/places/place-resolver-factory';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { resolveCandidates } from '@/domain/import/resolve-candidates';
@@ -115,6 +116,7 @@ import {
   notAuthenticated,
   type DomainErrorCode,
 } from '@/domain/errors';
+import { readPriorSaves } from '@/app/api/imports/_lib/prior-saves';
 import {
   describeCause,
   httpStatusFor,
@@ -125,6 +127,55 @@ import {
 } from '@/app/api/imports/_lib/error-reporting';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
+
+/**
+ * The importer's note, turned into candidates the rest of the pipeline can read.
+ *
+ * **Best-effort by construction.** The caption's candidates are already in hand by the time this
+ * runs, and a note that cannot be read is worth strictly less than losing them — so every failure
+ * here returns `[]` and is logged rather than thrown. That is the opposite of the caption
+ * extractor's contract, deliberately: the caption is the import, and the note is an addition to it.
+ *
+ * Only Gemini is wired. The note prompt was measured on it, `GEMINI_API_KEY` is what this
+ * environment has, and shipping an Anthropic path measured on nothing would be a claim rather than
+ * a capability. When there is no key, there is no note reader, and the import proceeds exactly as
+ * it does today.
+ */
+async function readNote(
+  note: string,
+  ctx: OpCtx,
+): Promise<{
+  readonly candidates: readonly PlaceCandidate[];
+  /** What ran, so a note-only extraction can be persisted and therefore confirmed. `extractions`
+   *  requires a model and a prompt version; without them `persistExtraction` returns null, the
+   *  response carries no `extractionId`, and the user is shown a place they cannot save. */
+  readonly version: string | null;
+  readonly promptVersion: string | null;
+}> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey === undefined || apiKey === '') return { candidates: [], version: null, promptVersion: null };
+  const reader = noteExtractor({ apiKey });
+  try {
+    const found = await reader.extract(note, ctx.signal);
+    ctx.log.event('extraction.note', { returned: found.length });
+    const mapped = found.map((n) => ({
+      rawName: n.rawName,
+      // Everything else is a property of the caption, and a note does not carry it. Null is the
+      // honest value: not "we looked and there was none", but "this source cannot answer that".
+      cityHint: null, countryHint: null, areaHint: null, categoryHint: null, addressHint: null,
+      identifiedName: null, nameVariants: [], coordinates: null, modelConfidence: null,
+      tags: [], dishes: [], whyGo: null,
+      // The fragment of the NOTE that named it. `filterPlausible` is given the note alongside the
+      // caption so this survives the evidence gate.
+      evidence: n.evidence,
+      schemaVersion: EXTRACTION_SCHEMA_VERSION,
+    })) as readonly PlaceCandidate[];
+    return { candidates: mapped, version: reader.version, promptVersion: reader.promptVersion };
+  } catch (e) {
+    console.warn(JSON.stringify({ event: 'extraction.note', outcome: 'failed', cause: describeCause(e) }));
+    return { candidates: [], version: null, promptVersion: null };
+  }
+}
 
 /** `start_import`'s row shape (`supabase/migrations/0007_functions.sql`), which this route needs
  *  the id from so it can advance the row it opened. */
@@ -496,7 +547,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (e) {
     // Not `INTERNAL`: a body we cannot parse is the caller's mistake, not our bug, and re-sending
     // the identical bytes fails identically — so `retryable: true` was a straight lie. The closed
-    // 14-code set (`07` §9) has no "bad request envelope" member; `MALFORMED_URL` is the honest
+    // 13-code set (`07` §9) has no "bad request envelope" member; `MALFORMED_URL` is the honest
     // one, because from the caller's side what happened is that no usable link arrived.
     return fail(malformedUrl('request body was not valid JSON', e));
   }
@@ -509,6 +560,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (url === null) {
     return fail(malformedUrl('request body had no "url" string'));
   }
+
+  /**
+   * What the person importing typed about what they saw, if the client sent any.
+   *
+   * **Optional, and its absence is the ordinary case** — every existing caller keeps working
+   * unchanged. It exists because on the modal outcome the importer is the only source of a venue
+   * name there is: `docs/evidence/extraction/note-extractor-2026-09-01.md` measures it recovering
+   * `@emshelx`, the post filed `futile` because the creator withholds the name in the caption
+   * *and* in the audio. Nothing else in the design reaches that.
+   *
+   * Bounded here rather than trusted: a note is a sentence, and anything longer is either a paste
+   * accident or someone using the field as a channel. It is fenced as untrusted input inside the
+   * extractor regardless (charter R10).
+   */
+  const rawNote =
+    typeof body === 'object' && body !== null && 'note' in body && typeof (body as { note: unknown }).note === 'string'
+      ? (body as { note: string }).note.trim().slice(0, 500)
+      : '';
+  const userNote = rawNote === '' ? null : rawNote;
 
   // Server-side re-validation — the SSRF-relevant allow-list check (04 §2/§7). Never trust the
   // client's own canonicalisation for the network hop this route is about to make.
@@ -587,7 +657,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
      * papered over; persisting it is a schema change and this task owns no migration.
      */
     let extractionCityHint: string | null = null;
-    const captionHash = caption === null ? null : sha256(caption);
+    /** How many candidates the plausibility gate dropped for naming only a city or a country.
+     *  Zero on a cache hit, where the gate does not re-run — see `emptyReason` below. */
+    let droppedAreaOnly = 0;
+    /**
+     * The extraction cache key's input side. **The note is part of it**, and that is the whole
+     * reason the note feature works at all.
+     *
+     * Without this the second probe — the one the no-places screen sends when someone types what
+     * they saw — hashes to the same value as the first, hits the cached row, and returns the
+     * note-free answer. The person's sentence is read by nothing and they are told "we read that
+     * too, and it doesn't name a place either", every time, truthfully about a read that never
+     * happened. Found by the session building that screen, against the live route.
+     *
+     * Folding it into the hash rather than bypassing the cache keeps every downstream mechanism
+     * correct for free: the miss runs the extractor *and* the note reader, `persistExtraction`
+     * writes a row whose `input_hash` matches what produced it, and `/api/imports/confirm` reads
+     * back a row that actually contains the candidate the user is about to save. A bypass would
+     * have had to re-derive all three.
+     */
+    const captionHash =
+      caption === null
+        ? null
+        : sha256(userNote === null ? caption : `${caption}\n\n${userNote}`);
+
+    // A post with no caption at all still deserves the note. `NO_CAPTION` is the outcome for a post
+    // we could read perfectly and which said nothing — and a person who watched it may know the
+    // name. Handled before the caption block because that block is guarded on the caption existing.
+    if (caption === null && userNote !== null) {
+      stage = 'extract';
+      const noteOnly = await readNote(userNote, ctx);
+      candidates = filterPlausible(noteOnly.candidates, userNote).kept;
+      // So the row persists and the place the user just named can actually be saved.
+      extractorVersion = noteOnly.version;
+      promptVersion = noteOnly.promptVersion;
+    }
 
     if (caption !== null) {
       stage = 'extract';
@@ -617,9 +721,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       } else {
         const extractStartedAt = Date.now();
         const extracted = await extractor.extract(parts, ctx);
+        // The note is read by a call of its own, never by the caption prompt — that was tried and
+        // measured at zero across four iterations (`user-note-attempt-2026-09-01.md`). Additive and
+        // best-effort: a note that fails to read must never cost the caption's candidates, which
+        // are already in hand.
+        const noteCandidates = userNote === null ? [] : (await readNote(userNote, ctx)).candidates;
         msExtract = Date.now() - extractStartedAt;
-        candidates = filterPlausible(extracted.candidates, caption).kept;
+        const plausible = filterPlausible(
+          [...extracted.candidates, ...noteCandidates],
+          // The gate grounds `evidence` in the text a human wrote. A note-sourced candidate quotes
+          // the note, so the note has to be part of that text or the gate deletes the person's own
+          // answer for not appearing in the caption that failed to contain it.
+          userNote === null ? caption : `${caption}\n\n${userNote}`,
+        );
+        candidates = plausible.kept;
         extractionCityHint = extracted.cityHint;
+        // Kept for `emptyReason` below, and for nothing else. `PlausibilityResult.dropped` is
+        // documented as count-only for logs (`07` §7.1) and **the counts must not leave the
+        // server** (`spec-no-places-found.md` §3.4 note 1) — the response carries one enum. That is
+        // the same discipline as "the browser may never send a place fact", in the other direction.
+        droppedAreaOnly = plausible.dropped.city_or_country_only;
       }
     }
 
@@ -695,6 +816,48 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       candidates: storedCandidates,
     });
 
+    /**
+     * Why this import produced no candidates — the only thing the no-places screen needs that it
+     * cannot derive from what it already has (`spec-no-places-found.md` §3.4).
+     *
+     * Three honest cases, and the order below is the derivation:
+     *
+     *  - **`no_caption`** — we opened the post fine and there was no text. That is a fact about the
+     *    post's shape, not about our reading, and a user who pastes three caption-less posts learns
+     *    something from it that "the caption named nothing" would hide.
+     *  - **`area_only`** — the caption named a city and no venue. The **one** sub-case worth
+     *    surfacing, because it is checkable (a place name, not a confidence judgement) and because
+     *    it changes what we can offer: it scopes the search. Every other drop reason collapses into
+     *    `nothing_named` — §3.2 measures `evidence_not_in_caption` firing four times and being wrong
+     *    four times out of four, and a screen that reported that filter's opinion as a fact about
+     *    the user's post would be dressing a measured-wrong signal as a finding.
+     *  - **`nothing_named`** — the modal case, and the floor.
+     *
+     * **A cache hit is always `nothing_named`**, because `filterPlausible` does not re-run on one
+     * and the drop counts do not exist. That is the honest floor rather than a gap: we do not know,
+     * so we do not claim. Re-running the filter to reconstruct it would change what the user sees
+     * between two identical imports, which is worse than the coarser answer.
+     */
+    const emptyReason: 'no_caption' | 'nothing_named' | 'area_only' | null =
+      caption === null
+        ? 'no_caption'
+        : candidates.length > 0
+          ? null
+          : droppedAreaOnly > 0 && extractionCityHint !== null
+            ? 'area_only'
+            : 'nothing_named';
+
+    /**
+     * What this user has already added from this same source (lane H, round-3 feedback §6.1).
+     *
+     * Read here rather than in a server action because this request is the only thing that knows
+     * `raw.id`, and the review screen needs the answer at the moment it seeds its selection, not a
+     * round trip later — `_lib/prior-saves.ts` carries the full argument. Awaited after the
+     * bookkeeping writes so a slow read costs nothing that was already earned, and best-effort by
+     * construction: it returns `[]` on any failure and can never fail an import.
+     */
+    const priorSaves = await readPriorSaves(db, { sourceId: raw.id, userId: user.id });
+
     return NextResponse.json({
       sourceId: raw.id,
       /** Null only when persisting the extraction failed; the client must not offer a save then. */
@@ -705,12 +868,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       canonicalUrl: raw.canonicalUrl,
       thumbnailUrl: raw.thumbnailUrl,
       caption,
+      emptyReason,
+      /**
+       * The extraction's own city hint — the only thing we know about *where* when we know nothing
+       * about *what*. Null on a cache hit for the same reason `emptyReason` is coarse there:
+       * `extractions` has no column for it (recorded in `current-state.md` §5.6), so it survives
+       * only on a fresh extraction.
+       */
+      cityHint: extractionCityHint,
       /**
        * Each candidate with its `resolution` attached. Additive: the client types these as
        * `PlaceCandidate[]` and ignores the extra key, so this response stays backwards compatible
        * while carrying everything a review screen needs to show what was matched and what was not.
        */
       candidates: storedCandidates,
+      /** Oldest first. Empty on the common path and on any read failure — a notice, not a gate. */
+      priorSaves,
     });
   } catch (e) {
     // `String(e)` as the message was the old shape; the cause is kept as a real `cause` now and
@@ -721,7 +894,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // side effect, not a fault: an aborted `fetch` surfaces as `UPSTREAM_TIMEOUT`, so stamping the
     // row with it would file every user `Cancel` as a TikTok outage — a lie of exactly the kind
     // this route was just fixed to stop telling, written into the audit record rather than the
-    // response. The closed 14-code set (`07` §9) has no member for "the caller left", and a call
+    // response. The closed 13-code set (`07` §9) has no member for "the caller left", and a call
     // site does not get to invent one, so the honest move is to record nothing: the row stays
     // `processing` and `expires_at` sweeps it, which is already what an abandoned tab does. Tidier
     // would be to write *a* code; none of them would be true.

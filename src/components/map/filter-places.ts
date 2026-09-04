@@ -12,6 +12,7 @@
 import { filterBySearch, type SearchablePlace } from '@/domain/places/search';
 import { enrichmentOf } from '@/ui/place/enrichment';
 import { isSameTag } from '@/ui/place/tag-filter';
+import { matchesVisitFilter, type VisitFilter } from '@/ui/place/visit-state';
 import type { MapPlace } from './types';
 
 export function toSearchablePlace(place: MapPlace): SearchablePlace {
@@ -40,13 +41,19 @@ export function filterPlaces(
 }
 
 /**
- * The user's saved pins narrowed to the ones carrying one tag.
+ * The user's saved pins narrowed to the ones carrying **every** selected tag.
  *
- * Applied **before** `filterPlaces` by the page client, so the two compose as AND: the tag narrows
- * the library, the search box narrows within it. Returns the input array itself for a `null` tag,
- * so no filter costs nothing downstream — the same identity guarantee `filterBySearch` gives for a
- * blank query, and for the same reason (React memoisation upstream must not churn on a filter
- * nobody set).
+ * **Several tags, composing as AND** (owner, 2026-09-02: *"tags from a multi select list with a
+ * search"*). It used to take one tag, so choosing a second replaced the first and "brunch **and**
+ * wine" could not be asked. AND rather than OR because that is what the rest of this header means
+ * by narrowing — and because it is what makes each count in the tag list a true statement of what
+ * selecting the next tag produces.
+ *
+ * Applied **before** `filterPlaces` by the page client, so the two compose as AND: the tags narrow
+ * the library, the search box narrows within it. Returns the input array itself for no tags, so no
+ * filter costs nothing downstream — the same identity guarantee `filterBySearch` gives for a blank
+ * query, and for the same reason (React memoisation upstream must not churn on a filter nobody
+ * set).
  *
  * Tags are read through the same `toSearchablePlace` projection the search uses, so a place is
  * "tagged X" for the chip filter exactly when it is tagged X for the search — one projection, one
@@ -58,35 +65,39 @@ export function filterPlaces(
  */
 export function filterByTag(
   places: readonly MapPlace[],
-  tag: string | null,
+  tags: readonly string[],
 ): readonly MapPlace[] {
-  if (tag === null || tag.trim() === '') return places;
-  return places.filter((place) =>
-    (toSearchablePlace(place).tags ?? []).some((candidate) => isSameTag(candidate, tag)),
-  );
+  const wanted = tags.filter((tag) => tag.trim() !== '');
+  if (wanted.length === 0) return places;
+  return places.filter((place) => {
+    const carried = toSearchablePlace(place).tags ?? [];
+    return wanted.every((tag) => carried.some((candidate) => isSameTag(candidate, tag)));
+  });
 }
 
 /**
- * The user's saved pins narrowed to the ones they have **not** been to yet.
+ * The user's saved pins narrowed by the visit filter.
  *
  * A third filter dimension beside the tag chip and the search box, composed as AND by the page
- * client. Returns the input array itself when the filter is off, so an untouched control costs
- * nothing downstream — the same identity guarantee `filterPlaces` and `filterByTag` give, and for
- * the same reason (React memoisation upstream must not churn on a filter nobody set).
+ * client. Returns the input array itself for `all`, so an untouched control costs nothing
+ * downstream — the same identity guarantee `filterPlaces` and `filterByTag` give, and for the same
+ * reason (React memoisation upstream must not churn on a filter nobody set).
  *
  * `visited` is read straight off the port rather than through `toSearchablePlace`, and deliberately
  * so: this is not a text match and it must never become one. "Been" is a fact about the user's own
  * row, not a word that might appear in a note — a place whose note reads "been meaning to try this"
- * is precisely the place this filter has to keep.
+ * is precisely the place `not-been` has to keep.
  *
- * There is intentionally no inverse. `Been` as a filter would be a second control answering a
- * question nobody asked ("what have I already done?"), and the ruling that motivated this feature
- * is explicit that the capability is a boolean and *one* filter.
+ * **`been` is new** (`ux-visit-filter-and-chip-density-2026-09-02.md` §4). The old docblock here
+ * argued there should be no inverse, on the grounds that the capability is a boolean and one
+ * filter. That argument was about the *filter*; the defect it produced was about the *control* —
+ * two visual states for three meanings, which is what the owner read as unintuitive. Three named
+ * states is still one control, and `matchesVisitFilter` is still one predicate.
  */
 export function filterByVisit(
   places: readonly MapPlace[],
-  notBeenOnly: boolean,
+  filter: VisitFilter,
 ): readonly MapPlace[] {
-  if (!notBeenOnly) return places;
-  return places.filter((place) => !place.visited);
+  if (filter === 'all') return places;
+  return places.filter((place) => matchesVisitFilter(filter, place.visited));
 }

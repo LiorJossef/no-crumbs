@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 import { DOMAIN_ERROR_CODES } from '@/domain/errors';
+import { IMPORT_ERROR_COPY } from '@/ui/import/import-error-copy';
 
 /**
  * FIX-ERR-QA — every code in the taxonomy renders a real screen in the real browser.
@@ -21,16 +24,7 @@ const PASSWORD = process.env.E2E_PASSWORD;
 const VALID = 'https://www.tiktok.com/@a/video/7259010845558983978';
 
 async function signIn(page: Page): Promise<void> {
-  for (let i = 0; i < 4; i += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try { await page.waitForURL('**/map', { timeout: 20_000 }); return; } catch { /* hydration race */ }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 test.describe('every DomainErrorCode renders a usable failure screen', () => {
@@ -60,9 +54,25 @@ test.describe('every DomainErrorCode renders a usable failure screen', () => {
         await page.getByPlaceholder('Paste a TikTok link').fill(VALID);
         await page.getByRole('button', { name: 'Add →' }).click();
 
+        /**
+         * **Wait for the failure screen, not for "an `h1` that is not the paste screen's".**
+         *
+         * The rail that runs between submit and failure has its own `h1` — `Adding your TikTok
+         * link` — which is neither empty nor equal to the paste headline, so the two-line guard
+         * this replaces fell straight through onto the *loading* screen and captured it. Measured
+         * on CI run 33661142026: all thirteen codes were recorded with headline `Adding your TikTok
+         * link`, body `WORKING ON IT` and actions `["Cancel"]`, and the only assertion that noticed
+         * was the shared-headline check at the bottom of this test. Every other assertion here
+         * passed against a screen that was not the subject.
+         *
+         * Waiting on `IMPORT_ERROR_COPY[c].headline` is also strictly stronger than what it
+         * replaces: it proves the code → copy mapping reached the browser, which is the one thing
+         * the unit tier cannot see. It is not a weaker restatement of the `not.toBe('')` below —
+         * that assertion stays, because it is what fails loudly if the copy map ever gains a blank
+         * headline.
+         */
         const headline = page.locator('h1').first();
-        await expect(headline).not.toHaveText('', { timeout: 20_000 });
-        await expect(headline).not.toHaveText('Add a TikTok');
+        await expect(headline).toHaveText(IMPORT_ERROR_COPY[c].headline, { timeout: 30_000 });
 
         const actions = (await page.locator('main button, main a').allInnerTexts())
           .map((t) => t.trim())

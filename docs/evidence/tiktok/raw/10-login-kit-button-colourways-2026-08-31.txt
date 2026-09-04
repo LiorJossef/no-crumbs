@@ -1,0 +1,35 @@
+# TikTok developer Button Pack — the only third-party button TikTok licenses.
+# Extracted from logo-pack.zip (sha256 b3f31728ceb6ce6fc1a0ae8c635a0223e35ac2f7d203b2743e713541bf2085cd),
+# linked from https://developers.tiktok.com/docs/en/getting-started-design-guidelines
+# Retrieved 2026-08-31. Assets NOT committed to this repository — this is the measurement only.
+# All three variants are 315 x 44 and read 'Continue with TikTok' (rendered and read visually).
+==============================================================================
+
+## Button_Black.svg
+   2 fill="white"
+   1 viewBox="0 0 315 44"
+   1 stroke="#161823"
+   1 fill="none"
+   1 fill="#121212"
+
+## Button_No outline.svg
+   2 fill="#161823"
+   1 viewBox="0 0 315 44"
+   1 stroke="white"
+   1 fill="white"
+   1 fill="none"
+
+## Button_Outlined.svg
+   2 fill="#161823"
+   1 viewBox="0 0 315 44"
+   1 stroke="#161823"
+   1 fill="white"
+   1 fill="none"
+
+## Colourways, decoded
+Button_Black      : ground #121212 (near-black), mark + wordmark white, border #161823
+Button_Outlined   : ground white, mark + wordmark #161823, visible border #161823
+Button_No outline : ground white, mark + wordmark #161823, border white (i.e. none)
+
+#161823 is TikTok's own brand near-black. There is NO coloured-ground variant of any kind —
+not mint, not TikTok's own cyan (#25F4EE) or red (#FE2C55).

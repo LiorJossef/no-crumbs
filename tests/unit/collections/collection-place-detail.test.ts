@@ -74,7 +74,9 @@ vi.mock('@/components/sheet/place-sheet', async (importOriginal) => {
 const { CollectionPlaceDetail } = await import(
   '@/components/collections/collection-place-detail'
 );
+const { BOTTOM_NAV_HEIGHT_PX } = await import('@/components/nav/bottom-nav-metrics');
 
+import { DETAIL_FIELD_ROW } from '@/components/sheet/saved-place-edits';
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
 import type { MapPlace } from '@/components/map/map-surface';
@@ -109,7 +111,7 @@ const PRIVATE_STRINGS: readonly string[] = [
   'Been here', // their visit state, as a control
   'Been', // …and as a badge
   'Your note',
-  'Open TikTok',
+  'Open on TikTok',
   'Matched via',
   'Saved on',
   'Saved from',
@@ -180,6 +182,11 @@ function render(
       currentUserId: 'user-1',
       library,
       onBack: () => {},
+      // The sheet's answer, which is the mount this file is about. Required and undefaulted for the
+      // same reason `savedPlace` is: this component is in the document twice at once — the sheet,
+      // where `BottomNav` floats over the last 68 px, and the `lg+` panel, where it does not render
+      // — and a component that guessed would be wrong on one of them.
+      floatingBarPx: BOTTOM_NAV_HEIGHT_PX,
     }),
   );
 }
@@ -251,6 +258,98 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
     expect(markup).not.toContain('Save to your places');
   });
 
+  /**
+   * **Empty and filled are the same row** (`ux-place-card-unification-2026-09-02.md` §4.2, H-4).
+   *
+   * Four shapes have now been tried for this one field. It was a bordered panel holding a
+   * `SHARED NOTE` kicker, a pencil link and a line of prose reading `Nothing yet — everyone here
+   * will see what you write.`; then, briefly, a dashed `Add a shared note` pill borrowed from the
+   * private note; then a `DETAIL_FIELD_ROW` whose label sat *above* its value with a pencil at the
+   * end and its own editor replacing it in place.
+   *
+   * **The label-when-empty assertion is retired here deliberately, not repaired.** It came from
+   * §4.2 H-4, and spec §A2 (2026-09-03) superseded it: `Shared note` over `Add a shared note` says
+   * the same thing twice, and empty is the state most rows are in. `Your note` directly above this
+   * one lost its label in the same ruling, in `bd6f46a`. Keeping it here would be the one row on
+   * the card still spending two lines to carry one — which is the incoherence feedback 2.1 named.
+   *
+   * The *shared* qualifier stays in the words — a shared note and a private one have different
+   * audiences, and flattening that would be a lie rather than a unification.
+   */
+  it('answers an empty shared note with the same row, not a panel and not a dashed pill', () => {
+    const markup = render('editor', { note: null });
+    expect(markup).toContain('Add a shared note');
+    // The offer names the field by itself, so the label does not repeat it. Same rule as `Your
+    // note`, and the reason this line reads `not.toContain` where it once read `toContain`.
+    expect(markup).not.toContain('>Shared note</span>');
+    // The prose the panel used to spend on saying a field is empty.
+    expect(markup).not.toContain('Nothing yet');
+    // None of the three shapes this replaced: no dashed outline, no bordered/filled panel around
+    // the field, and no pencil.
+    expect(markup).not.toContain('border-dashed');
+    expect(markup).not.toContain('bg-muted/40 p-3');
+    expect(markup).not.toContain('lucide-pencil');
+  });
+
+  /**
+   * **The defect feedback 2.1 named, as a guard.** `bd6f46a` and `aa2ae44` rebuilt `Add to a
+   * collection`, `Category` and `Your note` so that all three disclose one `InlinePanel` under one
+   * rotating chevron. This row kept a pencil and its own in-place editor — so on the single screen
+   * where all four are drawn in one flush list, three answered one way and the fourth answered
+   * another. That is the whole of the owner's complaint about the card, reproduced on the
+   * collection host.
+   *
+   * Asserted on the *disclosure contract* rather than on the class string: a row that promises a
+   * panel says `aria-haspopup`, reports `aria-expanded`, and draws the one glyph that means "a
+   * panel opens directly underneath and this row stays where it is".
+   */
+  it('discloses its editor the same way every other field row on the card does', () => {
+    for (const markup of [render('editor', { note: null }), renderMine()]) {
+      expect(markup).toContain('aria-haspopup="dialog"');
+      expect(markup).toContain('aria-expanded="false"');
+      expect(markup).toContain('lucide-chevron-down');
+      // The two glyphs that each promised something this row stopped doing: a pencil says *type
+      // here* on a row that opens a panel, and a right chevron says *this replaces the pane*.
+      expect(markup).not.toContain('lucide-pencil');
+      expect(markup).not.toContain('lucide-chevron-right');
+    }
+  });
+
+  /**
+   * A viewer who may not edit still reads the note — but gets a paragraph, not a control, and so
+   * no disclosure glyph on a row that discloses nothing. Same inset and same 48 px minimum, so the
+   * column's edge and rhythm do not move between the two roles.
+   */
+  it('gives a read-only viewer the note without the affordance', () => {
+    const markup = render('viewer');
+    expect(markup).toContain('Everyone: book ahead');
+    expect(markup).toContain('flex min-h-12 w-full items-center gap-2 px-1');
+    expect(markup).not.toContain('lucide-pencil');
+  });
+
+  /**
+   * The private note on `PlaceDetail` and the shared note here are the same component, which is
+   * the unification round 3 asked for and the reason `ADD_NOTE_PILL` could be deleted rather than
+   * kept for a second caller.
+   */
+  it('wears the same field row as every other editable field on the card', () => {
+    const markup = render('editor', { note: null });
+    expect(markup).toContain(DETAIL_FIELD_ROW);
+    // Two rows minimum on this screen where the viewer owns the place: the shared note and the
+    // card's own fields. One `DETAIL_FIELD_ROW` string, several rows.
+    expect(markup.split(DETAIL_FIELD_ROW).length - 1).toBeGreaterThanOrEqual(1);
+  });
+
+  it('names the field once there is a note, and only then', () => {
+    // Same row, different value. The label comes back inline the moment there is a note, because
+    // that is what tells a shared note apart from the private one directly above it — and the
+    // offer goes, because a row cannot both offer and hold a value.
+    const markup = render();
+    expect(markup).toContain('Shared note');
+    expect(markup).toContain('Everyone: book ahead');
+    expect(markup).not.toContain('Add a shared note');
+  });
+
   it('gives a viewer no way to change the collection', () => {
     const markup = render('viewer');
     expect(markup).not.toContain('Remove from this collection');
@@ -281,7 +380,7 @@ describe('CollectionPlaceDetail — a place the viewer saved themselves', () => 
     expect(markup).toContain('Your note');
     expect(markup).toContain('Sit at the counter');
     expect(markup).toContain('>Category<');
-    expect(markup).toContain('Open TikTok');
+    expect(markup).toContain('Open on TikTok');
     expect(markup).toContain('tiktok.com/@someone/video/900');
   });
 
@@ -313,6 +412,26 @@ describe('CollectionPlaceDetail — a place the viewer saved themselves', () => 
     const markup = renderMine();
     expect(markup).not.toContain('Already in your places');
     expect(markup).not.toContain('Save to your places');
+  });
+
+  /**
+   * The bar's height reaches the card it is about, and not by way of a constant typed here.
+   *
+   * Measured before it was wired, at 390×844 and at maximum scroll: `Remove from this collection`
+   * — the assertion two tests below is about the same control — came to rest at y 770–814 against
+   * a `BottomNav` occupying 776–844, with five of five hit-test points across its width returning
+   * an element the button did not contain. This is a rendering rather than a source read because
+   * the failure was a *value not arriving*, and only the markup can say that it does.
+   */
+  it('spends the floating bar’s height on its scroll column', () => {
+    const markup = renderMine();
+    expect(markup).toContain(`--floating-bar:${BOTTOM_NAV_HEIGHT_PX}px`);
+    // And the height is actually consumed, rather than the variable sitting in the style unread.
+    expect(markup).toContain('var(--floating-bar,0px)');
+    // `scroll-padding-bottom` is deliberately gone. It parked a scrollIntoView above a covered
+    // edge; the column's box now ends ABOVE the bar, so there is no covered edge left and 68px of
+    // scroll padding would over-scroll by its own height inside a 326px column.
+    expect(markup).not.toContain('scroll-padding-bottom');
   });
 
   it('still adds what the collection contributes, and nothing is reordered away', () => {

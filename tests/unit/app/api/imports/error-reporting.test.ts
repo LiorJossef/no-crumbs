@@ -20,6 +20,7 @@ import { z } from 'zod';
 
 import {
   DOMAIN_ERROR_CODES,
+  type DomainErrorCode,
   upstreamTimeout,
   DOMAIN_ERROR_CONSTRUCTORS,
   internal,
@@ -56,15 +57,36 @@ describe('HTTP_STATUS_BY_ERROR_CODE', () => {
     expect(fiveHundreds).toEqual(['INTERNAL']);
   });
 
-  it('never dresses a non-retryable failure up as a server or upstream fault', () => {
-    // If a retry of the identical request cannot succeed, the failure is by definition not a
-    // transient fault on our side or upstream — so it belongs in 4xx. The converse is deliberately
-    // not asserted: POST_UNAVAILABLE is retryable *and* a 4xx, because TikTok declining to serve a
+  it('never dresses a non-retryable failure up as a server or upstream fault, with one ruled ' +
+    'exception', () => {
+    // If a retry of the identical request cannot succeed, the failure is *usually* not a transient
+    // fault on our side or upstream — so it belongs in 4xx. The converse is deliberately not
+    // asserted: POST_UNAVAILABLE is retryable *and* a 4xx, because TikTok declining to serve a
     // private post is not an outage.
+    //
+    // `EXTRACTOR_QUOTA_EXHAUSTED` is the case that shows the rule was a heuristic rather than a
+    // law, and it is exempted by ruling, not by convenience
+    // (`product-ruling-quota-copy-2026-08-31.md` §5). It is non-retryable *and* a 5xx because the
+    // two signals answer different questions: `retryable` asks "should the UI offer a button",
+    // and the answer is no — the next call spends the same empty allowance. The status asks
+    // "whose fault", and the answer is emphatically not the caller's: they may not have spent a
+    // single call of it. 429 would blame them, 4xx would file our own exhausted allowance as
+    // ordinary caller traffic, and the 5xx is exactly how we want it to read in the error-rate
+    // graph. The exemption is pinned by name so a second one costs an argument in a diff.
+    const RULED_5XX_AND_NOT_RETRYABLE: readonly DomainErrorCode[] = ['EXTRACTOR_QUOTA_EXHAUSTED'];
     const misreported = DOMAIN_ERROR_CODES.filter(
-      (code) => !DOMAIN_ERROR_CONSTRUCTORS[code]().retryable && httpStatusFor(code) >= 500,
+      (code) =>
+        !DOMAIN_ERROR_CONSTRUCTORS[code]().retryable &&
+        httpStatusFor(code) >= 500 &&
+        !RULED_5XX_AND_NOT_RETRYABLE.includes(code),
     );
     expect(misreported).toEqual([]);
+    // The exemption is a fact about the taxonomy, not a licence: assert it really holds, so this
+    // list cannot quietly outlive the thing it exempts.
+    for (const code of RULED_5XX_AND_NOT_RETRYABLE) {
+      expect(DOMAIN_ERROR_CONSTRUCTORS[code]().retryable, code).toBe(false);
+      expect(httpStatusFor(code), code).toBeGreaterThanOrEqual(500);
+    }
   });
 
   it('stops the three specific lies §3.5 recorded', () => {
@@ -75,13 +97,19 @@ describe('HTTP_STATUS_BY_ERROR_CODE', () => {
     // upstream was down.
     expect(httpStatusFor('NO_CAPTION')).toBe(422);
     expect(noCaption().retryable).toBe(false);
-    // Our own limiter. 429 is the one place "you sent too many" is true.
-    expect(httpStatusFor('RATE_LIMITED_LOCAL')).toBe(429);
+    // The third lie was a 429 for a limiter that did not exist — "you sent too many" for a caller
+    // who had sent one request. That code is retired; the state it was wrongly covering now has
+    // its own, and it answers 503: we cannot serve this right now, and it is not your doing.
+    expect(httpStatusFor('EXTRACTOR_QUOTA_EXHAUSTED')).toBe(503);
+    expect(DOMAIN_ERROR_CODES).not.toContain('RATE_LIMITED_LOCAL');
   });
 
   it('keeps 502 for the two failures that really are a bad upstream response', () => {
     const badGateways = DOMAIN_ERROR_CODES.filter((code) => httpStatusFor(code) === 502);
     expect(new Set(badGateways)).toEqual(new Set(['EXTRACTOR_UNAVAILABLE', 'EXTRACTOR_INVALID_OUTPUT']));
+    // A spent allowance is not a bad upstream response: the provider answered correctly and
+    // declined. Diluting 502 with it would undo, one code at a time, what this module fixed.
+    expect(httpStatusFor('EXTRACTOR_QUOTA_EXHAUSTED')).toBe(503);
     expect(httpStatusFor('UPSTREAM_TIMEOUT')).toBe(504);
     expect(httpStatusFor('NOT_AUTHENTICATED')).toBe(401);
     expect(httpStatusFor('POST_UNAVAILABLE')).toBe(422);
@@ -344,12 +372,19 @@ describe('logSeverityFor', () => {
   it('reports only our own failures and our dependencies at error severity', () => {
     const errors = DOMAIN_ERROR_CODES.filter((code) => logSeverityFor(code) === 'error');
     expect([...errors].sort()).toEqual(
-      ['EXTRACTOR_INVALID_OUTPUT', 'EXTRACTOR_UNAVAILABLE', 'INTERNAL', 'RATE_LIMITED_UPSTREAM', 'UPSTREAM_TIMEOUT'].sort(),
+      [
+        'EXTRACTOR_INVALID_OUTPUT',
+        'EXTRACTOR_QUOTA_EXHAUSTED',
+        'EXTRACTOR_UNAVAILABLE',
+        'INTERNAL',
+        'RATE_LIMITED_UPSTREAM',
+        'UPSTREAM_TIMEOUT',
+      ].sort(),
     );
   });
 
   it('never pages a human for a fault in the caller request', () => {
-    for (const code of ['MALFORMED_URL', 'NOT_AUTHENTICATED', 'RATE_LIMITED_LOCAL', 'UNSUPPORTED_URL', 'NO_CAPTION'] as const) {
+    for (const code of ['MALFORMED_URL', 'NOT_AUTHENTICATED', 'UNSUPPORTED_URL', 'NO_CAPTION'] as const) {
       expect(logSeverityFor(code)).toBe('warn');
     }
   });

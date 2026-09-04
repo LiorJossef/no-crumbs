@@ -23,6 +23,7 @@ import {
   joinedLabel,
   type ProfilePlace,
 } from '@/app/profile/_lib/profile-stats';
+import { UNNAMED_OTHER_AREA_LABEL } from '@/ui/place/active-area';
 import { REAL_LIBRARY } from './real-library';
 
 let seq = 0;
@@ -80,6 +81,21 @@ describe('deriveProfileStats', () => {
     expect(stats.cities).toBe(1);
   });
 
+  it('splits two named cities inside the 50 km radius, exactly as the map does', () => {
+    // The defect this file did not catch, found 2026-09-02 against the owner's 60 rows.
+    // `map-page-client.tsx` hands `clusterByProximity` a `toLocality` projection — the veto that
+    // stops a 50 km join from swallowing every town it reaches — and this page's `clusters()` did
+    // not. So `/profile` printed `4 Cities` while the map one tab away drew twelve named pills.
+    // Kfar Saba is 22 km from Tel Aviv: inside the radius, and a different city by name.
+    const stats = deriveProfileStats([
+      place(32.0725, 34.782, { locality: 'Tel Aviv-Yafo', countryCode: 'IL' }),
+      place(32.175, 34.9, { locality: 'כפר סבא', countryCode: 'IL' }),
+    ]);
+    expect(stats.cities).toBe(2);
+    // And still one country: the veto splits areas, never countries.
+    expect(stats.countries).toBe(1);
+  });
+
   it('splits two cities 3,500 km apart', () => {
     const stats = deriveProfileStats([place(LONDON.lat, LONDON.lng), place(TEL_AVIV.lat, TEL_AVIV.lng)]);
     expect(stats.cities).toBe(2);
@@ -121,11 +137,37 @@ describe('countryBreakdown', () => {
     );
   });
 
-  it('gives an area nothing can name its own label, and no flag', () => {
+  it('never lets a city stand in for a country', () => {
+    // Changed 2026-09-02, and it is the owner-reported defect. This row used to be labelled with
+    // the *area's* name, so the one Haifa save — `country_code` NULL — printed `חיפה` directly
+    // beneath `Israel` under `Where you save`, as if a city were a country. The countryless group
+    // is a gap: it says so, it carries no flag, and it is not counted in `N Countries`.
     const rows = countryBreakdown([
       place(LONDON.lat, LONDON.lng, { countryCode: null, locality: 'London' }),
     ]);
-    expect(rows).toEqual([{ countryCode: null, label: 'London', count: 1 }]);
+    expect(rows).toEqual([{ countryCode: null, label: UNNAMED_OTHER_AREA_LABEL, count: 1 }]);
+  });
+
+  it('cannot contradict the numbers printed above it', () => {
+    // The two headline figures and this list come from one pass, so `N Cities` is the number of
+    // areas the list accounts for and `N Countries` is the number of *named* rows in it. Asserted
+    // on a library that deliberately holds a countryless area, because that is where they used to
+    // disagree: `4 Cities / 3 Countries` over four rows, one of which was a city.
+    const library = [
+      place(LONDON.lat, LONDON.lng, { countryCode: 'GB', locality: 'London' }),
+      place(TEL_AVIV.lat, TEL_AVIV.lng, { countryCode: 'IL', locality: 'Tel Aviv-Yafo' }),
+      place(32.8156, 34.9892, { countryCode: null, locality: 'חיפה' }),
+    ];
+    const breakdown = deriveProfileBreakdown(library);
+
+    expect(breakdown.stats.countries).toBe(
+      breakdown.countries.filter((row) => row.countryCode !== null).length,
+    );
+    expect(breakdown.countries).toHaveLength(3);
+    expect(breakdown.stats.countries).toBe(2);
+    // Every saved place is accounted for by exactly one listed row, and every area by one city.
+    expect(breakdown.countries.reduce((sum, row) => sum + row.count, 0)).toBe(library.length);
+    expect(breakdown.stats.cities).toBe(3);
   });
 
   it('sorts by count and puts the unnamed group last however big it is', () => {
@@ -226,33 +268,76 @@ describe('deriveProfileBreakdown', () => {
   });
 });
 
+/**
+ * These assertions were rewritten on 2026-09-01, and the ones they replaced were not weakened —
+ * they were the specification of a reported bug.
+ *
+ * The old suite asserted `accountIdentity({ displayName: null, email: 'demo@example.com' })` →
+ * `{ title: 'demo@example.com' }`, and `title` is rendered beside the avatar at `text-lg font-bold`:
+ * the slot a name goes in. Since `profiles.display_name` is null for every account this product has
+ * created, that branch was the *only* branch, and it is the owner's standing report that the profile
+ * screen shows a demo email. The tests below pin the opposite rule — **the email never enters the
+ * name slot** — plus the three-tier name source `0035` introduced.
+ */
 describe('accountIdentity', () => {
-  it('prefers the display name and keeps the email beneath it', () => {
-    expect(accountIdentity({ displayName: 'מאיה', email: 'demo@example.com' })).toEqual({
-      title: 'מאיה',
-      subtitle: 'demo@example.com',
+  it('addresses you by the private first name, with the email beneath it', () => {
+    // `profile_names.first_name` (`0035`) is what the product calls you. This screen is the only
+    // place it is rendered, and it is rendered to its owner.
+    expect(
+      accountIdentity({ firstName: 'מאיה', displayName: null, email: 'demo@example.com' }),
+    ).toEqual({ name: 'מאיה', account: 'demo@example.com' });
+  });
+
+  it('prefers the first name over the display name when it has both', () => {
+    // They answer different questions — *what should the product call me* and *what should other
+    // people call me* — and on your own screen the first one wins.
+    expect(
+      accountIdentity({ firstName: 'Maya', displayName: 'M.', email: 'demo@example.com' }),
+    ).toEqual({ name: 'Maya', account: 'demo@example.com' });
+  });
+
+  it('falls back to the display name, which is the only name a pre-0035 account can acquire', () => {
+    expect(
+      accountIdentity({ firstName: null, displayName: 'Maya', email: 'demo@example.com' }),
+    ).toEqual({ name: 'Maya', account: 'demo@example.com' });
+  });
+
+  it('never promotes the email into the name slot', () => {
+    // The regression this file exists to hold. Eight local accounts are in exactly this state and
+    // the schema permits it forever, so this is the common case rather than the edge one.
+    const identity = accountIdentity({
+      firstName: null,
+      displayName: null,
+      email: 'demo@example.com',
+    });
+    expect(identity.name).toBeNull();
+    expect(identity.account).toBe('demo@example.com');
+  });
+
+  it('treats blank names as no name at all', () => {
+    // `profile_names` normalises `''` to null on write (`normalise_profile_names`), but whitespace
+    // can still arrive from `display_name`, which has no such trigger.
+    expect(
+      accountIdentity({ firstName: '  ', displayName: '   ', email: 'demo@example.com' }).name,
+    ).toBeNull();
+  });
+
+  it('trims a name rather than rendering the padding', () => {
+    expect(accountIdentity({ firstName: '  Maya  ', email: 'demo@example.com' }).name).toBe('Maya');
+  });
+
+  it('drops the second line when a named account has no email', () => {
+    // The name has already said whose account this is; `Your account` under it would be noise.
+    expect(accountIdentity({ firstName: 'Maya', email: null })).toEqual({
+      name: 'Maya',
+      account: null,
     });
   });
 
-  it('shows the email itself when no display name was ever given', () => {
-    // `profiles.display_name` is nullable and only ever populated from signup metadata, so this is
-    // the common case, not the edge one. Nothing is derived from the email to stand in for a name.
-    expect(accountIdentity({ displayName: null, email: 'demo@example.com' })).toEqual({
-      title: 'demo@example.com',
-      subtitle: null,
-    });
-  });
-
-  it('treats a blank display name as no display name', () => {
-    expect(accountIdentity({ displayName: '   ', email: 'demo@example.com' }).title).toBe(
-      'demo@example.com',
-    );
-  });
-
-  it('falls back to a claim-free title when there is neither', () => {
-    expect(accountIdentity({ displayName: null, email: null })).toEqual({
-      title: 'Your account',
-      subtitle: null,
+  it('falls back to a claim-free line when there is neither a name nor an email', () => {
+    expect(accountIdentity({ firstName: null, displayName: null, email: null })).toEqual({
+      name: null,
+      account: 'Your account',
     });
   });
 });

@@ -1,0 +1,69 @@
+{
+  "takenAt": "2026-08-31T09:03:10.125Z",
+  "commit": "649977739b522d60c3a406be375160d084151e44",
+  "commitish": "6499777",
+  "buildMode": "next dev — the ?state= seam is eliminated from a production build by design",
+  "caveat": "Dev mode. Nothing timing-related may be claimed from these numbers.",
+  "results": [
+    {
+      "screen": "rail",
+      "viewport": "390x844",
+      "reducedMotion": "reduce",
+      "animationsRunning": 0,
+      "transitionsArmed": 0,
+      "loadersInDom": 2,
+      "loadersVisible": 0,
+      "stepDotsVisible": 1,
+      "invisibleElements": 0,
+      "transformedElements": 0,
+      "visibleText": "WORKING ON IT Adding your TikTok This usually takes a few seconds. @demo’s TikTok Three places worth the queue in Tel Aviv: HaKosem, Cafe Cafe, and Miznon. Reading the TikTok Read @demo’s TikTok Finding the places Cancel",
+      "focusableStops": 2,
+      "changedOver2500ms": false
+    },
+    {
+      "screen": "rail",
+      "viewport": "390x844",
+      "reducedMotion": "no-preference",
+      "animationsRunning": 2,
+      "transitionsArmed": 5,
+      "loadersInDom": 2,
+      "loadersVisible": 2,
+      "stepDotsVisible": 0,
+      "invisibleElements": 0,
+      "transformedElements": 2,
+      "visibleText": "WORKING ON IT Adding your TikTok This usually takes a few seconds. @demo’s TikTok Three places worth the queue in Tel Aviv: HaKosem, Cafe Cafe, and Miznon. Reading the TikTok Read @demo’s TikTok Finding the places Cancel",
+      "focusableStops": 2,
+      "changedOver2500ms": false
+    },
+    {
+      "screen": "rail",
+      "viewport": "1440x900",
+      "reducedMotion": "reduce",
+      "animationsRunning": 0,
+      "transitionsArmed": 0,
+      "loadersInDom": 2,
+      "loadersVisible": 0,
+      "stepDotsVisible": 1,
+      "invisibleElements": 0,
+      "transformedElements": 0,
+      "visibleText": "WORKING ON IT Adding your TikTok This usually takes a few seconds. @demo’s TikTok Three places worth the queue in Tel Aviv: HaKosem, Cafe Cafe, and Miznon. Reading the TikTok Read @demo’s TikTok Finding the places Cancel",
+      "focusableStops": 2,
+      "changedOver2500ms": false
+    },
+    {
+      "screen": "rail",
+      "viewport": "1440x900",
+      "reducedMotion": "no-preference",
+      "animationsRunning": 2,
+      "transitionsArmed": 5,
+      "loadersInDom": 2,
+      "loadersVisible": 2,
+      "stepDotsVisible": 0,
+      "invisibleElements": 0,
+      "transformedElements": 2,
+      "visibleText": "WORKING ON IT Adding your TikTok This usually takes a few seconds. @demo’s TikTok Three places worth the queue in Tel Aviv: HaKosem, Cafe Cafe, and Miznon. Reading the TikTok Read @demo’s TikTok Finding the places Cancel",
+      "focusableStops": 2,
+      "changedOver2500ms": false
+    }
+  ]
+}

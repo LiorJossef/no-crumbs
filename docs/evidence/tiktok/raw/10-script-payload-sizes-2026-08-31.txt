@@ -1,0 +1,43 @@
+# Measured payload sizes of scripts referenced by TikTok's two embed mechanisms
+# Retrieved 2026-08-31, server-side curl (GET, full body downloaded), desktop UA.
+# sha256 is of the exact bytes downloaded at that timestamp; TikTok ships hashed/versioned
+# filenames (e.g. tiktok-embed.module.1f1ab0fbe45bcde2a3be.js) so a byte-identical re-fetch
+# should reproduce the same hash until TikTok redeploys that chunk.
+
+## Loaded by the oEmbed blockquote path (<script async src="https://www.tiktok.com/embed.js">)
+
+https://www.tiktok.com/embed.js
+  -> 302 redirect to https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok/falcon/embed/embed_v1.0.13.js
+  -> 42,241 bytes (loader/runtime shell; sha256 bb740062f227aa8a54b0f1719ea0a29e9a69752a72996f1a8b86b4ed0497e686)
+
+GET https://www.tiktok.com/embed/v2/7245648559981350186 (the document embed.js mounts into an iframe)
+  -> 328,117 bytes of server-rendered HTML alone (sha256 925e726b4a73fb927ebaa06850747b4709919f1b9ba6a1284c70d33f6aa17cbf)
+  -> references 20 further <script> tags, including:
+
+https://.../embed/static/tiktok-embed.module.1f1ab0fbe45bcde2a3be.js
+  -> 2,389,672 bytes (sha256 5c83676748a17209dc42cb7908aeb85fdea29e7f2695c8696286001e6c72dcb0)
+  -> the main embed application bundle alone is 2.4 MB
+
+https://.../webmssdk/1.0.0.347/webmssdk.js  (ByteDance device-fingerprint SDK, see main doc §4)
+  -> 224,360 bytes (sha256 fbb7c21d8ffd9360731b1d05cd5b7acfc4252789b7610fd5b845fbeb84810bd5)
+
+## Loaded by the Embed Player iframe (https://www.tiktok.com/player/v1/{id})
+
+GET https://www.tiktok.com/player/v1/7245648559981350186 (no query params)
+  -> 39,912 bytes of HTML shell (sha256 d871a31bb36531d15f2ec8a4ac1eb376921551e1fe6bc993a84249d51399da38)
+  -> references 22 further <script> tags: the privacy-protection loader, a webmssdk build,
+     the "4d_playback" React application (route-manifest, builder-runtime, lib-react, lib-router,
+     lib-polyfill, 9 numbered async chunks, an ItemPage chunk), Slardar (perf/crash telemetry),
+     "tea.pre.js" (TikTok's own analytics SDK) and a "log-sdk/collect" analytics collector.
+
+https://.../tiktok_4d_playback/static/js/lib-react.b24368ee1a.js
+  -> 143,429 bytes (sha256 0a6c9aea8dd15a6c9c1f65eb69631fc35c108b413f8769692d667d44d6a137a3)
+  -> one chunk of many; the full player bundle (lib-react + lib-router + lib-polyfill +
+     builder-runtime + route-manifest + 9 async chunks + ItemPage) was not fully summed,
+     but lib-react alone exceeds the entire /player/v1/ HTML shell by 3.6x.
+
+## Bottom line
+Neither embed mechanism is "an iframe and a video file." Both pull TikTok's own React
+application, a device-fingerprint SDK (webmssdk, ~220 KB either way), and multiple telemetry
+SDKs (Slardar, TEA, a log collector) as a precondition of rendering anything, before any
+video byte is requested and regardless of whether autoplay or hover-play ever fires.

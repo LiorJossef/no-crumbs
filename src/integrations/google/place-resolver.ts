@@ -130,8 +130,10 @@ import {
 } from '@/domain/import/provider-failure';
 import type { OpCtx, PlaceResolver } from '@/domain/ports';
 import { toCountryCode } from '@/domain/places/country-code';
-import { scoreCandidates } from '@/domain/places/score';
-import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/domain/types';
+import { distinctiveTokens, scoreCandidates } from '@/domain/places/score';
+import { normalise } from '@/domain/places/normalise';
+import type { ResolvedPlaceInCountry } from '@/domain/places/resolved-country';
+import type { RegionId, ResolveQuery, ResolveResult } from '@/domain/types';
 import { cachedProviderRows, type PlaceLookupStore } from '@/integrations/places/lookup-cache';
 
 /**
@@ -367,7 +369,101 @@ function addressLineOf(components: readonly GoogleAddressComponent[] | undefined
   return number === null ? route : `${route} ${number}`;
 }
 
-export function toResolvedPlace(row: GooglePlaceRow): ResolvedPlace | null {
+/**
+ * The city a result is in, from the component Google actually used for it.
+ *
+ * **`locality` alone is not enough, and the gap is not exotic.** Measured against this project's
+ * own cached Google responses (`place_lookups`, 2026-09-02): all four Prague saves came back with
+ * **no `locality` component at all** — the settlement is in `sublocality_level_1` as `Praha 1`,
+ * `Praha 3`, `Praha 4`, `Praha 10`, with `administrative_area_level_1` and `..._level_2` both
+ * `Hlavní město Praha`. So `places.locality` was NULL on every one of them, `clusterLabel` had
+ * nothing to count, and the group rendered as `this area` instead of `Praha`. London has the same
+ * shape for a different reason: the UK puts the town in `postal_town`.
+ *
+ * The order below is *most city-like first*, and every step is something Google said:
+ *
+ *  1. `locality` — the normal case, and unchanged.
+ *  2. `postal_town` — the UK.
+ *  3. A sublocality, with a **corroborated** district ordinal removed (see `citySublocality`).
+ *  4. `administrative_area_level_2`, **only when it is identical to `..._level_1`** — that equality
+ *     is what a city which is also its own region looks like (Prague, Vienna, Berlin). Without the
+ *     equality test this step would write `Los Angeles County` or a UK county as a city name, so it
+ *     is deliberately not a general fallback.
+ *
+ * `null` when none of those exist. A place whose city we cannot name keeps saying so.
+ */
+export function localityOf(
+  components: readonly GoogleAddressComponent[] | undefined,
+): string | null {
+  const locality = componentText(components, 'locality');
+  if (locality !== null) return locality;
+
+  const postalTown = componentText(components, 'postal_town');
+  if (postalTown !== null) return postalTown;
+
+  const sublocality = citySublocality(components);
+  if (sublocality !== null) return sublocality;
+
+  const level2 = componentText(components, 'administrative_area_level_2');
+  const level1 = componentText(components, 'administrative_area_level_1');
+  if (level2 !== null && level2 === level1) return level2;
+
+  return null;
+}
+
+/** A trailing district number: `Praha 1`, `Praha 10`, `Wien 1.`, `Budapest XI`. */
+const DISTRICT_ORDINAL = /\s+(?:\d{1,2}\.?|[IVXivx]{1,5}\.?)$/u;
+
+/**
+ * The most city-like sublocality, with a district ordinal stripped **only when another component
+ * corroborates the stem**.
+ *
+ * `Praha 1` becomes `Praha` because `administrative_area_level_2` says `Hlavní město Praha`, which
+ * contains it. `District 1` in Ho Chi Minh City stays `District 1`, because no administrative area
+ * there is called `District` — and that is the point of the corroboration: the stem has to be a
+ * name Google itself used for a wider area, not whatever is left after deleting a number.
+ *
+ * Stripping matters beyond cosmetics. `clusterLabel` picks a label by plurality over normalised
+ * localities, so four Prague saves reading `Praha 1`, `Praha 3`, `Praha 4`, `Praha 10` are a
+ * four-way tie and label the area *nothing at all*; the same four reading `Praha` are unanimous.
+ */
+function citySublocality(
+  components: readonly GoogleAddressComponent[] | undefined,
+): string | null {
+  const raw =
+    componentText(components, 'sublocality_level_1') ?? componentText(components, 'sublocality');
+  if (raw === null) return null;
+
+  const stem = raw.replace(DISTRICT_ORDINAL, '').trim();
+  if (stem === '' || stem === raw) return raw;
+
+  const wider = [
+    componentText(components, 'administrative_area_level_2'),
+    componentText(components, 'administrative_area_level_1'),
+  ];
+  const corroborated = wider.some((name) => name !== null && name.includes(stem));
+  return corroborated ? stem : raw;
+}
+
+/**
+ * ISO-3166-1 alpha-2 from the `country` component's `shortText`, which is exactly that code.
+ *
+ * `longText` is the country's **name** in the response language (`ישראל`, `Czechia`) and would fail
+ * `places_country_code_check`; `shortText` is `IL`, `CZ`. Anything that is not two letters after
+ * upper-casing is `null` rather than a guess.
+ *
+ * Until 2026-09-02 nothing read this and the only country a save could get was the caption's — see
+ * `domain/places/resolved-country.ts` for the whole of that story.
+ */
+export function countryCodeOf(
+  components: readonly GoogleAddressComponent[] | undefined,
+): string | null {
+  const hit = components?.find((c) => c.types?.includes('country') === true);
+  const code = (hit?.shortText ?? '').trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : null;
+}
+
+export function toResolvedPlace(row: GooglePlaceRow): ResolvedPlaceInCountry | null {
   const name = row.displayName?.text;
   const lat = row.location?.latitude;
   const lng = row.location?.longitude;
@@ -385,7 +481,10 @@ export function toResolvedPlace(row: GooglePlaceRow): ResolvedPlace | null {
     altNames: [],
     providerCategory: row.primaryType ?? null,
     addressLine: addressLineOf(row.addressComponents),
-    locality: componentText(row.addressComponents, 'locality'),
+    locality: localityOf(row.addressComponents),
+    // Google's own country for this result, not the caption's. `resolve_place` gets it through
+    // `resolvedCountryCode` — see `domain/places/resolved-country.ts`.
+    countryCode: countryCodeOf(row.addressComponents),
     lat,
     lng,
     datasetConfidence: GOOGLE_DATASET_CONFIDENCE,
@@ -400,6 +499,27 @@ export function toResolvedPlace(row: GooglePlaceRow): ResolvedPlace | null {
  * contract), and folding it into the query text would let a wrong or partial address suppress the
  * right venue instead of merely failing to corroborate it — recall must not depend on it.
  */
+/**
+ * The same query with its generic words dropped — `Tokyo ICCO` becomes `ICCO`, `Jinsei Yakitori`
+ * becomes `Jinsei`. Returns `null` when there is nothing to drop or nothing distinctive left.
+ *
+ * **The query builder and the scorer disagreed, and this is that seam.** `SCORING.generic` already
+ * knows `tokyo`, `cafe`, `restaurant` and the rest are not names — the scorer has filtered them out
+ * of `tokenCoverage` since the prototype. `buildTextQuery` sent the raw string anyway, so Google
+ * was ranking on words we had already decided did not identify anything.
+ *
+ * Measured 2026-09-01: `Tokyo ICCO London` returns **no_match at 0.754**, and `ICCO London` returns
+ * `ICCO Pizza - Soho` at **0.879, confirm**. Same venue, same provider, one generic word removed.
+ */
+export function narrowedTextQuery(query: ResolveQuery): string | null {
+  const distinctive = distinctiveTokens(query.text);
+  if (distinctive.length === 0) return null;
+  const narrowed = distinctive.join(' ');
+  if (normalise(narrowed) === normalise(query.text)) return null;
+  const city = query.cityHint?.trim();
+  return city !== undefined && city !== '' ? `${narrowed}, ${city}` : narrowed;
+}
+
 export function buildTextQuery(query: ResolveQuery): string {
   const city = query.cityHint?.trim();
   return city !== undefined && city !== '' ? `${query.text}, ${city}` : query.text;
@@ -447,8 +567,52 @@ export function googlePlaceResolver(
     provider: 'google',
 
     async resolve(query: ResolveQuery, ctx: OpCtx): Promise<ResolveResult> {
+      const first = await lookupAndScore(buildTextQuery(query), query, ctx);
+
+      // **A second look, and only ever after the first has already failed.**
+      //
+      // A `no_match` means the words we sent found nothing worth showing, and the commonest reason
+      // measured is that they were not all name: `Tokyo ICCO London` returns no_match at 0.754
+      // while `ICCO London` returns `ICCO Pizza - Soho` at 0.879. The generic word was doing the
+      // ranking damage, and `SCORING.generic` already knew it was generic.
+      //
+      // **Gated on `no_match` rather than applied to every query, and that gate is the whole
+      // safety argument.** Narrowing unconditionally was measured and rejected: `Cafe Fiori` in Tel
+      // Aviv resolves to `Cafe fiori` at 1.000, and narrowed to `Fiori` it resolves to a
+      // **different venue**, also at 1.000 — both auto-accept, so the change would silently move
+      // which place a user saves. `Jones Family Kitchen` also got worse (0.908 -> 0.888). Only a
+      // query that has already found nothing can be re-asked, so nothing that works can move.
+      if (first.confidence.band !== 'no_match') return first;
+      const narrowed = narrowedTextQuery(query);
+      if (narrowed === null) return first;
+
+      // **Scored against the question it asked, not the one that already failed.** Re-scoring the
+      // narrowed answer against the full text was measured first and buys nothing: `Tokyo ICCO`
+      // retrieves `ICCO Pizza - Soho` correctly but still scores 0.760 against "Tokyo ICCO",
+      // because the 0.45 `whole` term compares full strings and "Tokyo" is in both the query and
+      // nothing else. The retry then costs a lookup and moves no band.
+      //
+      // Judging it on the narrowed name is not laundering: `distinctiveTokens` is the scorer's own
+      // notion of which words identify a venue, and `tokenCoverage` has ignored the rest since the
+      // prototype. This makes `whole` agree with what `tokenCoverage` already believed.
+      const narrowedName = distinctiveTokens(query.text).join(' ');
+      const second = await lookupAndScore(narrowed, { ...query, text: narrowedName }, ctx);
+      ctx.log.event('places.resolve_narrowed', {
+        provider: 'google',
+        rescued: second.confidence.band !== 'no_match',
+      });
+      // Never worse: the first answer stands unless the narrowed one actually cleared a band.
+      return second.confidence.band === 'no_match' ? first : second;
+    },
+  };
+
+  async function lookupAndScore(
+    textQuery: string,
+    query: ResolveQuery,
+    ctx: OpCtx,
+  ): Promise<ResolveResult> {
       const params: GoogleTextSearchParams = {
-        textQuery: buildTextQuery(query),
+        textQuery,
         // `countryHint` is a country **name**, never a code: the prompt asks the model to copy the
         // caption's own location words, so it arrives as `United Kingdom`, `Czech Republic`,
         // `Israel` or `ישראל`. This line used to require `/^..$/` after an upper-case, which none
@@ -511,7 +675,7 @@ export function googlePlaceResolver(
 
       const candidates = rows
         .map(toResolvedPlace)
-        .filter((place): place is ResolvedPlace => place !== null);
+        .filter((place): place is ResolvedPlaceInCountry => place !== null);
 
       ctx.log.event('places.resolve', {
         provider: 'google',
@@ -522,6 +686,5 @@ export function googlePlaceResolver(
       // `no_match` on an empty list is `scoreCandidates`' own construction, so there is one path to
       // it rather than two. `GLOBAL_REGION` rather than `[]`: see the header.
       return scoreCandidates(query, candidates, [GLOBAL_REGION], 'exhaustive-search');
-    },
-  };
+  }
 }

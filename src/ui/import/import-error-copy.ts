@@ -9,7 +9,7 @@
  * them and `ux-architecture` §5.4's `This TikTok isn't public…` row is deliberately unused).
  *
  * Why a `Record<DomainErrorCode, …>` and not a lookup with a default: the previous screen rendered
- * one apologetic template for all fourteen codes, so `NO_CAPTION` (we read the post perfectly well;
+ * one apologetic template for all thirteen codes, so `NO_CAPTION` (we read the post perfectly well;
  * it has no caption) and `UNSUPPORTED_URL` (a profile link, which can never work) both told the
  * user we couldn't read their TikTok and offered them a retry. A total record makes a fifteenth
  * code a **compile error** rather than a silent regression to that generic screen.
@@ -62,16 +62,16 @@ export type ImportErrorAction =
   | 'sign_in'
   | 'back_to_map';
 
-/** The label each action carries. `Retry` and `Open the TikTok` are C62; `Try another TikTok` is
+/** The label each action carries. `Retry` and `Open on TikTok` are C62; `Try another TikTok link` is
  *  C71; `Back to the map` is already this screen's wording for the same move; `Sign in →` follows
  *  the brand doc's primary-CTA rule (the trailing arrow is part of the label, not an icon). */
 export const IMPORT_ERROR_ACTION_LABEL: Record<ImportErrorAction, string> = {
   retry: 'Retry',
-  open_tiktok: 'Open the TikTok',
+  open_tiktok: 'Open on TikTok',
   // `RedirectScreen`'s existing wording, kept: it is the right label for a link that parsed but
   // is not TikTok's, and the user still gets their content back.
   open_link: 'Open the original link',
-  another_tiktok: 'Try another TikTok',
+  another_tiktok: 'Try another TikTok link',
   sign_in: 'Sign in →',
   // Also `CaptionPreviewScreen`'s escape hatch: same action, same words, so it reads this rather
   // than carrying a second copy of the string.
@@ -108,10 +108,10 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
    *  ships for the same news (brand doc §1: a recognised redirect, never a failure). */
   UNSUPPORTED_HOST: {
     kicker: 'Not TikTok',
-    headline: 'That link isn’t a TikTok.', // NEW — §12.4 has no id for this headline
+    headline: 'That link isn’t from TikTok.', // NEW — §12.4 has no id for this headline
     body: 'We support TikTok links. Instagram and YouTube aren’t supported yet.',
     icon: 'link-off',
-    // `open_link`, not `open_tiktok`: the whole news is that this is not a TikTok. The affordance
+    // `open_link`, not `open_tiktok`: the whole news is that this link is not from TikTok. The affordance
     // itself comes from the screen this entry now also drives — the pre-submit redirect already
     // shipped an "Open the original link" escape and it was right to.
     actions: ['another_tiktok', 'open_link', 'back_to_map'],
@@ -129,24 +129,24 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
 
   /** `07` §9: "That's a profile, not a post". Headline reuses `unsupportedUrl`'s own message in
    *  `domain/errors.ts`. No retry: a profile, tag, music or live link can never resolve to a post,
-   *  and offering a retry sends the user round a loop that cannot end. `Open the TikTok` still
-   *  applies — the link is real, it just isn't a post. */
+   *  and offering a retry sends the user round a loop that cannot end. `Open on TikTok` still
+   *  applies — the link is real, it just isn't a video. */
   UNSUPPORTED_URL: {
-    kicker: 'Not a post',
-    headline: 'That’s a TikTok link, but not a post.',
-    body: 'Profiles, hashtags and sounds don’t have a post for us to read. Open one post and copy the link from there.', // NEW
+    kicker: 'Not a video',
+    headline: 'That’s a TikTok link, but not a video.',
+    body: 'Profiles, hashtags and sounds don’t have a video for us to read. Open one video and copy the link from there.', // NEW
     icon: 'link-off',
     actions: ['another_tiktok', 'open_tiktok'],
   },
 
-  /** `07` §9: "This share link has expired" — used verbatim as the headline. No `Open the TikTok`
+  /** `07` §9: "This share link has expired" — used verbatim as the headline. No `Open on TikTok`
    *  here on purpose: the `vm./vt./t/` hop is what failed, so we have positive evidence the link
-   *  does not lead to the user's post, and an "Open the TikTok" that lands on the TikTok homepage
+   *  does not lead to the user's video, and an "Open on TikTok" that lands on the TikTok homepage
    *  is a broken promise rather than a recovery. */
   SHORT_LINK_UNRESOLVED: {
     kicker: 'Link expired',
     headline: 'This share link has expired.',
-    body: 'Short TikTok links stop working after a while. Open the post in TikTok and copy the link from there.', // NEW
+    body: 'Short TikTok links stop working after a while. Open the video in TikTok and copy the link from there.', // NEW
     icon: 'link-off',
     actions: ['another_tiktok', 'back_to_map'],
   },
@@ -155,8 +155,8 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
    *  add that has no destination. The word "yet" is load-bearing (§5.1) and stays. */
   POST_UNAVAILABLE: {
     kicker: 'Couldn’t read it',
-    headline: 'We couldn’t read this TikTok yet.', // C60
-    body: 'Some TikToks don’t share enough for us to work with. It’s worth a retry.', // C61
+    headline: 'We couldn’t read this TikTok video yet.', // C60
+    body: 'Some TikTok videos don’t share enough for us to work with. It’s worth a retry.', // C61
     icon: 'post-unavailable',
     actions: ['retry', 'open_tiktok', 'another_tiktok'], // C62
   },
@@ -181,18 +181,6 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
     actions: ['retry', 'another_tiktok'],
   },
 
-  /** §5.4's rate-limit row, C67 verbatim as the body: no numbers, no "429". **No retry button** —
-   *  §5.4 is explicit, and a retry would only hit the same limiter. `another_tiktok` is withheld
-   *  for the same reason: the limit is per user, not per link, so the next link fails identically.
-   *  The one honest move left is to leave and come back, so that is the only action. */
-  RATE_LIMITED_LOCAL: {
-    kicker: 'One moment',
-    headline: 'Give it a few minutes.', // from C68
-    body: 'You’ve added a lot of TikToks in the last few minutes. Try again shortly.', // C67
-    icon: 'waiting',
-    actions: ['back_to_map'],
-  },
-
   /** `07` §9 routes this to an **F10 variant**, not F9: "This post has no caption to read". Nothing
    *  is broken — we opened the post fine. So the primary action is forward (§5.3: "retrying the
    *  same URL will produce the same answer and offering it would be a lie about our capability"),
@@ -200,7 +188,7 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
   NO_CAPTION: {
     kicker: 'No caption',
     headline: 'No caption in this one.', // NEW, echoes C69's shape
-    body: 'We opened it fine — there’s just no caption for us to read a place out of. Some TikToks only show the place on screen.', // tail is C70
+    body: 'We opened it fine — there’s just no caption for us to read a place out of. Some TikTok videos only show the place on screen.', // tail is C70
     icon: 'no-caption',
     actions: ['another_tiktok', 'open_tiktok'], // C71 order, minus the manual add
   },
@@ -210,7 +198,7 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
   EXTRACTOR_UNAVAILABLE: {
     kicker: 'On our side',
     headline: 'We read it, but couldn’t work out the places.', // NEW
-    body: 'That one’s on us, not on the TikTok. We’ve already got the post, so a retry is quick.', // NEW
+    body: 'That one’s on us, not on the video. We’ve already got it, so a retry is quick.', // NEW
     icon: 'our-side',
     actions: ['retry', 'another_tiktok'],
   },
@@ -221,14 +209,40 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
   EXTRACTOR_INVALID_OUTPUT: {
     kicker: 'On our side',
     headline: 'We read it, but couldn’t work out the places.',
-    body: 'That one’s on us, not on the TikTok. We’ve already got the post, so a retry is quick.',
+    body: 'That one’s on us, not on the video. We’ve already got it, so a retry is quick.',
     icon: 'our-side',
     actions: ['retry', 'another_tiktok'],
   },
 
+  /** The day's allowance of model calls is spent (`product-ruling-quota-copy-2026-08-31.md` §3;
+   *  deck rows C170–C172). Three word choices are the ruling's, not this file's, and each is a
+   *  fact rather than a preference:
+   *
+   *   - **`find places`, not `read`.** The read succeeded — this is stage B, the one the product
+   *     already calls `Finding the places…` (C12). Writing *read* here would contradict the body
+   *     one line below it.
+   *   - **`right now`, not `today`.** A provider ceiling can be per-minute as well as per-day and
+   *     nothing in this codebase reads which; `right now` is true under either. The body's
+   *     `tomorrow` is advice and is the only duration that cannot over-promise in either case.
+   *   - **`We read it fine.`** is the load-bearing sentence. Every other screen in this family is
+   *     about the link, so the trained response is to go and fetch a different one — which fails
+   *     identically. This is the one screen where that instinct is wrong.
+   *
+   *  No retry and no `another_tiktok`: both spend the same empty allowance, and `retryable: false`
+   *  in the taxonomy is what stops a server response putting the button back. No `open_tiktok`
+   *  either, by the rule this table already follows — it is offered exactly where **the read
+   *  failed**, never as a consolation where it succeeded. Leaving *is* the recovery here. */
+  EXTRACTOR_QUOTA_EXHAUSTED: {
+    kicker: 'Not right now',
+    headline: 'We can’t find places right now.', // C170
+    body: 'We read it fine. Try it again tomorrow.', // C171
+    icon: 'waiting',
+    actions: ['back_to_map'], // C172
+  },
+
   /** `07` §9: "redirect to sign-in, pasted URL preserved". C76 as the headline. The body does not
    *  promise to preserve the link, because a full navigation to `/sign-in` unmounts this component
-   *  and the URL is not preserved across it today — `Open the TikTok` is offered instead so the
+   *  and the URL is not preserved across it today — `Open on TikTok` is offered instead so the
    *  user leaves with their link rather than with a promise we don't keep. */
   NOT_AUTHENTICATED: {
     kicker: 'Signed out',
@@ -243,7 +257,7 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
   INTERNAL: {
     kicker: 'On our side',
     headline: 'That didn’t work on our side.', // NEW
-    body: 'The fault is ours, not your TikTok’s. It’s worth a retry.', // second half is C61
+    body: 'That one’s on us, not on the video. It’s worth a retry.', // second half is C61
     icon: 'our-side',
     actions: ['retry', 'another_tiktok'],
   },
@@ -275,7 +289,7 @@ export function toDomainErrorCode(raw: string): DomainErrorCode {
  *    sends `retryable: false` for a code the table calls retryable — a stage that has spent its
  *    one retry — we do not put a button on screen the server has already said will not work. Not
  *    symmetric: `retryable: true` never *adds* a retry to a code whose news makes retrying
- *    pointless (`NO_CAPTION`, `UNSUPPORTED_URL`, `RATE_LIMITED_LOCAL`).
+ *    pointless (`NO_CAPTION`, `UNSUPPORTED_URL`, `EXTRACTOR_QUOTA_EXHAUSTED`).
  * 2. **A link out of the product is never the primary.** `open_tiktok` / `open_link` are honesty,
  *    not recovery. No entry leads with one, but dropping a `retry` can promote one —
  *    `POST_UNAVAILABLE` with `retryable: false` is exactly that case — so the first real recovery

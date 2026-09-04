@@ -53,6 +53,8 @@
  */
 
 /** The two themes the tokens below are mirrored for. */
+import { themeFromDocument } from '@/lib/theme';
+
 export type DiscTheme = 'light' | 'dark';
 
 export interface CountryDiscSpec {
@@ -63,6 +65,20 @@ export interface CountryDiscSpec {
   readonly countryCode: string | null;
   /** The active area's country. The mint ring is the only state colour on the marker. */
   readonly active?: boolean;
+  /**
+   * The pill's name — a country's or an area's — **drawn into the bitmap** rather than handed to a
+   * `text-field`. Omitted or empty draws the count alone.
+   *
+   * Two reasons the text is baked, one per band. MapLibre paints a symbol layer's icons and its
+   * glyphs in two separate passes, so a lower pill's text floats above an upper pill's background
+   * and two pills sharing an anchor smear together; one icon carrying everything stacks as one
+   * opaque card (owner, 2026-09-02). And a `text-field` cannot put a Latin count on the same side
+   * of a Hebrew name as it puts it on a Latin one — see `drawPillText`.
+   */
+  readonly name?: string;
+  /** The count, drawn at the pill's trailing edge. Omitted draws the stretchable slot instead,
+   *  which is what an image fitted to live text needs. */
+  readonly count?: string;
 }
 
 export interface CountryDiscImage {
@@ -148,9 +164,29 @@ function leadingInset(capped: boolean): number {
 
 const TRAILING_INSET = SUMMARY_PILL.padX + SUMMARY_PILL.shadowPad;
 
-/** Bitmap width in CSS pixels, per cap kind. */
-export function summaryPillWidth(capped: boolean): number {
-  return leadingInset(capped) + SUMMARY_PILL.textSlot + TRAILING_INSET;
+/** Between a pill's name and its count. The same two spaces the `text-field` used; a middot has no
+ *  glyph in some stacks and renders as nothing at all. */
+export const SUMMARY_LABEL_COUNT_GAP = '  ';
+
+/** The whole string a pill shapes, in the one place that assembles it. */
+export function summaryPillText(name: string, count: string): string {
+  return name === '' ? count : `${name}${SUMMARY_LABEL_COUNT_GAP}${count}`;
+}
+
+/**
+ * Bitmap width in CSS pixels: the baked text's own width, or the stretchable slot where the layer
+ * will fit the pill to live text.
+ *
+ * Measured from the **same assembled string** `summaryPillFitAllowance` measures, so the width the
+ * camera pads for, the width `area-band-layout.ts` de-collides with and the width actually drawn
+ * are one number rather than three that agree by hand.
+ */
+export function summaryPillWidth(capped: boolean, name?: string, count?: string): number {
+  const middle =
+    count === undefined || count === ''
+      ? SUMMARY_PILL.textSlot
+      : measureSummaryLabelPx(summaryPillText(name ?? '', count));
+  return leadingInset(capped) + middle + TRAILING_INSET;
 }
 
 /** One marker's label, as the camera has to reason about it: the text the symbol layer will shape,
@@ -297,18 +333,20 @@ function defaultCreateCanvas(): HTMLCanvasElement | null {
   return document.createElement('canvas');
 }
 
-/** The same rule `components/ui/map.tsx` uses, so the pill and the basemap never disagree. */
+/**
+ * The same rule `components/ui/map.tsx` and `use-disc-theme.ts` use, so the pill and the basemap
+ * never disagree — and since W7-2 that is enforced by them calling the same function rather than by
+ * three copies happening to stay in step.
+ *
+ * **`themeFromDocument` and not `currentTheme`**, and the difference is the whole point of this
+ * call site: `null` here means "the document has expressed no opinion", which is not the same as
+ * "light". It is used below to check that the CSS variables about to be read belong to the theme
+ * this rasteriser was asked for, and a document with no opinion is not evidence either way — so it
+ * has to fall through to the fallback tokens rather than read variables that may be the other
+ * theme's.
+ */
 function documentTheme(): DiscTheme | null {
-  if (typeof document === 'undefined') return null;
-  const root = document.documentElement;
-  if (root.classList.contains('dark')) return 'dark';
-  if (root.classList.contains('light')) return 'light';
-  const attr = root.dataset.theme;
-  if (attr === 'dark' || attr === 'light') return attr;
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  return null;
+  return themeFromDocument(typeof document === 'undefined' ? null : document.documentElement);
 }
 
 function readVar(styles: CSSStyleDeclaration, name: string): string | null {
@@ -426,7 +464,11 @@ export function flagEmoji(code: string): string {
  */
 export function countryDiscImageId(spec: CountryDiscSpec, theme: DiscTheme): string {
   const code = normaliseCountryCode(spec.countryCode) ?? 'none';
-  return `summary-pill:${theme}:${code}${spec.active ? ':active' : ''}`;
+  const text =
+    spec.count === undefined || spec.count === ''
+      ? ''
+      : `:${spec.name ?? ''}|${spec.count}`;
+  return `summary-pill:${theme}:${code}${spec.active ? ':active' : ''}${text}`;
 }
 
 /**
@@ -672,6 +714,53 @@ function drawCapRing(ctx: CanvasRenderingContext2D, tokens: DiscTokens): void {
   ctx.stroke();
 }
 
+/**
+ * The name and the count, drawn as **two positioned runs** — name against the leading inset, count
+ * against the trailing one.
+ *
+ * Two runs rather than one string, and that is the whole of the Hebrew fix (owner, 2026-09-02:
+ * *"the badge of countries and cities when it's hebrew — it's not aligned with the numbers"*).
+ * Unicode takes a run's base direction from its first strong character, so `תל אביב-יפו  33` is an
+ * RTL paragraph and its digits — European Numbers — are placed at the paragraph's *end*, on the
+ * left. `London  18` put the count on the right and `תל אביב-יפו  33` put it on the left, and the
+ * two pills disagreed about which side the number was on.
+ *
+ * Neither `U+2068`/`U+2069` nor a leading `U+200E` fixes it in the layer: both were tried against
+ * the running map on 2026-09-02 and the count stayed on the left, because the shaping runs through
+ * `@mapbox/mapbox-gl-rtl-text@0.4.0` in MapLibre's worker and that plugin resolves the direction
+ * from the label's own script rather than from the bidi control characters around it.
+ *
+ * Drawing the two runs at coordinates we choose sidesteps the question. Each run still gets the
+ * *browser's* bidi, so a Hebrew name shapes right-to-left correctly inside its own run — what it
+ * can no longer do is decide which end of the pill the number lives at.
+ */
+function drawPillText(
+  ctx: CanvasRenderingContext2D,
+  tokens: DiscTokens,
+  name: string,
+  count: string,
+  capped: boolean,
+  widthCss: number
+): void {
+  ctx.save();
+  ctx.font = `${SUMMARY_LABEL_FONT_PX}px ${tokens.fontFamily}`;
+  ctx.fillStyle = tokens.ink;
+  ctx.textBaseline = 'middle';
+  const left = leadingInset(capped);
+  const right = widthCss - TRAILING_INSET;
+  const midY = SUMMARY_PILL.shadowPad + SUMMARY_PILL.height / 2;
+  if (name === '') {
+    ctx.textAlign = 'center';
+    ctx.fillText(count, (left + right) / 2, midY);
+  } else {
+    ctx.textAlign = 'left';
+    ctx.fillText(name, left, midY);
+    ctx.textAlign = 'right';
+    ctx.fillText(count, right, midY);
+  }
+  ctx.restore();
+}
+
 function build(
   spec: CountryDiscSpec,
   options: CountryDiscOptions,
@@ -684,7 +773,7 @@ function build(
 
   const code = normaliseCountryCode(spec.countryCode);
   const capped = code !== null;
-  const widthCss = summaryPillWidth(capped);
+  const widthCss = summaryPillWidth(capped, spec.name, spec.count);
 
   canvas.width = Math.ceil(widthCss * options.pixelRatio);
   canvas.height = Math.ceil(SUMMARY_PILL_HEIGHT * options.pixelRatio);
@@ -699,6 +788,9 @@ function build(
     if (flags) drawFlag(ctx, code, createCanvas);
     else drawCode(ctx, tokens, code, createCanvas);
     drawCapRing(ctx, tokens);
+  }
+  if (spec.count !== undefined && spec.count !== '') {
+    drawPillText(ctx, tokens, spec.name ?? '', spec.count, capped, widthCss);
   }
 
   // Raw bitmap pixels, and rounded to the same integers the canvas was allocated at — a fractional

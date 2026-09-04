@@ -25,8 +25,9 @@ Production falls back to Overture behind a **ToS gate** — Google content may n
 non-Google map (`06` §3.1, VERIFIED). The gate is code on purpose; a Google renderer deletes it.
 
 **L1 is nearly complete and collections (L2) has shipped.** Not built: the streaming route
-(`L0-F6`, `/api/imports/probe` is the stand-in) and `L1-F8-T1`, the account menu with
-delete-my-data — the last unbuilt L1 product feature. D2b was **superseded, not completed**.
+(`L0-F6`, `/api/imports/probe` is the stand-in). **`L1-F8-T1` — the account menu with
+delete-my-data — was built on 2026-08-31 (`642cab0`)**, so the sentence that called it the last
+unbuilt L1 feature is retired; `docs/current-state.md` §51 and §136 are the record. D2b was **superseded, not completed**.
 Per-task status is `docs/execution-plan.md`; read `docs/current-state.md` first.
 
 The MVP boundary, and it is three decisions rather than a feature list: one link in one field;
@@ -62,7 +63,7 @@ what is verified and how, what is unresolved, and the next highest-impact step. 
 2. `docs/00-project-charter.md` — product definition, V1 boundary, engineering principles, open decisions
 3. `docs/implementation-plan.md` — the decision ledger, the M3 architecture answer, the change log
 4. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks
-5. `docs/01-agent-roster.md` — the eleven expert roles and who owns what
+5. `docs/01-agent-roster.md` — the twelve expert roles and who owns what
 
 Stack: Next.js + TypeScript + Supabase + Vercel. **MapLibre GL 6.4.1** (read the v6 API surface) on
 **CARTO** tiles, and **Google Places** as the canonical resolver with the Overture index as
@@ -72,7 +73,7 @@ production's ToS-gated fallback (`docs/06-map-and-places-decision.md`, schema `d
 sign-off were superseded by the Google Places ruling of 2026-08-28, not delivered. Protomaps is
 likewise unused: `map-surface.live.tsx` is not wired in.
 
-**You are the lead developer and orchestrator, not the only pair of hands.** Eleven specialists live
+**You are the lead developer and orchestrator, not the only pair of hands.** Twelve specialists live
 in `.claude/agents/`, invocable by `subagent_type`, in three tiers (`docs/01-agent-roster.md`):
 **Build** writes production code and its unit tests (`nextjs-architect`, `supabase-database`,
 `maps-geospatial`, `ai-extraction`, `design-system-frontend`); **Probe** produces experiments and
@@ -151,7 +152,7 @@ anything not green, reverting what is already on `main`, and destructive databas
 
 **The Claude Code setup is project-contained and committed — owner ruling, 2026-08-30,
 [`docs/claude-code-setup.md`](docs/claude-code-setup.md).** `.claude/settings.json` (the permission
-posture), `.claude/agents/` (the eleven specialists) and `.claude/hooks/` all live in the repo and
+posture), `.claude/agents/` (the twelve specialists) and `.claude/hooks/` all live in the repo and
 are reviewable in a diff; nothing this project depends on sits in `~/.claude/`. The settings turn
 `git-workflow.md` §9.3 and `agent-guardrails.md` §1–§4 from prose into rules the harness enforces:
 **`deny`** for what nobody may do here (force-push, `reset`/`clean`/`stash`/`restore`, rebase, branch

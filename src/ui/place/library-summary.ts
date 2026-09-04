@@ -39,9 +39,18 @@ export interface CountrySummary<T> {
   /** ISO 3166-1 alpha-2, or `null` for the areas whose members carry no usable country (§2.5). */
   readonly countryCode: string | null;
   /**
-   * What the list calls it. The country's English name where we have a code; where we do not, the
-   * area's own name — an unflagged group is one we could not name a country for, and naming it
-   * after the place it actually contains is the honest label rather than a blank or a guess.
+   * What the list calls it: the country's English name where we have a code, and
+   * `UNNAMED_OTHER_AREA_LABEL` where we do not.
+   *
+   * **Never the area's own name, and that is a fix rather than a preference** (2026-09-02). It used
+   * to fall back to `areas[0].label`, so the one Haifa save — whose `country_code` is NULL because
+   * nothing ever wrote Google's own `IL` — rendered as a row reading `חיפה` directly beneath
+   * `Israel`, on the map's world band and in `/profile`'s `Where you save` alike. A city presented
+   * as a peer of a country says something false with no hedge in it, and the profile's
+   * `N Countries` then disagreed with the list under it because that stat counts codes and the list
+   * counted rows. A group we could not name a country for is a **gap**, and the shipped words for a
+   * gap are `Another area` — which `list-scope.ts` already lowercases mid-sentence and which
+   * carries no flag.
    */
   readonly label: string;
   readonly areas: readonly Area<T>[];
@@ -71,8 +80,7 @@ export function summariseByCountry<T>(
   return bucketAreasByCountry(areas, toCountryCode, toPoint).map((bucket) => ({
     key: countryKey(bucket.countryCode),
     countryCode: bucket.countryCode,
-    label:
-      toCountryName(bucket.countryCode) ?? bucket.areas[0]?.label ?? UNNAMED_OTHER_AREA_LABEL,
+    label: toCountryName(bucket.countryCode) ?? UNNAMED_OTHER_AREA_LABEL,
     areas: bucket.areas,
     centroid: bucket.centroid,
     bounds: bucket.bounds,

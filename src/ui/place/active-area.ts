@@ -51,10 +51,47 @@ import {
   type GeoCluster,
   type GeoPoint,
 } from '@/domain/places/clusters';
+import { areaCountry } from '@/domain/places/country-bucket';
+import { toCountryName } from '@/domain/places/country-code';
 import { boundsCentre, withinBounds, type ViewportBounds } from './viewport';
 
-/** What the header says instead of a city name when the places in an area do not agree on one. */
+/**
+ * What the header says instead of a city name when an area cannot be named at all — neither a
+ * locality its members agree on nor a country (`buildAreas`).
+ *
+ * **It stays deictic, and the two cases behind it stay collapsed here.** `clusterLabel` returns
+ * `null` for two different reasons — no locality anywhere in the cluster, and a genuine tie between
+ * spellings — and it was worth asking whether the header should tell them apart. It should not: the
+ * header names the area the user is *looking at*, `this area` is true in both cases, and the
+ * difference between "we hold no name" and "we hold two and cannot choose" is a fact about our data
+ * that the user cannot act on. Spending a word on it would be narrating the pipeline.
+ *
+ * What must **not** collapse onto it is anywhere there is no *this*: a row for a different area
+ * (`UNNAMED_OTHER_AREA_LABEL`) and a marker on the map, which is a specific pin rather than a
+ * sentence about the current scope.
+ */
 export const UNNAMED_AREA_LABEL = 'this area';
+
+/**
+ * **The heading when the filters match nothing anywhere** — and it deliberately says nothing about
+ * that.
+ *
+ * Owner ruling, 2026-09-02, twice and emphatically. It replaces `Nothing tagged "Asian +
+ * Desserts"`, which was the *same fact* the list itself now states, said a control row earlier: the
+ * list carries `NO_FILTER_MATCHES_LINE` with the button that undoes it, where the reader's eye
+ * already is. A header that repeats it is one sentence too many, and it was the half the owner
+ * objected to.
+ *
+ * So the header goes back to its actual job — naming what you are looking at. `Your places` is true
+ * under every filter combination, needs no per-axis wording, and cannot go stale when a fourth axis
+ * is added. It carries no count, because the only count it could carry is zero and a bare zero in a
+ * heading is the state this whole family exists to avoid.
+ *
+ * One heading survives beside it: `ALL_BEEN_HEADING`, which reports an achievement rather than a
+ * failed query. The search's own `Nothing matches "momos"` used to be the other, and moved into the
+ * list on 2026-09-04 — the list was already saying it, and the heading counts and scopes.
+ */
+export const LIBRARY_HEADING = 'Your places';
 
 /**
  * The heading when the `Not been yet` filter has nothing left to show.
@@ -68,7 +105,7 @@ export const ALL_BEEN_HEADING = "You've been to all of them";
 /** Under that heading when the whole library is done: the achievement, then the way forward. The
  *  filter's own pill is the way *back* and is already on screen, so this line does not repeat it. */
 export const ALL_BEEN_LIBRARY_NOTE =
-  'Nothing left on your list. Paste a TikTok and it starts filling up again.';
+  'Nothing left on your list. Paste a TikTok link and it starts filling up again.';
 
 /** Under it when only this area is done. The `Elsewhere` rows below name the areas that still have
  *  something in them, so this line points at them rather than at the import. */
@@ -90,8 +127,19 @@ export function isolate(text: string): string {
 }
 
 /** The same absence, in a row that is *not* the area you are looking at — `this area` would be a
- *  lie there, and `Unnamed area` reads like a defect rather than an honest gap. */
-export const UNNAMED_OTHER_AREA_LABEL = 'Another area';
+ *  lie there, and `Unnamed area` reads like a defect rather than an honest gap.
+ *
+ *  **`Other` rather than `Another area`, and the short word is load-bearing.** A country pill is
+ *  whole at the frame's edge only if it draws at most 112 px (`summary-style.ts`), and this bucket
+ *  has no flag to trade its name for the way `c78c787` let the flagged ones do. Measured at
+ *  390x844: `Another area  1` draws 154.9 px, `Unknown  1` 130.1, `Another  1` 120.6, `Other  1`
+ *  **104.7**. Only a word of five letters or fewer fits.
+ *
+ *  **Temporary, on the owner's own framing (2026-09-02).** The rows landing here are not genuinely
+ *  unnameable — the one in the owner's library is a city in Israel whose locality we failed to
+ *  resolve. The fix is the geography backfill, not a shorter fallback; when a row carries its
+ *  locality it never reaches this constant at all. Do not treat `Other` as the answer. */
+export const UNNAMED_OTHER_AREA_LABEL = 'Other';
 
 /** One of the user's areas: a coordinate cluster of their saved places, plus the presentation
  *  facts the list needs. Generic over the caller's place type, exactly as `clusterByProximity` is,
@@ -99,7 +147,8 @@ export const UNNAMED_OTHER_AREA_LABEL = 'Another area';
 export interface Area<T> {
   /** Stable key: the lexicographically smallest member id. Never used for lookup — see the header. */
   readonly id: string;
-  /** The city name, or `null` when the members do not agree on one. */
+  /** The city name; failing that the country's, where the caller supplied `toCountryCode` and the
+   *  members agree on one; `null` only when neither is available. See `AreaProjections`. */
   readonly label: string | null;
   /** The area's places, in the caller's input order (which is `created_at desc`, i.e. most recently
    *  saved first — the list's order, and it never changes on pan, zoom or resize). */
@@ -118,6 +167,34 @@ export interface AreaProjections<T> {
   readonly toId: (item: T) => string;
   readonly toPoint: (item: T) => GeoPoint;
   readonly toLocality: (item: T) => string | null;
+  /**
+   * The place's ISO-3166 alpha-2, where the caller holds one. **Optional, and only ever a
+   * fallback** — it never groups anything and never overrides a locality.
+   *
+   * It exists because `places.locality` arrives NULL from the resolver for whole address shapes
+   * (every Czech row in the local library: Google returns Prague's city in a sublocality
+   * component). Those areas had no name at all, and an area with no name degrades into a lie or a
+   * blank everywhere it is rendered — `4 places in this area` in the header, and a marker showing
+   * the count with nothing beside it. `Czechia` is coarser than a city and is not a guess: every
+   * place in the area carries that code.
+   */
+  readonly toCountryCode?: (item: T) => string | null | undefined;
+}
+
+/**
+ * The area's name when its members do not agree on a locality — the country they *do* agree on, or
+ * `null` when there is no such agreement either.
+ *
+ * `areaCountry`'s plurality rule, not a second one, so the name an area falls back to is the same
+ * country the world-zoom band and `/profile` already file it under. A tie or an absence stays
+ * `null`; the fallback narrows the "we cannot name this" case, it does not abolish it.
+ */
+function countryFallbackLabel<T>(
+  cluster: GeoCluster<T>,
+  toCountryCode: ((item: T) => string | null | undefined) | undefined,
+): string | null {
+  if (toCountryCode === undefined) return null;
+  return toCountryName(areaCountry(cluster, toCountryCode));
 }
 
 /**
@@ -134,20 +211,30 @@ export interface AreaProjections<T> {
  * `תל אביב - יפו` — 67%, under the old bar, so the 70% rule would render `9 places in this area`
  * and an `Another area · 9 places` row that names nowhere. All nine rows are the same city; calling
  * it `Tel Aviv-Yafo` asserts nothing the data disputes. `clusterLabel` still returns `null` on a
- * genuine tie between spellings, and `null` still prints as `this area`.
+ * genuine tie between spellings.
+ *
+ * **When it does, the country is tried before the label is given up on** (2026-09-02). Four of the
+ * owner's saved places sit in Prague with `places.locality` NULL, so the whole area was nameless:
+ * the header read `4 places in this area` and the map's area marker drew the count with an empty
+ * string beside it — a bare `4` floating on the map, which reads as a defect rather than as a
+ * hedge. `Czechia` is what every one of those four rows actually says. The fallback is the
+ * *presentation* of a data gap; it changes no grouping, and `A-T2`'s backfill will make it
+ * unreachable for these rows rather than obsolete for the next NULL.
  */
 export function buildAreas<T>(
   clusters: readonly GeoCluster<T>[],
   projections: AreaProjections<T>,
 ): readonly Area<T>[] {
-  const { toId, toPoint, toLocality } = projections;
+  const { toId, toPoint, toLocality, toCountryCode } = projections;
   return clusters.map((cluster) => {
     const ids = cluster.members.map(toId);
     let smallest = ids[0] ?? '';
     for (const id of ids) if (id < smallest) smallest = id;
     return {
       id: smallest,
-      label: clusterLabel(cluster, toLocality),
+      // Locality first, always. The country is only reached for when there is no locality to
+      // print — see `AreaProjections.toCountryCode`.
+      label: clusterLabel(cluster, toLocality) ?? countryFallbackLabel(cluster, toCountryCode),
       members: cluster.members,
       count: cluster.members.length,
       memberIds: new Set(ids),
@@ -346,8 +433,18 @@ export interface AreaHeading {
  * `12 places in London` · `1 place in London` · `12 places in this area`
  * `3 matches in London` · `1 match in London` · `3 matches in this area`
  * `No matches in London` — the filters match somewhere, just not here; the rows below say where.
- * `Nothing matches "momos"` — the search matches nowhere in the library. Offers `Clear search`.
- * `Nothing tagged "Momos"` — the chip matches nowhere. Its pill above is the way out.
+ * `Your places` — nothing matches, whatever emptied it. The *list* explains that and offers the one
+ *   control that undoes it; see `LIBRARY_HEADING` and `NothingHereEscape`. `escape` still says
+ *   which case it is. This is the branch `Nothing tagged "Momos"` and `Nothing matches "momos"`
+ *   both used to hold.
+ *
+ * **The nowhere branch is no longer gated on `filtering`**, and that is a fix rather than a
+ * widening. A category or a `Been there` filter matching nothing anywhere reaches this function as
+ * no search, no tag and `notBeenOnly === false` — indistinguishable from no filters at all — so it
+ * fell through to `No matches in <where>`, a failure sentence in the header for two of the four
+ * axes. `matchesAnywhere === 0 && countInArea === 0` is the honest test: nothing is listed here and
+ * nothing is listed anywhere, whatever emptied it. An empty *library* lands here too and is
+ * unaffected: both hosts override the heading with `EMPTY_LIBRARY_HEADING` before it is drawn.
  *
  * `Nothing saved in this area` is **gone**, and cannot recur: an area is defined by the places in
  * it, so an unfiltered area always has at least one. That deletes the state `Show my places`
@@ -386,14 +483,15 @@ export function areaHeading(input: {
   /** The visit filter, alone. The only case that earns its own vocabulary — see the header. */
   const visitOnly = notBeenOnly && searchQuery === '' && tagLabel === null;
 
-  if (filtering && matchesAnywhere === 0) {
-    // Search wins the sentence when both are on: it is the thing the user typed, and the tag's own
-    // pill is on screen immediately above with its own clear control.
-    const text = visitOnly
-      ? ALL_BEEN_HEADING
-      : searchQuery !== ''
-        ? `Nothing matches "${searchQuery}"`
-        : `Nothing tagged "${tagLabel ?? ''}"`;
+  if (matchesAnywhere === 0 && countInArea === 0) {
+    // **The heading no longer carries the miss; the list does** — 2026-09-04, when the search miss
+    // and the filter miss became one empty state that quotes the query itself. The heading said
+    // `Nothing matches "momos"` and the state under it said the same sentence again, twice on one
+    // screen. The filter branch has always deferred to the list for exactly this reason
+    // (`LIBRARY_HEADING`, and see `NothingHereEscape`); the search branch now does too, so the
+    // heading counts and scopes and never explains an absence. `escape` still says which control
+    // the list should offer — that is what it is for.
+    const text = visitOnly ? ALL_BEEN_HEADING : LIBRARY_HEADING;
     return {
       text,
       count: null,
@@ -463,3 +561,46 @@ export function mapAccessibleName(heading: AreaHeading, area: string | null): st
   if (heading.count === null) return `Map of your saved places in ${where}.`;
   return `Map of your saved places in ${where}. The list below names all ${heading.count}.`;
 }
+
+/**
+ * **One sentence for every filter combination that matches nothing.**
+ *
+ * Owner ruling, 2026-09-02. The specific forms this replaces — `Nothing tagged "Brunch +
+ * Desserts"`, `No matches in your library` — each read as a report about the axis that emptied the
+ * list, so every axis needed its own wording and every new axis would need another. This says the
+ * only thing the reader needs, which is that the filters, not the library, are why the space is
+ * empty. `voice-and-vocabulary.md`: plain, no apology, no exclamation.
+ *
+ * It is rendered *in the list*, by `NothingHereEscape`, with the button that undoes it — never in
+ * the heading. The heading counts and scopes; it does not explain an absence a control row away.
+ */
+export const NO_FILTER_MATCHES_LINE = 'No places match these filters.';
+
+/** The second line of the empty filter state — what to do, under what happened. Plain, no apology,
+ *  and it names the action the button performs rather than describing the miss again. */
+export const NO_FILTER_MATCHES_HINT = 'Try removing one of them.';
+
+/**
+ * **The empty list is one state with one way out** — owner, 2026-09-04: *"it should clear the same
+ * not? search is also a filter."*
+ *
+ * It was two. A search that matched nothing drew a bare `Clear search` that cleared the query and
+ * left the tags on; filters that matched nothing drew a composed state with the mascot that cleared
+ * the filters and left the query on. So the reader met two different objects for one event, and
+ * either escape could return them to a list that was still empty for the other reason.
+ *
+ * One control now clears every axis, the search among them. `Clear all` rather than `Clear
+ * filters`: the row's own `Clear` already means "every axis in this row", and this one takes the
+ * search with it, which is more than the row does and has to say so.
+ */
+export const CLEAR_EVERYTHING_LABEL = 'Clear all';
+
+/** The line quoting what was typed, drawn *in the list* under the mark. The heading carries the
+ *  same sentence; this is the one the reader is looking at when the rows are missing. */
+export function nothingMatchesLine(searchQuery: string): string {
+  return `Nothing matches "${searchQuery}"`;
+}
+
+/** What to do, when a search is what emptied the list. The filter hint names removing one of
+ *  several; a query is one thing, so the advice is to make it smaller rather than fewer. */
+export const NO_SEARCH_MATCHES_HINT = 'Try a shorter word, or clear it.';

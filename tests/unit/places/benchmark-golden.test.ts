@@ -792,8 +792,13 @@ const REFIT_CASE_MOVES: readonly {
     to: 'confirm',
     top1Was: 'אורליס רוטיסרי',
     top1Now: 'אולמי קונקורד',
-    why: 'Orna and Ella is absent from Overture, so both are wrong. Two near-tied wrong rows swap ' +
-      'at margin 0.0006; no verdict changes and the band does not move.',
+    why: 'Orna and Ella is absent from Overture, so both rows are wrong. Two near-tied wrong rows ' +
+      'swap at margin 0.0006; no verdict changes and the band does not move. ' +
+      '`nameIsEstablished` briefly took this to `no_match` on 2026-08-31 at a 0.85 floor — its ' +
+      'weakest token covers at 0.830 — and the floor came back down to 0.81 the same day, because ' +
+      '0.85 also threw away `Pita Lila` against Google`s `Pizza Lila` at 0.827: the same venue, ' +
+      'named both ways by the creator in one breath. **Correct and wrong overlap on this signal ' +
+      'and cannot be separated by it.** This row is the cost of keeping that real place.',
   },
   {
     caseId: 'TLV-10',
@@ -872,6 +877,19 @@ const REFIT_CASE_MOVES: readonly {
       'margin is 0.005 — and the band is what matters: still confirm, still not auto-accepted.',
   },
   {
+    caseId: 'NEG-02',
+    from: 'confirm',
+    to: 'no_match',
+    top1Was: 'Bees Coffee',
+    top1Now: 'Bees Coffee',
+    why: 'A NEGATIVE case: the caption is `best coffee ever` and names no venue at all. It was ' +
+      'already kept out of auto-accept by the margin gate, but it still reached the user as a ' +
+      'shortlist offering `Bees Coffee` — a specific answer to a question that named nothing. ' +
+      '`nameIsEstablished` covers its weakest distinctive token at 0.667 and drops it to ' +
+      '`no_match` (2026-08-31). This is the case the guard was worth adding for: the ranking was ' +
+      'never wrong, the *offer* was.',
+  },
+  {
     caseId: 'NEG-03',
     from: 'confirm',
     to: 'no_match',
@@ -933,7 +951,7 @@ describe('the re-fit — 44 cases under the current SCORING.total', () => {
     }
   });
 
-  it('moves exactly the fifteen enumerated cases, in the enumerated directions', () => {
+  it('moves exactly the sixteen enumerated cases, in the enumerated directions', () => {
     const moved: string[] = [];
     for (const caseId of caseIds) {
       const before = bandOf(caseId, 'recorded');
@@ -953,7 +971,7 @@ describe('the re-fit — 44 cases under the current SCORING.total', () => {
     );
   });
 
-  it('tallies 24 preselect / 17 confirm / 3 no_match under the current weights and guard', () => {
+  it('tallies 24 preselect / 16 confirm / 4 no_match under the current weights and guards', () => {
     // Recorded was 29/12/3; the previous re-fit held 29/11/4; RESOLVE-CONF-1 alone gives 31/10/3.
     // TRACK2-BRANCH's guard then returns seven of those auto-accepts to the user — TYO-02, TYO-04,
     // TYO-10, TYO-14, LDN-02, LDN-07, LDN-12, every one of them a bare chain name with a branch
@@ -963,9 +981,17 @@ describe('the re-fit — 44 cases under the current SCORING.total', () => {
     // `benchmark-spec.json` asks for. `docs/evidence/places/branch-guard-2026-08-28.md` has the
     // per-configuration table, including the 30/11/3 variant that catches TYO-10 alone and why it
     // was refused.
+    //
+    // 2026-08-31, `nameIsEstablished` at its final 0.81 floor: 17 confirm -> 16, 3 no_match -> 4.
+    // NEG-02 alone moves. TLV-08 moved too at the 0.85 floor this guard shipped with for an hour;
+    // 0.81 restores it, because 0.85 also cost a real place on the live path. The cases are
+    // where the shortlist was offering a specific venue the caption did not name — TLV-08's query
+    // is absent from Overture entirely, and NEG-02's caption is `best coffee ever`. **Preselect is
+    // untouched at 24**, which is the property that matters: the guard only ever demotes, and it
+    // demoted nothing that was being auto-accepted.
     const tally = { preselect: 0, confirm: 0, no_match: 0 };
     for (const caseId of caseIds) tally[resimulatedConfidence(caseId).band] += 1;
-    expect(tally).toEqual({ preselect: 24, confirm: 17, no_match: 3 });
+    expect(tally).toEqual({ preselect: 24, confirm: 16, no_match: 4 });
   });
 
   it('still auto-accepts nothing the adjudication did not call correct', () => {

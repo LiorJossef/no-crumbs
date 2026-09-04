@@ -1,0 +1,1605 @@
+<title>Engine 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..900,0..100,0..1&family=Manrope:wght@400..800&family=JetBrains+Mono:wght@400..700&display=swap">
+
+<style>
+/* ═══ Tokens — inherited from docs/no-crumbs-design-system.html, dark-first ═══════════════ */
+:root {
+  --bg:        #0D0B08;
+  --bg-deep:   #080706;
+  --raised:    #15120D;
+  --card:      #1A1611;
+  --card-2:    #211C15;
+  --line:      #2B241A;
+  --line-soft: #1F1A13;
+  --ink:       #F3EFE7;
+  --ink-2:     #BDB4A5;
+  --ink-3:     #8B8171;
+
+  --gold:      #F2C46B;
+  --mint:      #A8ECE2;
+  --mint-mid:  #5FD3C2;
+  --mint-deep: #2E7A70;
+  --glow:      rgba(168,236,226,.13);
+
+  --t0: #5FD3C2;   /* free           */
+  --t1: #A8ECE2;   /* near free      */
+  --t2: #F5B354;   /* cheap          */
+  --t3: #F2C46B;   /* the audio tier */
+  --t4: #FF7A55;   /* expensive      */
+  --t5: #9E85FF;   /* the human      */
+
+  --ok:   #5BE0A4;
+  --warn: #F5C451;
+  --crit: #FF7B7B;
+
+  --display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --body:    "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --page: 1140px;
+  --prose: 68ch;
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 18px 40px -28px rgba(0,0,0,.9);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:        #FAF9F6;
+    --bg-deep:   #F1EFE9;
+    --raised:    #FFFFFF;
+    --card:      #FFFFFF;
+    --card-2:    #F5F3ED;
+    --line:      #E7E3DC;
+    --line-soft: #EFECE5;
+    --ink:       #1B1B1A;
+    --ink-2:     #4A463F;
+    --ink-3:     #6E685D;
+    --gold:      #B8801F;
+    --mint:      #215F56;
+    --mint-mid:  #2E7A70;
+    --mint-deep: #123B35;
+    --glow:      rgba(46,122,112,.10);
+    --t0: #2E7A70;
+    --t1: #215F56;
+    --t2: #A66A18;
+    --t3: #B8801F;
+    --t4: #D9482A;
+    --t5: #6A4BD0;
+    --ok:   #12805A;
+    --warn: #8A6100;
+    --crit: #BE3B32;
+    --shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 14px 34px -26px rgba(30,26,18,.4);
+  }
+}
+:root[data-theme="light"] {
+  --bg:        #FAF9F6;
+  --bg-deep:   #F1EFE9;
+  --raised:    #FFFFFF;
+  --card:      #FFFFFF;
+  --card-2:    #F5F3ED;
+  --line:      #E7E3DC;
+  --line-soft: #EFECE5;
+  --ink:       #1B1B1A;
+  --ink-2:     #4A463F;
+  --ink-3:     #6E685D;
+  --gold:      #B8801F;
+  --mint:      #215F56;
+  --mint-mid:  #2E7A70;
+  --mint-deep: #123B35;
+  --glow:      rgba(46,122,112,.10);
+  --t0: #2E7A70; --t1: #215F56; --t2: #A66A18; --t3: #B8801F; --t4: #D9482A; --t5: #6A4BD0;
+  --ok: #12805A; --warn: #8A6100; --crit: #BE3B32;
+  --shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 14px 34px -26px rgba(30,26,18,.4);
+}
+
+/* ═══ Base ════════════════════════════════════════════════════════════════════════════════ */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: var(--display); font-weight: 800; letter-spacing: -.025em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(38px, 6vw, 68px); line-height: 1.02; font-weight: 900; }
+h2 { font-size: clamp(25px, 3.1vw, 37px); line-height: 1.1; }
+h3 { font-size: 19px; line-height: 1.25; }
+h4 { font-size: 15.5px; font-family: var(--body); font-weight: 800; letter-spacing: -.01em; }
+p  { margin: 0 0 14px; max-width: var(--prose); }
+a  { color: var(--mint-mid); text-decoration-color: color-mix(in srgb, var(--mint-mid) 40%, transparent); text-underline-offset: 3px; }
+a:hover { color: var(--mint); }
+:focus-visible { outline: 2px solid var(--mint-mid); outline-offset: 3px; border-radius: 3px; }
+code, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+code { font-size: .88em; background: var(--card-2); border: 1px solid var(--line-soft); padding: 1px 5px; border-radius: 4px; color: var(--ink-2); }
+strong { color: var(--ink); font-weight: 700; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
+
+.wrap { max-width: var(--page); margin: 0 auto; padding: 0 clamp(18px, 4vw, 40px); }
+.eyebrow {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-3); margin: 0 0 12px; display: block;
+}
+.lede { font-size: 17.5px; line-height: 1.55; color: var(--ink-2); max-width: 64ch; }
+.dim { color: var(--ink-3); }
+
+/* ═══ Chrome ══════════════════════════════════════════════════════════════════════════════ */
+header.top {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.topin { display: flex; align-items: center; gap: 22px; height: 54px; }
+.brand { display: flex; align-items: center; gap: 9px; font-family: var(--display); font-weight: 900; letter-spacing: -.03em; font-size: 15.5px; white-space: nowrap; }
+.crumb { width: 15px; height: 15px; border-radius: 50%; background: var(--gold); position: relative; flex: none; }
+.crumb::after { content: ""; position: absolute; inset: 4.5px 3px auto auto; width: 3px; height: 3px; border-radius: 50%; background: var(--bg); box-shadow: -5px 0 0 var(--bg); }
+nav.chbar { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin-left: auto; }
+nav.chbar::-webkit-scrollbar { display: none; }
+nav.chbar a {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-3); text-decoration: none; padding: 7px 9px; border-radius: 6px; white-space: nowrap;
+}
+nav.chbar a:hover { color: var(--ink-2); background: var(--card); }
+nav.chbar a.on { color: var(--bg); background: var(--gold); }
+@media (max-width: 900px) { nav.chbar { display: none; } }
+
+/* ═══ Sections ════════════════════════════════════════════════════════════════════════════ */
+section { border-top: 1px solid var(--line); padding-block: clamp(46px, 6vw, 82px); scroll-margin-top: 60px; }
+section:first-of-type { border-top: 0; }
+.shead { margin-bottom: 30px; }
+.shead h2 { max-width: 22ch; }
+.shead .lede { margin-top: 14px; }
+
+.hero { padding-block: clamp(52px, 8vw, 104px) clamp(36px, 5vw, 62px); }
+.hero h1 { max-width: 15ch; }
+.hero .lede { margin-top: 22px; font-size: 19px; }
+.stamp {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 22px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 36%, transparent);
+  background: color-mix(in srgb, var(--gold) 9%, transparent);
+  padding: 5px 11px; border-radius: 999px;
+}
+
+/* ═══ Cards & grids ═══════════════════════════════════════════════════════════════════════ */
+.grid { display: grid; gap: 14px; }
+.g2 { grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+.g3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.g4 { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 19px; box-shadow: var(--shadow);
+}
+.card h4 { margin-bottom: 7px; }
+.card p:last-child { margin-bottom: 0; }
+.card .mono.small { font-size: 11px; color: var(--ink-3); }
+
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 17px; }
+.stat .n { font-family: var(--display); font-size: 33px; font-weight: 900; letter-spacing: -.035em; line-height: 1; font-variant-numeric: tabular-nums; display: block; }
+.stat .k { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-top: 9px; display: block; }
+.stat .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 6px; line-height: 1.4; }
+
+/* ═══ Labels ══════════════════════════════════════════════════════════════════════════════ */
+.lab {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .11em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid;
+}
+.lab.ver  { color: var(--ok);   border-color: color-mix(in srgb, var(--ok) 40%, transparent);   background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.lab.doc  { color: var(--mint-mid); border-color: color-mix(in srgb, var(--mint-mid) 40%, transparent); background: color-mix(in srgb, var(--mint-mid) 10%, transparent); }
+.lab.ass  { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.lab.una  { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 40%, transparent); background: color-mix(in srgb, var(--crit) 10%, transparent); }
+.lab.neu  { color: var(--ink-3); border-color: var(--line); background: var(--card-2); }
+
+/* ═══ Tables ══════════════════════════════════════════════════════════════════════════════ */
+.twrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+th {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 500; background: var(--card-2); position: sticky; top: 0;
+  white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: color-mix(in srgb, var(--mint-mid) 4%, transparent); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+/* ═══ The challenge list ══════════════════════════════════════════════════════════════════ */
+.chal { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); }
+.chal > div { display: grid; grid-template-columns: 54px 1fr; gap: 16px; padding: 18px 19px; border-bottom: 1px solid var(--line-soft); }
+.chal > div:last-child { border-bottom: 0; }
+.chal .cn { font-family: var(--mono); font-size: 11px; color: var(--gold); padding-top: 3px; letter-spacing: .06em; }
+.chal h4 { margin-bottom: 6px; }
+.chal p { margin-bottom: 0; font-size: 14px; color: var(--ink-2); max-width: 74ch; }
+.chal p + p { margin-top: 9px; }
+
+/* ═══ The ladder ══════════════════════════════════════════════════════════════════════════ */
+.ladder { display: grid; gap: 10px; }
+.tier { border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
+.tier > button {
+  all: unset; display: grid; grid-template-columns: 62px 1fr auto; gap: 16px; align-items: center;
+  width: 100%; padding: 15px 18px; cursor: pointer; box-sizing: border-box;
+}
+.tier > button:hover { background: var(--card-2); }
+.tier > button:focus-visible { outline: 2px solid var(--mint-mid); outline-offset: -2px; }
+.tier .tid { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; }
+.tier .tname { font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: -.02em; }
+.tier .twhat { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+.tier .tcost { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+.tier .tcost small { display: block; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: 3px; }
+.tier .body { display: none; padding: 0 18px 18px 96px; border-top: 1px solid var(--line-soft); margin-top: 0; padding-top: 16px; }
+.tier[open] .body, .tier.open .body { display: block; }
+.tier .body dl { display: grid; grid-template-columns: 122px 1fr; gap: 7px 16px; margin: 0 0 14px; font-size: 13.5px; }
+.tier .body dt { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); padding-top: 3px; }
+.tier .body dd { margin: 0; color: var(--ink-2); }
+.tier .body p { font-size: 13.5px; color: var(--ink-2); }
+.tier .chev { transition: transform .18s ease; color: var(--ink-3); }
+.tier.open .chev { transform: rotate(90deg); }
+@media (max-width: 700px) {
+  .tier > button { grid-template-columns: 46px 1fr; }
+  .tier .tcost { grid-column: 2; text-align: left; margin-top: 6px; }
+  .tier .body { padding-left: 18px; }
+  .chal > div { grid-template-columns: 1fr; gap: 8px; }
+}
+
+/* ═══ The model ═══════════════════════════════════════════════════════════════════════════ */
+.model { display: grid; grid-template-columns: 320px 1fr; gap: 18px; align-items: start; }
+@media (max-width: 860px) { .model { grid-template-columns: 1fr; } }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.switch { display: flex; align-items: flex-start; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
+.switch:last-of-type { border-bottom: 0; }
+.switch input { appearance: none; width: 34px; height: 20px; border-radius: 999px; background: var(--card-2); border: 1px solid var(--line); position: relative; cursor: pointer; flex: none; margin: 2px 0 0; transition: background .16s ease, border-color .16s ease; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink-3); transition: transform .16s ease, background .16s ease; }
+.switch input:checked { background: color-mix(in srgb, var(--mint-mid) 26%, transparent); border-color: var(--mint-mid); }
+.switch input:checked::after { transform: translateX(14px); background: var(--mint); }
+.switch input:disabled { opacity: .45; cursor: not-allowed; }
+.switch .sl { font-size: 13.5px; font-weight: 700; line-height: 1.3; }
+.switch .sd { font-size: 11.5px; color: var(--ink-3); line-height: 1.4; margin-top: 2px; }
+.switch .sc { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-left: auto; padding-top: 2px; white-space: nowrap; }
+
+.slider { margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--line-soft); }
+.slider label { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 9px; }
+.slider label b { font-family: var(--display); font-size: 17px; color: var(--ink); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; appearance: none; height: 4px; border-radius: 999px; background: var(--line); cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--gold); border: 0; cursor: pointer; }
+input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--gold); border: 0; cursor: pointer; }
+
+.readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 12px; }
+.ro { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 15px 16px; }
+.ro .n { font-family: var(--display); font-size: 30px; font-weight: 900; letter-spacing: -.035em; line-height: 1; font-variant-numeric: tabular-nums; display: block; transition: color .2s ease; }
+.ro .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-3); margin-top: 8px; display: block; }
+.ro .d { font-size: 11.5px; color: var(--ink-3); margin-top: 5px; line-height: 1.35; }
+
+.bars { margin-top: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 17px 18px; }
+.bar { display: grid; grid-template-columns: 150px 1fr 54px; gap: 12px; align-items: center; padding: 6px 0; font-size: 12.5px; }
+.bar .bl { color: var(--ink-2); }
+.bar .bt { height: 9px; border-radius: 999px; background: var(--card-2); overflow: hidden; }
+.bar .bf { height: 100%; border-radius: 999px; transition: width .35s cubic-bezier(.4,0,.2,1); }
+.bar .bv { font-family: var(--mono); font-size: 11.5px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+@media (max-width: 620px) { .bar { grid-template-columns: 106px 1fr 46px; font-size: 11.5px; } }
+
+/* ═══ Corpus ══════════════════════════════════════════════════════════════════════════════ */
+.filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.filters button {
+  all: unset; cursor: pointer; font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--ink-3); background: var(--card);
+}
+.filters button:hover { color: var(--ink-2); border-color: var(--ink-3); }
+.filters button[aria-pressed="true"] { background: var(--gold); color: var(--bg); border-color: var(--gold); font-weight: 700; }
+.filters button:focus-visible { outline: 2px solid var(--mint-mid); outline-offset: 2px; }
+.cls { font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase; }
+.cls.sufficient  { color: var(--ok); }
+.cls.recoverable { color: var(--gold); }
+.cls.futile      { color: var(--crit); }
+.cls.control     { color: var(--ink-3); }
+
+/* ═══ Callout ═════════════════════════════════════════════════════════════════════════════ */
+.note {
+  border-left: 2px solid var(--gold); background: color-mix(in srgb, var(--gold) 7%, transparent);
+  padding: 14px 17px; border-radius: 0 10px 10px 0; margin: 20px 0; font-size: 14px; color: var(--ink-2);
+}
+.note strong { color: var(--ink); }
+.note.crit { border-left-color: var(--crit); background: color-mix(in srgb, var(--crit) 7%, transparent); }
+.note.ok   { border-left-color: var(--ok);   background: color-mix(in srgb, var(--ok) 7%, transparent); }
+.note p:last-child { margin-bottom: 0; }
+.note .eyebrow { color: var(--gold); margin-bottom: 7px; }
+.note.crit .eyebrow { color: var(--crit); }
+.note.ok .eyebrow { color: var(--ok); }
+
+ul.tight { margin: 0 0 14px; padding-left: 19px; max-width: var(--prose); }
+ul.tight li { margin-bottom: 7px; color: var(--ink-2); }
+ul.tight li::marker { color: var(--ink-3); }
+
+/* ═══ Flow diagram ════════════════════════════════════════════════════════════════════════ */
+.flow { overflow-x: auto; padding-bottom: 6px; }
+.flow svg { display: block; min-width: 720px; }
+.flow text { font-family: var(--mono); font-size: 10px; fill: var(--ink-2); }
+.flow text.h { font-family: var(--body); font-size: 12px; font-weight: 700; fill: var(--ink); }
+.flow text.s { font-size: 9px; fill: var(--ink-3); }
+.flow rect.n { fill: var(--card); stroke: var(--line); }
+.flow path.e, .flow line.e { stroke: var(--line); fill: none; stroke-width: 1.4; }
+
+footer { border-top: 1px solid var(--line); padding: 30px 0 60px; color: var(--ink-3); font-size: 12.5px; }
+footer p { max-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+
+<header class="top">
+  <div class="wrap topin">
+    <span class="brand"><span class="crumb"></span>No&nbsp;Crumbs</span>
+    <span class="mono" style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)">Engine 2.0</span>
+    <nav class="chbar" id="chbar">
+      <a href="#verdict">Verdict</a>
+      <a href="#ceiling">The ceiling</a>
+      <a href="#challenges">Seven challenges</a>
+      <a href="#ladder">The ladder</a>
+      <a href="#media">Where media comes from</a>
+      <a href="#cost">What it costs</a>
+      <a href="#ledger">The ledger</a>
+      <a href="#trips">Trips</a>
+      <a href="#code">The code</a>
+      <a href="#harness">Measurement</a>
+      <a href="#order">Build order</a>
+      <a href="#owner">For the owner</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ══════════════════════════════════════════════════════════════ VERDICT ══ -->
+<section class="hero" id="verdict">
+  <div class="wrap">
+    <span class="stamp">Architecture proposal &middot; 2026-08-31 &middot; not yet ratified</span>
+    <h1>The engine reads one sentence and hopes it names a restaurant.</h1>
+    <p class="lede">
+      Three quarters of the time it doesn't. That is not a bug anyone can fix in the prompt &mdash;
+      it is the whole architecture, which has exactly one input, one model call and one attempt.
+      Engine&nbsp;2.0 replaces the funnel with a ladder of signals, spends money only when a cheap
+      signal says spending would pay, and keeps every piece of evidence it collected so a place can
+      say where it came from.
+    </p>
+    <div class="grid g4" style="margin-top:34px">
+      <div class="stat"><span class="n" style="color:var(--crit)">27%</span><span class="k">Posts that yield a place</span><span class="sub">n=11 genuine recommendation posts. The other 73% reach the no-places screen.</span></div>
+      <div class="stat"><span class="n">1</span><span class="k">Signals read</span><span class="sub">The oEmbed caption. Nothing else in the post is looked at.</span></div>
+      <div class="stat"><span class="n">$0.0066</span><span class="k">Cost per add, today</span><span class="sub">Four fifths of it our own instructions, re-sent uncached on every call &mdash; including the 73% that find nothing.</span></div>
+      <div class="stat"><span class="n">13</span><span class="k">Links in the test corpus</span><span class="sub">Run by hand, never in CI, and unrunnable in this checkout.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════ CEILING ══ -->
+<section id="ceiling">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">01 &middot; What one signal buys</span>
+      <h2>The 27% is a ceiling, not a defect.</h2>
+      <p class="lede">
+        Creators put the venue name on screen and say it out loud, because that is what the feed
+        rewards. They put hashtags in the caption, because that is what search rewards. We read the
+        caption. The gap is structural, and it was measured a week ago against sixteen real posts.
+      </p>
+    </div>
+
+    <div class="grid g4" style="margin-bottom:22px">
+      <div class="stat"><span class="n" style="color:var(--ok)">3</span><span class="k">Sufficient</span><span class="sub">The caption names a findable place. Escalating past the caption is pure waste.</span></div>
+      <div class="stat"><span class="n" style="color:var(--gold)">5</span><span class="k">Recoverable</span><span class="sub">A real recommendation whose place is on screen or spoken &mdash; never written down.</span></div>
+      <div class="stat"><span class="n" style="color:var(--crit)">3</span><span class="k">Futile</span><span class="sub">&ldquo;Comment for the name.&rdquo; The place is in neither the caption nor the video.</span></div>
+      <div class="stat"><span class="n" style="color:var(--ink-3)">5</span><span class="k">Not a place</span><span class="sub">Cats, an app promo, comedy. Correct answer: nothing, cheaply.</span></div>
+    </div>
+
+    <div class="note">
+      <span class="eyebrow">The arithmetic that decides the whole design</span>
+      <p>
+        A <strong>perfect</strong> engine that reads everything inside the video moves this sample
+        from <strong>3 posts to 8</strong>. It cannot reach 11, because 3 of the posts genuinely do
+        not contain the answer anywhere. So the prize is real and it is bounded: roughly
+        <strong>a 2.7&times; lift</strong>, and the design's job is to capture it without paying for
+        the 8 posts where escalating finds nothing.
+      </p>
+    </div>
+
+    <h3 style="margin:32px 0 4px">The sixteen posts, and what each layer would have to read</h3>
+    <p class="dim" style="font-size:13.5px;margin-bottom:14px">
+      From <code>docs/evidence/tiktok/07-caption-content-scoring.md</code> and the cover-frame run of
+      2026-08-28. Class is a human verdict reached by watching the video.
+    </p>
+    <div class="filters" id="cfilters">
+      <button aria-pressed="true" data-f="all">All 16</button>
+      <button aria-pressed="false" data-f="sufficient">Sufficient</button>
+      <button aria-pressed="false" data-f="recoverable">Recoverable</button>
+      <button aria-pressed="false" data-f="futile">Futile</button>
+      <button aria-pressed="false" data-f="control">Not a place</button>
+    </div>
+    <div class="twrap">
+      <table id="corpus">
+        <thead><tr>
+          <th>Creator</th><th>Class</th><th class="num">Caption</th>
+          <th>Named in the caption</th><th>On the cover frame</th><th>What the cover says</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="note crit" style="margin-top:24px">
+      <span class="eyebrow">And the cover frame is the wrong frame</span>
+      <p>
+        Read that last column downward. &ldquo;6 Must Try Spots in Tokyo Japan&rdquo;. &ldquo;everywhere to
+        eat in tokyo&rdquo;. &ldquo;BEST COFFEE SHOPS IN TEL AVIV TO WORK AT&rdquo;. The cover frame is the
+        <strong>hook</strong> &mdash; by construction the one frame that withholds the answer, because that is
+        what makes you keep watching. Reading it for venue names recovered <strong>one</strong> place in sixteen
+        and invented four (a hair salon and an organic shop, read off Brixton shopfronts).
+      </p>
+      <p>
+        That experiment is filed as refuted. It was refuted for the wrong job. Every one of those title
+        cards is an almost perfect <em>declaration of what the video contains</em> &mdash; and knowing that
+        is the trigger the previous investigation looked for in caption shape and could not find.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ CHALLENGES ══ -->
+<section id="challenges">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">02 &middot; The critique</span>
+      <h2>Seven things wrong with Engine 1.0, in the order they cost us places.</h2>
+      <p class="lede">
+        None of these is sloppiness. Every one of them is a reasonable decision that has since been
+        outgrown by what we now know about the corpus and about what inference costs.
+      </p>
+    </div>
+
+    <div class="chal">
+      <div>
+        <span class="cn">C1</span>
+        <div>
+          <h4>It is a funnel where it should be a ledger.</h4>
+          <p>Caption &rarr; candidates &rarr; matches &rarr; done. Each stage discards what the previous one knew. There is no place to put a fact that arrived from somewhere other than the caption, so there is nowhere to put a second signal even if we had one. The architecture forecloses its own improvement.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">C2</span>
+        <div>
+          <h4>Nothing decides whether an add is worth spending on.</h4>
+          <p>Roughly 73% of adds return nothing and most of them <em>should</em>. The best trigger anyone has measured for telling &ldquo;nothing here&rdquo; from &ldquo;everything is in the video&rdquo; scores 0.33 precision &mdash; three wasted escalations for every useful one, which is the difference between a cheap cascade and an unexplainable bill. A cat video and a genuine recommendation whose venue is spoken aloud look identical to every signal the engine currently has.</p>
+          <p><strong>This one was drafted wrong and the research corrected it.</strong> The fix here was going to be the cover frame &mdash; those title cards do announce what the video contains. But the same job is done by <em>one extra field on the call we already make</em>, for a fortieth of a cent and no image at all, and the cover frame's own measured recall for venue names is 1 in 8 with false positives. The cheap answer won.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">C3</span>
+        <div>
+          <h4>It assumes a name exists. The hard cases have a description instead.</h4>
+          <p>&ldquo;The best coffee in Tel Aviv is only 9 shekels?! They also have some of the best pizza&hellip;&rdquo; contains no name and four usable facts: a city, a category, a price, and a second category. The schema has no way to express &ldquo;I know what kind of place this is, not what it is called,&rdquo; so all four are thrown away &mdash; and Google's own text search takes exactly that query.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">C4</span>
+        <div>
+          <h4>The matcher never talks back.</h4>
+          <p>If the model proposes a name and no such place exists in that city, that is strong evidence the model misread the caption &mdash; and it is discarded. One round trip in the other direction (re-read with &ldquo;nothing in Tel Aviv is called that&rdquo;) is the cheapest accuracy we are not buying.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">C5</span>
+        <div>
+          <h4>Confidence is self-reported, and we already proved it lies.</h4>
+          <p>A hashtag became a place at <code>0.95</code> confidence. Meanwhile the thing that <em>is</em> computable &mdash; how many independent signals agree, and whether they agree geographically &mdash; is not computed, because with one signal there is nothing to corroborate against.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">C6</span>
+        <div>
+          <h4>The person holding the phone is the best sensor in the system and the architecture ignores them.</h4>
+          <p>They watched the video. They read the comment where the creator gave the name. They know which of two branches they meant. Today the only thing we accept from them is a link, and everything they know is discarded before the model is even called.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">C7</span>
+        <div>
+          <h4>We already spend more instructing the model than it would cost to let it watch the film.</h4>
+          <p>Reading an entire 60-second video &mdash; every frame at one per second, plus the whole audio track &mdash; costs the model <strong>5,880 tokens</strong>. Our own system prompt costs <strong>5,260 tokens</strong>, on every single add, including the roughly three quarters that find nothing at all. Those two numbers are within 12% of each other, and only one of them is buying information.</p>
+          <p>That is the whole finding, and it is smaller and more useful than the one this page carried on its first two publications. Watching the video is <em>not</em> cheaper than reading the caption &mdash; it is <strong>1.8&times; dearer</strong> on the same model, and cutting the prompt widens that to 2.7&times;. What is true is that <strong>the prompt is the single largest line item in the product and it is not information</strong>. Fix that before arguing about tiers.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ LADDER ══ -->
+<section id="ladder">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">03 &middot; The architecture</span>
+      <h2>Five rungs, climbed only while a cheaper rung says the next one will pay.</h2>
+      <p class="lede">
+        Every rung declares what it costs, what has to be true before it runs, and what would make it
+        stop. Nothing escalates on a hunch, and nothing escalates twice. Tap a rung to open it.
+      </p>
+    </div>
+    <div class="ladder" id="ladder"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ MEDIA ══ -->
+<section id="media">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">04 &middot; Acquisition</span>
+      <h2>The transcript is a real TikTok field. It is behind a door marked &ldquo;not for commercial products.&rdquo;</h2>
+      <p class="lede">
+        Re-established from primary sources on 2026-08-31, with nine live calls. Full report:
+        <code>docs/evidence/tiktok/08-engine2-access-surface-2026-08-31.md</code>.
+      </p>
+    </div>
+
+    <div class="note crit">
+      <span class="eyebrow">The finding that shapes the whole ladder</span>
+      <p>
+        TikTok's Research API has a field called <code>voice_to_text</code> &mdash; &ldquo;voice to
+        text and subtitles&rdquo; &mdash; and an endpoint that returns a post's comments. Its own FAQ
+        answers <em>&ldquo;I am a creator, advertiser, or commercial user. Am I eligible?&rdquo;</em>
+        with the single word <strong>&ldquo;No.&rdquo;</strong> Everything Engine 2.0 wants is real,
+        documented, free, and not for us. The player renders auto-captions on the user's screen and
+        its message API returns numbers and booleans &mdash; never text.
+      </p>
+      <p>
+        Nothing in this document proposes a scraper, a headless browser, a signed-URL mutation or a
+        vendor who does any of those for money. A ban from the one endpoint that works would end the
+        product, and a ToS breach is indefensible in a viva.
+      </p>
+    </div>
+
+    <div class="twrap" style="margin:22px 0">
+      <table>
+        <thead><tr><th>Signal</th><th>Route</th><th>Sanctioned</th><th>Cost</th><th>Standing</th></tr></thead>
+        <tbody>
+          <tr><td>Caption, author, cover image</td><td>oEmbed</td><td>Yes &mdash; TikTok publishes it</td><td class="num">free</td><td><span class="lab ver">verified &middot; in use</span></td></tr>
+          <tr><td><strong>Hashtag segmentation</strong></td><td>The <code>html</code> blob we already receive and throw away</td><td>Yes &mdash; same call</td><td class="num">free</td><td><span class="lab ver">verified &middot; unused</span></td></tr>
+          <tr><td><strong>Cover frame at 1080&times;1920</strong></td><td><code>thumbnail_url</code>, exactly as given</td><td>Yes</td><td class="num">free</td><td><span class="lab ver">verified &middot; already full-res</span></td></tr>
+          <tr><td>Sound name and music id</td><td>The same <code>html</code> blob</td><td>Yes</td><td class="num">free</td><td><span class="lab ver">verified &middot; low value</span></td></tr>
+          <tr><td>Subtitle / caption track text</td><td>&mdash;</td><td>&mdash;</td><td class="num">&mdash;</td><td><span class="lab una">unavailable</span></td></tr>
+          <tr><td>Spoken transcript</td><td>Research API <code>voice_to_text</code></td><td>Yes &mdash; and not to us</td><td class="num">free if eligible</td><td><span class="lab una">unavailable &middot; commercial excluded</span></td></tr>
+          <tr><td>Comments on a post</td><td>Research API</td><td>Yes &mdash; and not to us</td><td class="num">free if eligible</td><td><span class="lab una">unavailable &middot; same door</span></td></tr>
+          <tr><td>The video or audio file</td><td>No API returns media for a post the caller did not author</td><td>No route exists</td><td class="num">&mdash;</td><td><span class="lab una">unavailable</span></td></tr>
+          <tr><td><strong>The video, from the user</strong></td><td>They save it in TikTok, then pick it in our file field</td><td>Arguable &mdash; see below</td><td class="num">free to obtain</td><td><span class="lab ass">assumed &middot; needs a ruling</span></td></tr>
+          <tr><td><strong>Their saved-video list, in bulk</strong></td><td>TikTok's own &ldquo;Download your data&rdquo;, parsed in the browser</td><td>Arguable &mdash; same reasoning</td><td class="num">free</td><td><span class="lab ass">assumed &middot; unverified</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin:30px 0 10px">The one path that is even arguable, stated without softening</h3>
+    <div class="grid g2">
+      <div class="card">
+        <h4>Why it is different in kind</h4>
+        <p style="font-size:14px;color:var(--ink-2)">
+          Every prohibition in the terms is about <em>us</em> running an automated system against the
+          platform. If the person taps TikTok's own save button &mdash; a function TikTok provides,
+          in TikTok's app, subject to the creator's own download setting &mdash; and then picks that
+          file in our app, no automated extraction happened on our side at all. And the US terms
+          affirmatively grant every user a licence to <strong>download</strong> other users' content.
+        </p>
+        <p style="font-size:14px;color:var(--ink-2);margin-bottom:0">
+          Two things must not be glossed. The European wording is narrower &mdash;
+          <em>&ldquo;using the Platform for entertainment purposes&rdquo;</em> &mdash; and machine
+          transcription is a poor fit for that phrase. And where a creator has turned downloads off,
+          the licence does not arise and the user cannot get the file anyway, so the product degrades
+          honestly rather than silently.
+        </p>
+      </div>
+      <div class="card">
+        <h4>What it costs the person, which is the real objection</h4>
+        <p style="font-size:14px;color:var(--ink-2)">
+          Leave our app, save the video in TikTok, come back, pick the file. Four manual steps to
+          rescue a post whose caption already failed. The specialist's honest guess, labelled
+          <span class="lab ass">assumed</span>: most people will not, and the ones who would will more
+          happily just type the restaurant's name &mdash; which is exactly why
+          <strong>T2 sits below T3 on the ladder</strong> and not above it.
+        </p>
+        <p style="font-size:14px;color:var(--ink-2);margin-bottom:0">
+          Build the file field around a plain file input, not the share sheet: <strong>iOS cannot
+          register a web app as a share target</strong> and will not on our timeline. A file input
+          works on every platform for one extra tap.
+        </p>
+      </div>
+    </div>
+
+    <div class="note ok" style="margin-top:22px">
+      <span class="eyebrow">Three free wins that need nobody's permission</span>
+      <p>
+        <strong>1. Read the markup we are already given.</strong> In the caption a hashtag is just
+        characters; in the <code>html</code> blob it is a tagged anchor TikTok itself labelled. The
+        post that turned <code>#tsukijifishmarket</code> into a place at 0.95 confidence has 30
+        hashtag anchors and 134 characters of prose. &ldquo;A candidate evidenced only by a hashtag is
+        not a place&rdquo; becomes checkable against TikTok's own markup instead of a regex we wrote.
+        This removes a <em>confidently wrong place</em>, which this project ranks above every other
+        failure.
+      </p>
+      <p>
+        <strong>2. The cover image is already 1080&times;1920</strong> &mdash; the
+        <code>thumbnail_width</code> field understates the asset by 1.875&times;. All cover-frame work
+        is unblocked today at full resolution, at zero access cost. Nobody needs to go near a signed
+        URL.
+      </p>
+      <p style="margin-bottom:0">
+        <strong>3. A field on the no-places screen that accepts what the person already knows.</strong>
+        It is the only mechanism in the entire access report that reaches the posts where the answer
+        exists in neither the caption nor the video. It costs one text field.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════════════ COST ══ -->
+<section id="cost">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">05 &middot; The money</span>
+      <h2>What each rung costs, and what it buys.</h2>
+      <p class="lede">
+        Switch rungs on and off. The model runs the real sixteen-post corpus through whichever rungs
+        are enabled and reports what comes out the other end.
+      </p>
+    </div>
+    <div class="model">
+      <div class="panel" id="switches"></div>
+      <div>
+        <div class="readout" id="readout"></div>
+        <div class="bars" id="bars"></div>
+      </div>
+    </div>
+    <div id="cost-body">
+      <h3 style="margin:34px 0 4px">The answer to &ldquo;what will this cost me&rdquo; is less than today.</h3>
+      <p class="dim" style="font-size:13.5px;margin-bottom:16px">
+        Every price read from a vendor's own page on 2026-08-31; every CPU figure measured locally the
+        same day. Full working:
+        <code>docs/evidence/extraction/engine2-cost-model-2026-08-31.md</code>.
+      </p>
+
+      <div class="twrap">
+        <table>
+          <thead><tr><th>What one add reads</th><th class="num">Whole call, today's prompt</th><th class="num">Whole call, prompt cut to 1,500 tokens</th><th>Note</th></tr></thead>
+          <tbody>
+            <tr><td><strong>The caption alone</strong></td><td class="num">$0.002192</td><td class="num" style="color:var(--ok)">$0.001064</td><td class="dim">Today's shape, on the cheaper model</td></tr>
+            <tr><td>Caption + a cover frame, or four frames batched as one image</td><td class="num">$0.002656</td><td class="num">$0.001528</td><td class="dim">Four frames in a grid cost the same as one</td></tr>
+            <tr><td>Caption + the audio track</td><td class="num">$0.002768</td><td class="num">$0.001640</td><td class="dim">Today's model cannot take audio at all</td></tr>
+            <tr><td><strong>The whole video, low resolution</strong></td><td class="num">$0.003956</td><td class="num">$0.002828</td><td class="dim"><strong>1.8&times; the caption call, and 2.7&times; once the prompt is cut</strong></td></tr>
+            <tr><td>The whole video, full resolution</td><td class="num">$0.007412</td><td class="num">$0.006284</td><td class="dim">Three times the price for frames nobody asked for</td></tr>
+            <tr style="background:color-mix(in srgb, var(--crit) 6%, transparent)"><td><strong>Today, as actually deployed</strong> &mdash; caption alone, on today's model</td><td class="num" style="color:var(--crit)">$0.006640</td><td class="num dim">&mdash;</td><td class="dim">More than reading the entire video on the other model</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="dim" style="font-size:12.5px;margin-top:10px">
+        All rows on one model id, whole call, like for like &mdash; 60-second clip, a prompt measured
+        at 21,049 characters &asymp; 5,260 tokens, a ~380-token caption and ~200 tokens of answer.
+        Video billed at one frame per second and 32 tokens per second of audio, both documented.
+        Extracting frames adds about $0.00002 of processing, which is why it does not appear.
+      </p>
+
+      <div class="note ok" style="margin-top:22px">
+        <span class="eyebrow">The headline, on its third and final version</span>
+        <p>
+          <strong>Switching model pays for the entire video tier and leaves change.</strong> Today's
+          caption-only add costs <strong>$0.006640</strong>. The same caption on the cheaper model
+          costs <strong>$0.002192</strong>, and reading the <em>whole video</em> on it costs
+          <strong>$0.003956</strong> &mdash; still <strong>1.7&times; cheaper than what we pay today
+          for one sentence</strong>.
+        </p>
+        <p style="margin-bottom:0">
+          So the answer to &ldquo;will this cost ten to thirty times more&rdquo; is still <strong>no</strong>
+          &mdash; but the reason is not that video is cheap. Video is the most expensive rung and always
+          was. The reason is that <strong>we are currently overpaying for text by a factor of three,
+          and paying it on a prompt that is four fifths of the bill.</strong>
+        </p>
+      </div>
+
+      <div class="note crit" style="margin-top:20px">
+        <span class="eyebrow">Three corrections, printed rather than swapped</span>
+        <p>
+          This page said <strong>ten times</strong>, then <strong>3.8 times</strong>, and both were
+          wrong. The first compared against a cheaper model than the one we have configured. The
+          second still compared a <em>marginal</em> cost &mdash; the video tokens alone &mdash;
+          against a <em>whole call</em>, which is the classic way to make a cost headline say
+          something untrue. On one model id, like for like, <strong>watching the video is 1.8&times;
+          dearer than reading the caption, and cutting the prompt widens that to 2.7&times; rather
+          than inverting it.</strong> The claim is retracted; the table above is the corrected one.
+        </p>
+        <p style="margin-bottom:0">
+          Third: an earlier row claimed prompt caching takes us to 0.59&times;. <strong>It is deleted,
+          and the verdict is no.</strong> At 200 adds a month caching <em>costs</em> money at both
+          expiry settings &mdash; you pay a 25&ndash;100% write premium on essentially every call
+          because one add every four days never finds a warm cache. It only pays at a one-hour expiry
+          above roughly a thousand adds a month, and even at three thousand it saves about
+          <strong>$13.71</strong> &mdash; less than cutting the prompt, and less than switching model,
+          both of which work at every volume and neither of which can backfire.
+        </p>
+      </div>
+
+      <div class="note" style="margin-top:20px">
+        <span class="eyebrow">And the ladder does not add up the way ladders look like they do</span>
+        <p style="margin-bottom:0">
+          Every rung above the caption is chasing <strong>the same five posts</strong> &mdash; the
+          ones whose venue is on screen or spoken. They are not five independent chances at five
+          different posts. A perfect escalator takes the corpus from 27% to 73%; realistically it is
+          nearer 55%, and the three posts where the answer exists nowhere in the video are unreachable
+          at any price by any rung except asking the person. <strong>Read the switches as overlapping
+          routes to one pool, not as a stack of gains.</strong>
+        </p>
+      </div>
+
+      <h3 style="margin:34px 0 12px">What the research killed &mdash; including two of my own ideas</h3>
+      <div class="grid g2">
+        <div class="card">
+          <h4>Compressing the audio saves nothing</h4>
+          <p style="font-size:14px;color:var(--ink-2);margin-bottom:0">
+            This was in the brief and it is wrong, which is worth being blunt about. <strong>Every
+            transcription service bills by seconds of audio, not by bytes</strong> &mdash; and the one
+            that bills by tokens charges a flat 32 per second regardless of the file. Compressing a
+            60-second clip from 874&nbsp;KB to 113&nbsp;KB was measured, and it saves <strong>$0.00</strong>
+            while costing fifteen times the processing. Copying the audio track out untouched takes
+            0.06&nbsp;s; re-encoding it takes 0.90&nbsp;s. Speeding the audio up <em>does</em> cut the
+            bill, because duration is what is billed &mdash; and it raises the error rate from about
+            18% to about 26% to save three hundredths of a cent.
+          </p>
+        </div>
+        <div class="card">
+          <h4>Dedicated text recognition loses on both axes</h4>
+          <p style="font-size:14px;color:var(--ink-2);margin-bottom:0">
+            A purpose-built recognition service costs <strong>$0.0015</strong> per image. A general
+            model reads the same frame for <strong>$0.000155</strong> &mdash; ten times less &mdash;
+            <em>and</em> does the place extraction in the same call rather than handing back a bag of
+            words. Our own cover-frame run already measured what a bag of words is worth here: it
+            offered &ldquo;Rama Hair &amp; Be&rdquo; and &ldquo;Ersimes Organic &amp; Her&rdquo;
+            &mdash; two Brixton shopfronts &mdash; as restaurant recommendations.
+          </p>
+        </div>
+        <div class="card">
+          <h4>Running our own transcription loses too</h4>
+          <p style="font-size:14px;color:var(--ink-2);margin-bottom:0">
+            A rented GPU costs about 1.5&times; the hosted price before you count the cold start
+            &mdash; and the cold start is 12 to 90 seconds against a stage budget of 12. A cold
+            container eats the entire add. The single argument that survives is a
+            <strong>Hebrew-specific model</strong>, and that is a quality argument rather than a cost
+            one. See below, because it may be the one that matters.
+          </p>
+        </div>
+        <div class="card">
+          <h4>And the two ideas of mine that did not survive</h4>
+          <p style="font-size:14px;color:var(--ink-2);margin-bottom:0">
+            The cover frame as the escalation trigger &mdash; beaten by a field on a call we already
+            make, for a twentieth of the price and no image. And splitting frames from audio as two
+            rungs &mdash; <strong>reading the whole video costs half of what doing those two things
+            separately costs</strong>, so the split only earns its place for latency and for
+            corroboration, not for money.
+          </p>
+        </div>
+      </div>
+
+      <div class="note crit" style="margin-top:22px">
+        <span class="eyebrow">The risk that is not about money</span>
+        <p>
+          <strong>Nobody publishes a Hebrew accuracy figure for speech over a music bed at TikTok
+          pacing, which is exactly our corpus.</strong> The one vendor band that exists places Hebrew
+          at 10&ndash;25% word error. And word error is the wrong measure for us anyway: we need
+          <em>one proper noun</em> right. An error rate concentrated in ordinary words is survivable;
+          the same rate that turns <em>Simhovich</em> into <em>Simchovic</em> is a total loss on the
+          only token that mattered. No public benchmark measures that. There is an open Hebrew-tuned
+          transcription model that would be the answer if this proves to be the blocker &mdash; and
+          measuring it on our own audio is a task, not a citation.
+        </p>
+      </div>
+
+      <div class="note" style="margin-top:20px">
+        <span class="eyebrow">Read the switches above with this in mind</span>
+        <p>
+          T1's price is the <strong>whole call</strong>; every rung above it is <strong>marginal</strong>
+          &mdash; what it adds on an add that reaches it. The blended figure applies each rung's reach,
+          and the video rung is additionally scaled by how often a person supplies a file at all.
+        </p>
+        <p>
+          <strong>Two different unmeasured numbers are doing a lot of work here, and they are not the
+          same number.</strong> One is <em>how often we escalate past the caption</em> &mdash; assumed
+          at 50%, against a measured 73% of adds that find nothing, on the bet that the verdict field
+          suppresses the rest. The other is <em>how often the person actually hands us a video</em>
+          &mdash; assumed at 45%, and that one is a guess about human behaviour, not about software.
+          If a reader conflates them the whole model reads wrong.
+        </p>
+        <p style="margin-bottom:0">
+          And with every switch on, the yield above reads near <strong>71%</strong> &mdash; which is
+          essentially the perfect-escalator ceiling. That is what the ladder is worth <em>if every rung
+          works</em>. No rung above the caption has ever been run. Treat the top of this dial as the
+          best case it is, which is exactly why the first task in the build order is a harness rather
+          than a feature.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ LEDGER ══ -->
+<section id="ledger">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">06 &middot; The data structure</span>
+      <h2>A place stops being a guess and becomes a stack of receipts.</h2>
+      <p class="lede">
+        One structure carries the whole redesign. Every fact a rung produces is appended with where it
+        came from, what was literally said, and when in the video it was said &mdash; and nothing is
+        ever overwritten by a later, more confident-sounding rung.
+      </p>
+    </div>
+
+    <div class="grid g2" style="margin-bottom:22px">
+      <div class="card">
+        <h4>Why append-only matters more here than anywhere else</h4>
+        <p style="font-size:14px;color:var(--ink-2)">
+          The standing rule in this project is that an uncertain result beats a confidently wrong one.
+          With one signal that rule costs nothing, because there is never a conflict. With five signals
+          conflicts are the normal case: the caption says one thing, the speech says another, the
+          matcher offers a third. A structure that keeps all three, and a score computed from how many
+          agree, is the only version of that rule that survives contact with more evidence.
+        </p>
+      </div>
+      <div class="card">
+        <h4>Corroboration replaces self-reported confidence</h4>
+        <p style="font-size:14px;color:var(--ink-2)">
+          Today the model reports its own confidence and we already know it inflates. Corroboration is
+          arithmetic we do ourselves: a name said aloud at 0:14 <em>and</em> burned on screen at 0:14
+          <em>and</em> matched to one address in the right city is a different object from a name that
+          appeared once in a hashtag &mdash; and the difference is computable, explainable and
+          testable.
+        </p>
+      </div>
+    </div>
+
+    <div class="flow">
+      <svg viewBox="0 0 980 400" role="img" aria-label="Five signal sources append evidence to one candidate dossier; a corroboration score computed from that dossier decides between a saved place, a kept mention, and nothing.">
+        <defs>
+          <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="currentColor" style="color:var(--line)"/>
+          </marker>
+        </defs>
+
+        <text class="s" x="0" y="12" style="letter-spacing:.12em">SIGNALS &mdash; APPEND ONLY</text>
+        <g>
+          <rect class="n" x="0" y="26" width="186" height="42" rx="8"/>
+          <text class="h" x="14" y="45">Caption</text><text class="s" x="14" y="60">verbatim &middot; free &middot; always</text>
+          <rect class="n" x="0" y="76" width="186" height="42" rx="8"/>
+          <text class="h" x="14" y="95">Cover frame</text><text class="s" x="14" y="110">1080&times;1920 &middot; free &middot; always</text>
+          <rect class="n" x="0" y="126" width="186" height="42" rx="8"/>
+          <text class="h" x="14" y="145">On-screen text</text><text class="s" x="14" y="160">timestamped &middot; needs the file</text>
+          <rect class="n" x="0" y="176" width="186" height="42" rx="8"/>
+          <text class="h" x="14" y="195">Speech</text><text class="s" x="14" y="210">timestamped &middot; same one call</text>
+          <rect class="n" x="0" y="226" width="186" height="42" rx="8"/>
+          <text class="h" x="14" y="245">The person</text><text class="s" x="14" y="260">a name, a pasted comment</text>
+          <rect class="n" x="0" y="276" width="186" height="42" rx="8"/>
+          <text class="h" x="14" y="295">The matcher, answering back</text><text class="s" x="14" y="310">&ldquo;nothing in this city is called that&rdquo;</text>
+        </g>
+        <path class="e" d="M186 47 C 232 47, 232 172, 268 172" marker-end="url(#ar)"/>
+        <path class="e" d="M186 97 C 232 97, 232 172, 268 172" marker-end="url(#ar)"/>
+        <path class="e" d="M186 147 C 232 147, 232 172, 268 172" marker-end="url(#ar)"/>
+        <path class="e" d="M186 197 C 232 197, 232 172, 268 172" marker-end="url(#ar)"/>
+        <path class="e" d="M186 247 C 232 247, 232 172, 268 172" marker-end="url(#ar)"/>
+        <path class="e" d="M186 297 C 232 297, 232 172, 268 172" marker-end="url(#ar)"/>
+
+        <text class="s" x="272" y="12" style="letter-spacing:.12em">ONE DOSSIER PER CANDIDATE</text>
+        <rect class="n" x="272" y="26" width="256" height="292" rx="10"/>
+        <text class="h" x="288" y="48">Candidate</text>
+        <text class="s" x="288" y="66">name &middot; area &middot; city &middot; category</text>
+        <line class="e" x1="288" y1="80" x2="512" y2="80"/>
+        <text class="s" x="288" y="100" style="letter-spacing:.1em">EVIDENCE[]</text>
+        <text x="288" y="122">from</text><text class="s" x="360" y="122">caption | cover | screen</text>
+        <text x="288" y="140"></text><text class="s" x="360" y="140">| speech | person | matcher</text>
+        <text x="288" y="162">said</text><text class="s" x="360" y="162">the exact words, verbatim</text>
+        <text x="288" y="184">at</text><text class="s" x="360" y="184">00:14.2, when it has a clock</text>
+        <text x="288" y="206">kind</text><text class="s" x="360" y="206">quoted | inferred</text>
+        <line class="e" x1="288" y1="226" x2="512" y2="226"/>
+        <text class="s" x="288" y="246" style="letter-spacing:.1em">NEVER OVERWRITTEN</text>
+        <text class="s" x="288" y="266">A later rung appends. A conflict</text>
+        <text class="s" x="288" y="282">between two rungs is kept as a</text>
+        <text class="s" x="288" y="298">conflict, not silently resolved.</text>
+
+        <path class="e" d="M528 172 L 592 172" marker-end="url(#ar)"/>
+
+        <text class="s" x="596" y="12" style="letter-spacing:.12em">COMPUTED, NOT SELF-REPORTED</text>
+        <rect class="n" x="596" y="26" width="188" height="292" rx="10"/>
+        <text class="h" x="610" y="48">Corroboration</text>
+        <text class="s" x="610" y="70">How many independent</text>
+        <text class="s" x="610" y="86">signals name this place?</text>
+        <text class="s" x="610" y="110">Do two of them agree on</text>
+        <text class="s" x="610" y="126">the same second of video?</text>
+        <text class="s" x="610" y="150">Does the matched address</text>
+        <text class="s" x="610" y="166">sit in the city we were told?</text>
+        <text class="s" x="610" y="190">Was the name ever spoken</text>
+        <text class="s" x="610" y="206">or written &mdash; or only tagged?</text>
+        <line class="e" x1="610" y1="226" x2="770" y2="226"/>
+        <text class="s" x="610" y="248">All four are arithmetic.</text>
+        <text class="s" x="610" y="266">All four are explainable to</text>
+        <text class="s" x="610" y="282">the person on the screen.</text>
+        <text class="s" x="610" y="302">None is the model's opinion.</text>
+
+        <path class="e" d="M784 172 C 812 172, 812 62, 840 62" marker-end="url(#ar)"/>
+        <path class="e" d="M784 172 L 840 172" marker-end="url(#ar)"/>
+        <path class="e" d="M784 172 C 812 172, 812 282, 840 282" marker-end="url(#ar)"/>
+
+        <rect class="n" x="844" y="40" width="136" height="44" rx="8" style="stroke:var(--ok)"/>
+        <text class="h" x="858" y="60" style="fill:var(--ok)">A place</text><text class="s" x="858" y="75">pre-ticked, with its receipts</text>
+        <rect class="n" x="844" y="150" width="136" height="44" rx="8" style="stroke:var(--gold)"/>
+        <text class="h" x="858" y="170" style="fill:var(--gold)">A shortlist</text><text class="s" x="858" y="185">the person decides</text>
+        <rect class="n" x="844" y="260" width="136" height="44" rx="8"/>
+        <text class="h" x="858" y="280">A mention</text><text class="s" x="858" y="295">kept, findable, honest</text>
+      </svg>
+    </div>
+
+    <p style="margin-top:20px">
+      The bottom outcome already has a home. <code>place_mentions</code> shipped in migration
+      <code>0031</code> for exactly this: a place a post named that we could not confirm, kept on the
+      user's own row with the reason it did not become a pin. Engine 2.0 does not need a new table for
+      its honest failures &mdash; it needs to stop producing dishonest successes.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ TRIPS ══ -->
+<section id="trips">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">07 &middot; After the places</span>
+      <h2>A trip is a collection with two dates on it.</h2>
+      <p class="lede">
+        Ruled 2026-08-31. The full ruling is
+        <code>docs/evidence/product/engine2-trip-matching-2026-08-31.md</code>; this is what it
+        decided and what it refused.
+      </p>
+    </div>
+
+    <div class="grid g2" style="margin-bottom:20px">
+      <div class="card">
+        <h4>No new object, no new noun</h4>
+        <p style="font-size:14px;color:var(--ink-2)">
+          <code>collections</code> gains <code>starts_on</code> and <code>ends_on</code>, both
+          nullable. No <code>trips</code> table, no <code>/trips</code> route. A collection is
+          already a private map, already shareable, already ordered, already carries membership rules
+          that were reviewed adversarially before they shipped &mdash; a trips table re-buys all of
+          that at full price to get a date range.
+        </p>
+        <p style="font-size:14px;color:var(--ink-2);margin-bottom:0">
+          The user-facing word stays <strong>collection</strong>. The dates render on the header as a
+          fact (<code>3&ndash;9 Sep</code>) and nowhere else. Making <em>trip</em> a real noun in the
+          product is a change to the vocabulary table, which is the owner's call, not a developer's.
+        </p>
+      </div>
+      <div class="card">
+        <h4>The trap inside that migration</h4>
+        <p style="font-size:14px;color:var(--ink-2);margin-bottom:0">
+          <code>0024</code>'s grants are <strong>column-level on purpose</strong>
+          (<code>grant update (name, description)</code>). Two new columns are therefore not writable
+          from a browser until the migration extends the grants too. Add the columns and stop, and
+          you ship a feature that fails at <em>runtime</em>, not at deploy &mdash; silently, and only
+          for real users.
+        </p>
+      </div>
+    </div>
+
+    <h3 style="margin:26px 0 4px">The matching rule, which reuses a predicate rather than inventing one</h3>
+    <p class="dim" style="font-size:13.5px;margin-bottom:14px">
+      Three variations on these constants have already been measured and rejected. A fourth needs the
+      same standard of evidence.
+    </p>
+    <div class="grid g2">
+      <div class="card">
+        <h4>Area &mdash; the gate</h4>
+        <p class="mono" style="font-size:12px;color:var(--ink-2);background:var(--card-2);border:1px solid var(--line-soft);border-radius:8px;padding:12px 13px;line-height:1.6">
+          linked(a,b) &hArr; km(a,b) &le; 2<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&or; ( km(a,b) &le; 50 &and; locality(a) = locality(b) )
+        </p>
+        <p style="font-size:13.5px;color:var(--ink-2);margin-bottom:0">
+          Single-link against <em>any</em> member of the collection, never a centroid &mdash; a
+          collection spanning London has members 11&nbsp;km apart. A collection with no places has no
+          area and matches nothing; that is correct, and the manual picker is the recovery.
+        </p>
+      </div>
+      <div class="card">
+        <h4>Dates &mdash; re-ranking only, never a gate</h4>
+        <p style="font-size:13.5px;color:var(--ink-2)">
+          Tier A: dated and live (<code>today &isin; [start&minus;14d, end+3d]</code>).
+          Tier B: undated. Tier C: dated and not live. Within a tier: more matched places wins, then
+          most recently touched, then id. Deterministic at every step, because the same library must
+          produce the same suggestion twice.
+        </p>
+        <p style="font-size:13.5px;color:var(--ink-2);margin-bottom:0">
+          The 14/3-day window is <span class="lab ass">assumed</span>, and it is contained on purpose:
+          a wrong window can only reorder suggestions, never hide a collection.
+        </p>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:20px">
+      <span class="eyebrow">Being wrong is the part that decides whether this is loved</span>
+      <p>
+        The suggestion lands <strong>on the review screen, before the save</strong> &mdash; one
+        control for the whole add, not one per place &mdash; and it says its reason
+        (&ldquo;4 places already in this collection are nearby&rdquo;). It is pre-ticked only for a
+        <strong>private</strong> collection with exactly <strong>one</strong> match. Never
+        pre-ticked into something other people can see. A multi-city post is split by area and offered
+        at most one collection per area; it never creates a collection on its own.
+      </p>
+    </div>
+
+    <h3 style="margin:30px 0 4px">The extra fields for planning &mdash; two kept, two cut</h3>
+    <p class="dim" style="font-size:13.5px;margin-bottom:14px">
+      And the size of the ask was smaller than it looked: <code>tags</code>, <code>dishes</code> and
+      <code>why_go</code> already ship per save, and have since <code>0019</code>.
+    </p>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Field</th><th>Ruling</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Neighbourhood</strong> <code>areaHint</code></td><td><span class="lab ver">keep &mdash; free</span></td><td>Extracted on every add today and thrown away at save. Composing it into the query already beat the plain name 6/9 against 4/9 in measurement.</td></tr>
+          <tr><td><strong>Booking needed</strong></td><td><span class="lab doc">keep</span></td><td>The one new field worth funding: it changes what you do today. Stored as a verbatim caption fragment, dropped when it is not a substring &mdash; exactly the gate <code>dishes</code> already passes through.</td></tr>
+          <tr><td><strong>The dish to order</strong></td><td><span class="lab neu">already ships</span></td><td>Stored and under-surfaced. That is a component, not a schema version.</td></tr>
+          <tr><td><strong>Price band</strong></td><td><span class="lab ass">future, as a quote</span></td><td>A <code>$$</code> band is a judgement we would be inventing. A verbatim <code>&#8362;45 lunch</code> is a fact somebody said.</td></tr>
+          <tr><td><strong>Opening hours</strong></td><td><span class="lab una">cut</span></td><td>Captions almost never state them, so the model would supply them from world knowledge &mdash; and every provider that has them honestly forbids storing them past 30 days. A field we may not keep is not a field.</td></tr>
+          <tr><td><strong>Best time to go</strong></td><td><span class="lab una">cut</span></td><td>Pure inference wearing the clothes of a fact.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note crit" style="margin-top:20px">
+      <span class="eyebrow">The disagreement, reported rather than buried</span>
+      <p>
+        The ruling's own recommendation is to <strong>file all of this and build none of it now</strong>,
+        with persisting <code>areaHint</code> as the single exception &mdash; because the submission
+        deadline is 6 September, four graded documents do not exist, and nothing can land at all while
+        the build runner refuses to start. That reasoning is sound and it is about the calendar, not
+        about the design. <strong>It is your call, not the product lead's</strong>, whether this
+        session's work is the engine or the submission.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════════════ CODE ══ -->
+<section id="code">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">08 &middot; The seams</span>
+      <h2>Most of this was designed for two years ago and is still waiting.</h2>
+      <p class="lede">
+        The ports were written with a second and third content reader explicitly in mind. Engine 2.0
+        is mostly new implementations behind seams that already exist &mdash; plus three that do not.
+      </p>
+    </div>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Seam</th><th>Today</th><th>Engine 2.0</th><th>New?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>ContentExtractor</code></td>
+            <td>One implementation: <code>caption</code></td>
+            <td>Four: <code>caption</code>, <code>cover-triage</code>, <code>onscreen-text</code>, <code>transcript</code>. The port's own docblock already names the last two.</td>
+            <td><span class="lab neu">exists</span></td>
+          </tr>
+          <tr>
+            <td><code>PlaceExtractor</code></td>
+            <td>Text in, candidates out</td>
+            <td>Evidence in, candidates out &mdash; each candidate carrying which signals produced it</td>
+            <td><span class="lab ass">widened</span></td>
+          </tr>
+          <tr>
+            <td><code>PlaceResolver</code></td>
+            <td><code>searchText</code> with a name</td>
+            <td>Also <code>searchText</code> with a <em>description</em> plus <code>includedType</code>, <code>priceLevels</code>, <code>locationBias</code> &mdash; all already in the API we pay for</td>
+            <td><span class="lab neu">exists</span></td>
+          </tr>
+          <tr>
+            <td><code>MediaSource</code></td>
+            <td>&mdash;</td>
+            <td>The user's own file, held in memory for the length of one add and never written to disk</td>
+            <td><span class="lab ass">new port</span></td>
+          </tr>
+          <tr>
+            <td><code>MediaReader</code></td>
+            <td>&mdash;</td>
+            <td>A file in, evidence out. Deliberately <em>not</em> a transcription port: reading the whole video in one call costs half of transcribing and sampling separately, so the seam is at the file, not at the audio. One adapter per provider, chosen by config, exactly as the model adapters already are</td>
+            <td><span class="lab ass">new port</span></td>
+          </tr>
+          <tr>
+            <td><code>BudgetGovernor</code></td>
+            <td>&mdash;</td>
+            <td>Decides whether the next rung runs. Pure function of the ledger so far plus the remaining budget &mdash; testable without a network</td>
+            <td><span class="lab ass">new, pure</span></td>
+          </tr>
+          <tr>
+            <td><code>place_mentions</code></td>
+            <td>A place we could not match, kept</td>
+            <td>Unchanged, and now the natural home for a place the ladder found but could not confirm</td>
+            <td><span class="lab ver">shipped</span></td>
+          </tr>
+          <tr>
+            <td><code>extractions</code></td>
+            <td>Cache keyed on caption hash</td>
+            <td>Same key plus which rungs ran, so a re-add after the user supplies the video is a miss rather than a stale hit</td>
+            <td><span class="lab ass">one column</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note" style="margin-top:22px">
+      <span class="eyebrow">The one structural decision inside this table</span>
+      <p>
+        <code>runImport</code> exists, is correct, has heartbeats, per-stage records and a real event
+        sequence &mdash; and <strong>nothing calls it</strong>. Production runs
+        <code>/api/imports/probe</code>, a 782-line stand-in that redoes the same chain in a straight
+        line. A ladder with a stop rule after every rung is exactly the shape that needs a
+        streaming route and a real orchestrator. <strong>Engine 2.0 is the thing that finally makes
+        <code>L0-F6</code> worth building</strong>, rather than a checkbox nobody could justify while
+        the pipeline had three stages and no branches.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════ HARNESS ══ -->
+<section id="harness">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">09 &middot; The prerequisite</span>
+      <h2>None of this may be built before we can measure it.</h2>
+      <p class="lede">
+        &ldquo;It doesn't work&rdquo; is a judgement no number in this repository can currently confirm
+        or refute. That is the actual first defect, and it is the cheapest one to fix.
+      </p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h4>What is wrong today</h4>
+        <ul class="tight" style="margin-bottom:0">
+          <li>The corpus is <strong>13 links</strong>, and it was assembled from web search, so it over-represents captions that name places &mdash; it flatters every number taken on it.</li>
+          <li>Nothing runs in CI. The harness needs live keys and a live database.</li>
+          <li>There is <strong>no <code>.env.local</code> in this checkout at all</strong>, so it cannot be run here even by hand.</li>
+          <li>Cost was logged as <code>0</code> with <code>costModel: "unmeasured"</code> &mdash; honest, and useless for a decision about money. <strong>That one is now closable:</strong> the missing per-token price was found and is two constants.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>What replaces it &mdash; and it is a day of work</h4>
+        <ul class="tight" style="margin-bottom:0">
+          <li><strong>Fifty links the owner actually saved</strong>, labelled by hand into the four classes, with the true places written down. This is the only sample whose distribution matches the product.</li>
+          <li>Four numbers per run: <em>places found</em>, <em>places wrong</em>, <em>cost</em>, <em>latency</em> &mdash; each per class, so a change that helps listicles and hurts single-venue posts cannot hide inside an average.</li>
+          <li>A <strong>fixture mode</strong> that replays stored captions, frames and transcripts with no network, so the graded run can live in CI and cost nothing.</li>
+          <li>Every rung scored <strong>on and off</strong>, so the cascade's stop rules are tuned against evidence rather than taste.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note crit">
+      <span class="eyebrow">Say the quiet part</span>
+      <p>
+        The hallucination bar in the acceptance criteria is <strong>&le;5%</strong> while multi-place
+        recall is only <strong>&ge;60%</strong>. Every rung added below raises recall <em>and</em>
+        the chance of a confident wrong place. Without the harness, Engine 2.0 is a way to be wrong
+        faster and at greater expense. <strong>Build the harness first. It is not overhead; it is the
+        only thing that makes the rest safe.</strong>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ ORDER ══ -->
+<section id="order">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">10 &middot; Sequencing</span>
+      <h2>What to build, in an order where each step ships on its own.</h2>
+      <p class="lede">
+        Numbered the way this repository already numbers work &mdash; Level, Feature, Task &mdash; so
+        these drop into <code>docs/execution-plan.md</code> without translation.
+      </p>
+    </div>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Task</th><th>What ships</th><th>Owner</th><th class="num">Why now</th></tr></thead>
+        <tbody id="order-body">
+          <tr><td class="mono" style="color:var(--gold)">E2&#8209;T0</td><td><strong>The measurement harness.</strong> Fifty of the owner's own saved links, labelled into the four classes; four numbers per class; a fixture mode that replays stored captions and frames with no network so it can live in CI</td><td class="mono" style="font-size:11.5px">qa-reliability<br>ai-extraction</td><td>Every figure on this page rests on eleven posts found by web search. Nothing below may be judged without a better set, and this is the one task that is pure upside even if Engine 2.0 is never built</td></tr>
+          <tr><td class="mono" style="color:var(--t0)">E2&#8209;T1</td><td><strong>Delete prompt tokens, then cache what is left, then move off the expensive model.</strong> Three separate changes, biggest first</td><td class="mono" style="font-size:11.5px">ai-extraction</td><td>Our instructions are roughly four fifths of every bill. Shrinking them beats caching them at every volume we will see; the model switch alone is 3&times;; and caching is the one of the three that can silently cost more than it saves, so measure the hit rate before turning it on. None of the three changes what the engine can do</td></tr>
+          <tr><td class="mono" style="color:var(--crit)">E2&#8209;T1b</td><td><strong>Give a stored caption a way to die.</strong> Delete it when nothing derived from it survives, and on account deletion &mdash; bound to lifecycle, not to a clock</td><td class="mono" style="font-size:11.5px">supabase-database<br>security-privacy</td><td>Owed under storage limitation and under the account-deletion work whatever anyone concludes about D7. A timer would be worse than nothing: it would delete captions behind places people still hold, for no gain</td></tr>
+          <tr><td class="mono" style="color:var(--t0)">E2&#8209;T2</td><td><strong>Read the markup we already receive.</strong> Hashtag anchors from the <code>html</code> blob; a candidate evidenced only by a hashtag is not a place</td><td class="mono" style="font-size:11.5px">social-integration<br>ai-extraction</td><td>Removes a confidently wrong place from real adds. Highest value per line in the whole proposal, and it needs nobody's permission</td></tr>
+          <tr><td class="mono" style="color:var(--t1)">E2&#8209;T3</td><td><strong>The verdict field.</strong> One more field on the call we already make: is this a recommendation, a question, or not a place?</td><td class="mono" style="font-size:11.5px">ai-extraction</td><td>A fortieth of a cent, no extra request. Every tier below is multiplied by how well this works, so it must be measured against T0's corpus before anything expensive is funded</td></tr>
+          <tr><td class="mono" style="color:var(--t5)">E2&#8209;T4</td><td><strong>A candidate may be a description</strong> &mdash; and a name that matched nothing is evidence, not a dead end</td><td class="mono" style="font-size:11.5px">ai-extraction<br>maps-geospatial</td><td>Every parameter is already in the API we pay for. Today those facts are extracted and discarded because no field means &ldquo;what, not which&rdquo;</td></tr>
+          <tr><td class="mono" style="color:var(--gold)">E2&#8209;T5</td><td><strong>The evidence ledger and the corroboration score</strong>, replacing the model's self-reported confidence</td><td class="mono" style="font-size:11.5px">nextjs-architect<br>ai-extraction</td><td>The structural change. Without it every rung after this one has nowhere to put what it found</td></tr>
+          <tr><td class="mono" style="color:var(--t2)">E2&#8209;T6</td><td><strong>The box accepts what the person knows</strong> &mdash; a name, a pasted comment, a neighbourhood &mdash; on the screen they already see most</td><td class="mono" style="font-size:11.5px">ux-interaction<br>design-system-frontend</td><td>The only mechanism that reaches the posts where the answer is in neither the caption nor the video. It costs one text field</td></tr>
+          <tr><td class="mono" style="color:var(--ink-3)">E2&#8209;T7</td><td><strong>The streaming route</strong> (<code>L0-F6</code>), and <code>runImport</code> finally used in production instead of the 782-line stand-in</td><td class="mono" style="font-size:11.5px">nextjs-architect<br>devops-vercel</td><td>A ladder with stop rules after every rung is the shape that needs a real orchestrator. This is what makes an old unbuilt task worth building</td></tr>
+          <tr><td class="mono" style="color:var(--t4)">E2&#8209;T8</td><td><strong>The person's own video, read whole</strong> &mdash; a file input, the file held for one add and never written down, one call</td><td class="mono" style="font-size:11.5px">security-privacy<br>nextjs-architect</td><td><span class="lab ass">blocked</span> on the ruling in the next section, and on T3 proving the trigger works. Note that this is <em>one</em> task now: splitting frames from audio costs twice as much</td></tr>
+          <tr><td class="mono" style="color:var(--t3)">E2&#8209;T9</td><td><strong>Hebrew, measured on our own audio</strong> &mdash; proper-noun recall, not word error rate</td><td class="mono" style="font-size:11.5px">ai-extraction<br>qa-reliability</td><td>No vendor publishes a number for our actual corpus. If Hebrew is the blocker, a Hebrew-tuned model is the answer and the cost ranking reopens on quality grounds</td></tr>
+          <tr><td class="mono" style="color:var(--t5)">E2&#8209;T10</td><td><strong>Area matching to a collection</strong>, with dates as a re-ranking input</td><td class="mono" style="font-size:11.5px">supabase-database<br>design-system-frontend</td><td>Needs places before it means anything, which is the argument for doing every row above it first</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note crit" style="margin-top:22px">
+      <span class="eyebrow">A trap laid for T1b, found while checking it</span>
+      <p>
+        The obvious way to purge a caption is to null the column. <strong>That would silently break
+        every future add of that post, permanently.</strong> The cache is gated on the fetch status,
+        not on the caption &mdash; the adapter says so in its own comment &mdash; and the row-to-source
+        mapper turns a null caption into <em>no text at all</em>. So a purged row that still reads
+        &ldquo;fetched successfully&rdquo; becomes a cache hit returning nothing, for every user,
+        forever: no network call, no re-fetch, just &ldquo;this post has no caption&rdquo; from then on.
+      </p>
+      <p style="margin-bottom:0">
+        A purge has to move the fetch status too, or the gate has to learn about purging. Confirmed by
+        reading both halves and by checking the blast radius: the caption column has <strong>exactly
+        one reader</strong> in the whole application, which is what makes this cheap to get right and
+        easy to get wrong. It is not a live defect &mdash; nothing writes that null today. It is a
+        loaded trap waiting for whoever implements the fix above.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ OWNER ══ -->
+<section id="owner">
+  <div class="wrap">
+    <div class="shead">
+      <span class="eyebrow">11 &middot; Not mine to decide</span>
+      <h2>Seven decisions that are yours, and one of them costs a tap.</h2>
+      <p class="lede">
+        Everything else in this document is an engineering call and has been made. These seven are
+        not, and three of them gate real work. The last one arrived while this was being written and
+        is about what already ships.
+      </p>
+    </div>
+
+    <div class="chal">
+      <div>
+        <span class="cn">D1</span>
+        <div>
+          <h4>May a person hand us their own saved video, for us to transcribe?</h4>
+          <p>This is the only media path that is even arguable, and it gates the top rung of the ladder. It turns on a legal question, not a technical one: the American terms grant every user a licence to download other users' content, and the European terms narrow that to <em>&ldquo;using the Platform for entertainment purposes&rdquo;</em> &mdash; which machine transcription fits badly. Needs you and <code>security-privacy</code> together. <strong>Nothing above rung two starts before you answer.</strong></p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">D2</span>
+        <div>
+          <h4>Will you request one TikTok data export today?</h4>
+          <p>Settings &rarr; Account &rarr; Download your data. One tap, back within four days, and it converts the bulk-add path from &ldquo;blog posts say the file looks like this&rdquo; into something measured. <strong>It is the cheapest missing evidence in this entire proposal</strong>, and the answer also decides whether the growth plan's queue idea has an input worth building for.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">D3</span>
+        <div>
+          <h4>Is this session's work the engine, or the sixth of September?</h4>
+          <p>The product lead's ruling is explicit: file the trip work and build none of it now, because four graded documents do not exist and nothing can land at all while the build runner refuses to start. That is an argument about the calendar and it is correct on its own terms. It is still your call whether the thing you want fixed is the engine or the submission &mdash; and <strong>E2-T0 through E2-T3 are the rows that are worth doing under either answer</strong>.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">D4</span>
+        <div>
+          <h4>Does <em>trip</em> become a word the product says?</h4>
+          <p>The ruling keeps <strong>collection</strong> and renders the dates as a fact on the header, because the vocabulary table forbids a second word for one object. Overriding that is a change to the table, which is yours. My own view: the ruling is right, and &ldquo;3&ndash;9 Sep&rdquo; under a collection name does the whole job.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">D5</span>
+        <div>
+          <h4>What is the ceiling on what one add may cost?</h4>
+          <p>The governor needs a number to enforce, and it is a product decision rather than a technical one. Today an add costs two thirds of a cent and four fifths of that is waste. Give it a ceiling per add and a ceiling per person per month and the design enforces both &mdash; and note that on the figures opposite, a ladder that reaches every rung still lands under today's number once the waste is gone.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">D6</span>
+        <div>
+          <h4>Do we hold the grounding line, or attribute the model's own knowledge as its own?</h4>
+          <p>Already open in <code>current-state.md</code>, and the ladder makes it urgent rather than theoretical. With five signals the model will frequently know something none of them said. Today that leaks silently into fields labelled <em>what the caption says</em> &mdash; measured: <code>falafel</code> and <code>middle eastern</code> arrived as tags on a caption that mentioned neither. The honest options are to drop it or to label it, and <strong>the ledger makes labelling cheap for the first time</strong>.</p>
+        </div>
+      </div>
+      <div>
+        <span class="cn">D7</span>
+        <div>
+          <h4>A licence and a prohibition, in the same document, about what already ships.</h4>
+          <p>TikTok's <em>Developer</em> terms &mdash; a different document from the one this project has been reading &mdash; forbid building <em>&ldquo;profiles, databases, or similar records on any individual, device, content, or browser.&rdquo;</em> The same agreement, one section earlier, expressly licenses you to <em>&ldquo;use automated means in your Application to collect information&rdquo;</em> and to use what you collect <em>&ldquo;solely for the purpose of developing, maintaining, and supporting your Applications.&rdquo;</em> Both cannot be read literally, since a flat ban on storing anything would nullify the collection just granted.</p>
+          <p><strong>Read together, the prohibition targets profiling and bulk dataset-building, which our cache is not</strong> &mdash; its neighbouring limbs are about personal data and about associating behaviour with an individual or device. We also satisfy the agreement's sharing restriction outright: the stored caption is granted to no application role at all, so it is made available to nobody.</p>
+          <p><strong>And underneath the arguable thing sits a real one.</strong> What keeps the clause debatable is that our cache is shared, global and <em>permanent</em> &mdash; and the permanence is not a reading, it is a fact I checked: <strong>there is no path anywhere in this codebase by which a stored caption is ever deleted.</strong> Not on account deletion, not on a timer, not at all. That is owed under storage limitation and under the account-deletion work regardless of how anyone reads TikTok's terms, and it is the one part of D7 that is a task rather than a question.</p>
+          <p><strong>The sharper risk is not that clause, and it is worth reading twice.</strong> The licence opens <em>&ldquo;you may, solely as described in the TikTok Developer Documentation&hellip;&rdquo;</em>, and the oEmbed documentation describes exactly one purpose: converting a link into embedded video markup. It does not describe caching a caption and running a model over it. If those words govern the <em>purpose</em> of use rather than the <em>manner</em> of access, then a product whose entire value comes from <strong>not</strong> embedding the post sits outside the licence &mdash; and no amount of retention hygiene fixes that. The specialist reads it as manner-of-access, and calls that the weakest joint in the whole analysis.</p>
+          <p><strong>How far it is verified, because that decides what you can do with it.</strong> The document was captured by a different task and carries no address, no status and no timestamp; a re-fetch hit two dead links and a redirect that returned nothing. What holds it up is internal consistency &mdash; the agreement's own cross-references describe the clause by subject matter and all seven of them resolve. <strong>Reliable enough to raise the question. Not reliable enough to change production on.</strong> Re-fetch it properly, put both paragraphs in front of <code>security-privacy</code> together rather than one instead of the other, and fix the capture so the next raw file records where it came from.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:24px">
+      <span class="eyebrow">What I would do on Monday if you told me nothing</span>
+      <p>
+        <strong>E2-T0, E2-T1, E2-T2, E2-T3, in that order.</strong> The harness, because &ldquo;it
+        doesn't work&rdquo; is currently unfalsifiable. The prompt, because it is four fifths of the bill and
+        cutting it carries no behavioural risk at all. The markup parse, because it deletes a
+        confidently wrong place. The verdict field, because everything expensive downstream is
+        guesswork without a trigger and this one costs a fortieth of a cent.
+        <strong>None of the four needs a ruling, a new port, or a byte of media</strong> &mdash; and
+        together they take the bill to roughly a third of today's while raising the yield, before
+        anyone has to argue about transcription.
+      </p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><strong>Engine 2.0</strong> &mdash; architecture proposal, 2026-08-31, branch <code>no-crumbs-implementation</code>. Not ratified; nothing here is built.</p>
+    <p class="dim" style="margin-top:8px">
+      Evidence: <code>docs/evidence/tiktok/07-caption-content-scoring.md</code> &middot;
+      <code>docs/evidence/extraction/transcription-and-media-feasibility-2026-08-28.md</code> &middot;
+      <code>docs/evidence/tiktok/cover-frame-ocr-run-2026-08-28.json</code> &middot;
+      and the three evidence files written for this proposal.
+      Claims are labelled <span class="lab ver">verified</span> <span class="lab doc">documented</span>
+      <span class="lab ass">assumed</span> <span class="lab una">unavailable</span> per the house rule;
+      design may depend only on the first two.
+    </p>
+  </div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA — every row here is from a committed evidence file in this repository.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const CORPUS = [
+  {h:"briancantstopeating", cls:"recoverable", cap:202, inCap:0, onScreen:0, cover:"6 Must Try Spots in Tokyo Japan", venues:6},
+  {h:"nom_life",            cls:"recoverable", cap:491, inCap:0, onScreen:0, cover:"everywhere to eat in tokyo / this is our full list of must try spots in Tokyo!", venues:4},
+  {h:"petsmeowwoof",        cls:"control",     cap:52,  inCap:0, onScreen:0, cover:"—", venues:0},
+  {h:"panosliceapp",        cls:"control",     cap:429, inCap:0, onScreen:0, cover:"creative slideshow ideas for your travel pics", venues:0},
+  {h:"theyoushouldknowpodcast", cls:"control", cap:26,  inCap:0, onScreen:0, cover:"In Loving Mem K", venues:0},
+  {h:"marielleisrael",      cls:"futile",      cap:91,  inCap:0, onScreen:0, cover:"Best Coffee in TLV", venues:0},
+  {h:"muchmorethanmatcha",  cls:"sufficient",  cap:122, inCap:1, onScreen:1, cover:"CAFE FIORI coolest takeaway iced latte I've ever had in my life", venues:1},
+  {h:"yallabikestlv",       cls:"recoverable", cap:107, inCap:0, onScreen:1, cover:"Pizza Lila", venues:1},
+  {h:"travel.by.ann",       cls:"sufficient",  cap:544, inCap:1, onScreen:0, cover:"The place where the coffee is like a perfume", venues:1},
+  {h:"zachmargs",           cls:"control",     cap:197, inCap:0, onScreen:0, cover:"POV: You order Israeli coffee in Tel Aviv", venues:0},
+  {h:"joiceglobal",         cls:"control",     cap:81,  inCap:0, onScreen:0, cover:"POV: You try to order coffee in Tel Aviv", venues:0},
+  {h:"alexandramoulavi",    cls:"recoverable", cap:73,  inCap:0, onScreen:0, cover:"perfection new coffee spot in tel aviv ☕️", venues:1},
+  {h:"ysabellahazan",       cls:"recoverable", cap:85,  inCap:0, onScreen:0, cover:"BEST COFFEE SHOPS IN TEL AVIV TO WORK AT", venues:4},
+  {h:"gadderhq",            cls:"futile",      cap:131, inCap:0, onScreen:0, cover:"What's a hidden gem restaurant in London?", venues:0},
+  {h:"exploringlondon",     cls:"sufficient",  cap:1230,inCap:8, onScreen:4, cover:"HIDDEN SPOTS IN LONDON — SEA GARDEN & GRILL…", venues:8},
+  {h:"emshelx",             cls:"futile",      cap:444, inCap:0, onScreen:0, cover:"—", venues:0}
+];
+
+const CLS_LABEL = { sufficient:"Sufficient", recoverable:"Recoverable", futile:"Futile", control:"Not a place" };
+
+/* ─── the corpus table ─────────────────────────────────────────────────── */
+(function corpus() {
+  const tb = document.querySelector("#corpus tbody");
+  function render(filter) {
+    tb.innerHTML = "";
+    CORPUS.filter(r => filter === "all" || r.cls === filter).forEach(r => {
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td class="mono" style="font-size:12px">@${r.h}</td>` +
+        `<td><span class="cls ${r.cls}">${CLS_LABEL[r.cls]}</span></td>` +
+        `<td class="num dim">${r.cap} ch</td>` +
+        `<td class="num" style="color:${r.inCap ? "var(--ok)" : "var(--ink-3)"}">${r.inCap || "—"}</td>` +
+        `<td class="num" style="color:${r.onScreen ? "var(--gold)" : "var(--ink-3)"}">${r.onScreen || "—"}</td>` +
+        `<td class="dim" style="font-size:12px;max-width:34ch">${r.cover}</td>`;
+      tb.appendChild(tr);
+    });
+  }
+  render("all");
+  document.querySelectorAll("#cfilters button").forEach(b => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#cfilters button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      render(b.dataset.f);
+    });
+  });
+})();
+
+/* ═══ THE LADDER ══════════════════════════════════════════════════════════
+   `usd` is the marginal cost of running this rung on ONE add that reaches it.
+   `hit` lists the corpus creators this rung would newly turn into a place —
+   hand-adjudicated against the evidence files, and labelled ASSUMED for every
+   rung above 1 because no rung above 1 has ever been run.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const TIERS = [
+  {
+    id: "T0", key: "read", name: "Read the link", colour: "--t0", usd: 0, locked: true,
+    what: "The caption, the author, the cover image — and the markup blob we currently throw away",
+    runs: "Always",
+    stop: "A post with no caption stops here as “no places”",
+    hit: [],
+    body: "Already cache-through: a second add of the same link makes zero network calls. What changes is that we stop discarding two thirds of the response. The <code>html</code> blob in the same payload carries TikTok's own hashtag anchors — in the caption a hashtag is just characters, in the markup it is a token TikTok itself labelled — which turns “a candidate evidenced only by a hashtag is not a place” from a regex we wrote into a check against the platform's own markup. Measured across the sixteen committed responses: the median caption is 45% hashtag characters, and the post that produced a place at 0.95 confidence from <code>#tsukijifishmarket</code> is 30 anchors against 134 characters of prose.",
+    ev: "verified"
+  },
+  {
+    id: "T1", key: "verdict", name: "Read the caption, and ask what kind of post this is", colour: "--t1", usd: 0.002192,
+    what: "The call we already make, plus one field: is this a recommendation, a question, or not a place?",
+    runs: "Always — it is part of the existing call, not a new one",
+    stop: "“A question post” or “not a place” ends the add here, honestly, for a fortieth of a cent",
+    hit: [],
+    body: "The whole cascade's economics run through this one field, which is why it is a rung and not a footnote. Roughly 73% of adds return nothing, and most of them deserve nothing — but the best trigger anyone has measured for telling those apart scores 0.33 precision, so three escalations in four would be wasted. Asking the model directly separates exactly the classes that signal conflates: a “drop your recs below” post is a question, a cat video is not a place, and only “a recommendation, and I found nothing” is worth spending on. The field itself costs about ten output tokens &mdash; roughly $0.000025 of the $0.002192 beside it, which is the whole call &mdash; and <strong>zero extra requests</strong>. On the sixteen labelled posts a perfect version of this fires five times and wastes nothing — which is a hypothesis about a classifier that does not exist yet, not a measurement, and it is the first thing the harness should score.",
+    ev: "assumed"
+  },
+  {
+    id: "T2", key: "ask", name: "Ask the person who watched it", colour: "--t2", usd: 0,
+    what: "One field, on the screen they already see most, that accepts anything they know",
+    runs: "Whenever T1 says places exist and none were found",
+    stop: "They skip. Skipping is free and must stay free",
+    hit: ["emshelx", "marielleisrael"],
+    body: "The cheapest rung on the ladder and the only one with no compliance question at all. On a post whose caption says “my Italian friend told me not to make a TikTok about this London restaurant”, the name is in the comments and the person has already read them. The paste box is <em>already</em> free-form — the code that pulls a link out of pasted text exists — so this is a copy change and a prompt input, not a mechanism. It also reaches the two posts in the corpus that no amount of inference can, because the answer is in neither the caption nor the video.",
+    ev: "verified"
+  },
+  {
+    id: "T3", key: "search", name: "Search for a place we cannot name", colour: "--t5", usd: 0.0002,
+    what: "Turn a description into a query: city + category + price + the thing that made it worth posting",
+    runs: "Any rung produced facts about a place but no name for it — and, critically, when a name was found and matched nothing",
+    stop: "The search returns nothing confident; the add ends on a mention rather than a place",
+    hit: ["yallabikestlv"],
+    body: "“The best coffee in Tel Aviv is only 9 shekels?! They also have some of the best pizza…” has no name and four usable facts. Google's text search takes exactly this shape of query — descriptive text plus a location bias, a place type and a price level — and every one of those parameters is in the API we already pay for. Today all four facts are discarded because the schema has no field meaning “I know what, not which”. The strongest case for this rung is the one the current design ignores entirely: <strong>a name was extracted and matched nothing in that city</strong>. That is not a dead end, it is evidence — and it is the cheapest signal we are not using.",
+    ev: "documented"
+  },
+  {
+    id: "T4", key: "watch", name: "Watch the whole thing", colour: "--t4", usd: 0.001764,
+    what: "The entire video — every frame at one per second, and the audio — added to that same call",
+    runs: "T1 says places are in the video, nothing was found, and the person has supplied the file",
+    stop: "There is no rung after this one. What it does not find, we do not have",
+    hit: ["briancantstopeating", "nom_life", "alexandramoulavi", "ysabellahazan"],
+    body: "This rung is one rung because the arithmetic says so, and that is a change from how this was drafted. Sampling keyframes and transcribing audio as two tiers costs about twice as much as reading the whole video at low resolution, needs a second vendor, adds two network hops and requires a video toolchain inside a serverless function. <strong>If we ever hold the file, reading all of it is the cheap option.</strong> The reasons left to prefer the split are latency and corroboration — frames arrive sooner, and a name that is both spoken and on screen in the same second is a stronger fact than either alone.",
+    ev: "assumed"
+  }
+];
+
+
+/* ─── render the ladder ────────────────────────────────────────────────── */
+(function ladder() {
+  const host = document.getElementById("ladder");
+  TIERS.forEach(t => {
+    const el = document.createElement("div");
+    el.className = "tier";
+    const cost = t.usd === 0 ? "free" : "$" + t.usd.toFixed(4);
+    el.innerHTML =
+      `<button aria-expanded="false">
+         <span class="tid" style="color:var(${t.colour})">${t.id}</span>
+         <span>
+           <span class="tname">${t.name}</span>
+           <span class="twhat">${t.what}</span>
+         </span>
+         <span class="tcost" style="color:var(${t.colour})">${cost}<small>per add</small></span>
+       </button>
+       <div class="body">
+         <dl>
+           <dt>Runs when</dt><dd>${t.runs}</dd>
+           <dt>Stops when</dt><dd>${t.stop}</dd>
+           <dt>Evidence</dt><dd><span class="lab ${t.ev.slice(0,3)}">${t.ev}</span></dd>
+         </dl>
+         <p>${t.body}</p>
+       </div>`;
+    const btn = el.querySelector("button");
+    btn.addEventListener("click", () => {
+      const open = el.classList.toggle("open");
+      btn.setAttribute("aria-expanded", String(open));
+    });
+    host.appendChild(el);
+  });
+})();
+
+/* ═══ THE COST MODEL ══════════════════════════════════════════════════════ */
+(function model() {
+  const sw = document.getElementById("switches");
+  const ro = document.getElementById("readout");
+  const bars = document.getElementById("bars");
+  const state = Object.fromEntries(TIERS.map(t => [t.key, true]));
+  let volume = 200;
+
+  /* Share of adds that actually reach each rung, given the corpus mix and the
+     stop rules above. T0/T1 run on everything; T2 only when T1 says to look
+     harder; T3/T4 additionally need the user to have supplied the file.       */
+  const REACH  = { read: 1.00, verdict: 1.00, ask: 0.50, search: 0.25, watch: 0.50 };
+  const SUPPLY = 0.45;   /* share of adds where the person supplies the video  */
+
+  TIERS.forEach(t => {
+    const l = document.createElement("label");
+    l.className = "switch";
+    l.innerHTML =
+      `<input type="checkbox" ${state[t.key] ? "checked" : ""} ${t.locked ? "disabled" : ""} data-k="${t.key}">
+       <span>
+         <span class="sl" style="color:var(${t.colour})">${t.id} · ${t.name}</span>
+         <span class="sd">${t.what}</span>
+       </span>
+       <span class="sc">${t.usd === 0 ? "free" : "$" + t.usd.toFixed(4)}</span>`;
+    l.querySelector("input").addEventListener("change", e => { state[t.key] = e.target.checked; paint(); });
+    sw.appendChild(l);
+  });
+
+  const slider = document.createElement("div");
+  slider.className = "slider";
+  slider.innerHTML =
+    `<label for="vol">Adds per month <b id="volv">200</b></label>
+     <input type="range" id="vol" min="20" max="3000" step="20" value="200">`;
+  sw.appendChild(slider);
+  slider.querySelector("#vol").addEventListener("input", e => {
+    volume = +e.target.value;
+    document.getElementById("volv").textContent = volume.toLocaleString();
+    paint();
+  });
+
+  const BY_HANDLE = Object.fromEntries(CORPUS.map(c => [c.h, c]));
+
+  function compute() {
+    /* Expected values, not a coin flip: a rung that needs the user's file
+       lands on the share of adds where the file exists. Deduplicated by post,
+       so two rungs that can both reach the same post are not counted twice —
+       the better route wins. Deterministic, so the same switches always report
+       the same number.                                                         */
+    const reached = {};
+    TIERS.forEach(t => {
+      if (!state[t.key] || t.key === "read") return;
+      const gate = t.key === "watch" ? SUPPLY : 1;
+      t.hit.forEach(h => { reached[h] = Math.max(reached[h] ?? 0, gate); });
+    });
+    let posts = 3, places = 10;          /* the three posts the caption already carries */
+    Object.entries(reached).forEach(([h, gate]) => {
+      posts += gate;
+      places += (BY_HANDLE[h]?.venues ?? 0) * gate;
+    });
+
+    let per = 0;
+    TIERS.forEach(t => {
+      if (!state[t.key]) return;
+      let reach = REACH[t.key];
+      if (t.key === "watch") reach *= SUPPLY;
+      per += t.usd * reach;
+    });
+
+    const postShare = posts / 11;        /* 11 genuine recommendation posts    */
+    return { posts, places, per, month: per * volume, postShare };
+  }
+
+  function paint() {
+    const r = compute();
+    const lift = (r.postShare / (3 / 11));
+    const TODAY = 0.006640;   /* caption only, on the model deployed right now */
+    ro.innerHTML =
+      `<div class="ro"><span class="n" style="color:${r.postShare > .28 ? "var(--ok)" : "var(--crit)"}">${Math.round(r.postShare * 100)}%</span><span class="k">Posts that yield a place</span><span class="d">${r.posts.toFixed(1)} of the 11 genuine recommendation posts in the corpus</span></div>
+       <div class="ro"><span class="n">${Math.round(r.places)}</span><span class="k">Places from 16 adds</span><span class="d">Today the same 16 adds return 10, all from three posts</span></div>
+       <div class="ro"><span class="n" style="color:${r.per < TODAY ? "var(--ok)" : "var(--crit)"}">$${r.per.toFixed(4)}</span><span class="k">Blended cost per add</span><span class="d">${(r.per / TODAY).toFixed(2)}× today's $0.0066, averaged over every add including the ones that stop early</span></div>
+       <div class="ro"><span class="n">$${r.month.toFixed(2)}</span><span class="k">Per month at ${volume.toLocaleString()} adds</span><span class="d">${lift >= 1 ? lift.toFixed(1) + "× today's yield, for " + (r.per / TODAY).toFixed(2) + "× the price" : "below today's yield"}</span></div>`;
+
+    const rows = TIERS.filter(t => state[t.key] && t.usd > 0).map(t => {
+      let reach = REACH[t.key];
+      if (t.key === "watch") reach *= SUPPLY;
+      return { t, spend: t.usd * reach * volume };
+    });
+    const max = Math.max(0.0001, ...rows.map(r => r.spend));
+    bars.innerHTML =
+      `<div class="eyebrow" style="margin-bottom:10px">Where the month's money goes</div>` +
+      (rows.length ? rows.map(r =>
+        `<div class="bar">
+           <span class="bl">${r.t.id} · ${r.t.name.split(",")[0]}</span>
+           <span class="bt"><span class="bf" style="width:${Math.max(2, r.spend / max * 100)}%;background:var(${r.t.colour})"></span></span>
+           <span class="bv">$${r.spend.toFixed(2)}</span>
+         </div>`).join("") :
+        `<p class="dim" style="font-size:13px;margin:0">Nothing is switched on that costs anything.</p>`);
+  }
+  paint();
+})();
+
+/* ─── scrollspy ────────────────────────────────────────────────────────── */
+(function spy() {
+  const links = [...document.querySelectorAll("#chbar a")];
+  const map = new Map(links.map(a => [a.getAttribute("href").slice(1), a]));
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      links.forEach(a => a.classList.remove("on"));
+      map.get(e.target.id)?.classList.add("on");
+    });
+  }, { rootMargin: "-52px 0px -72% 0px", threshold: 0 });
+  document.querySelectorAll("main section[id]").forEach(s => io.observe(s));
+})();
+</script>

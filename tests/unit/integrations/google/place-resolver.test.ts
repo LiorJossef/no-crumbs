@@ -19,6 +19,9 @@ import type { OpCtx } from '@/domain/ports';
 import type { ResolveQuery } from '@/domain/types';
 import {
   buildTextQuery,
+  countryCodeOf,
+  localityOf,
+  narrowedTextQuery,
   GLOBAL_REGION,
   GOOGLE_TIMEOUT_MS,
   languageCodeFor,
@@ -26,11 +29,13 @@ import {
   googlePlaceResolver,
   MAX_GOOGLE_RESULTS,
   toResolvedPlace,
+  type GoogleAddressComponent,
   type GooglePlaceRow,
   type GooglePlacesGateway,
   type GoogleTextSearchParams,
 } from '@/integrations/google/place-resolver';
 import type { PlaceLookupStore } from '@/integrations/places/lookup-cache';
+import { resolvedCountryCode } from '@/domain/places/resolved-country';
 
 interface Logged {
   readonly name: string;
@@ -409,5 +414,186 @@ describe('googlePlaceResolver with a lookup store', () => {
     await resolver.resolve(query({ text: 'Palette Bistro' }), ctx);
 
     expect(seen).toHaveLength(2);
+  });
+});
+
+
+describe('narrowedTextQuery — the query builder and the scorer, agreeing at last', () => {
+  // `SCORING.generic` has known since the prototype that `tokyo`, `cafe` and `restaurant` do not
+  // identify a venue — `tokenCoverage` filters them out. `buildTextQuery` sent them to Google
+  // anyway, so the provider ranked on words we had already decided were not names. Measured
+  // 2026-09-01: `Tokyo ICCO London` returns no_match at 0.754; `ICCO London` returns
+  // `ICCO Pizza - Soho` at 0.879.
+  it('drops the generic words the scorer already ignores', () => {
+    expect(narrowedTextQuery(query({ text: 'Tokyo ICCO' }))).toContain('icco');
+  });
+
+  it('returns null when there is nothing generic to drop, so no second lookup is spent', () => {
+    expect(narrowedTextQuery(query({ text: 'Ottolenghi' }))).toBeNull();
+  });
+
+  it('returns null when every word is generic, rather than querying an empty name', () => {
+    expect(narrowedTextQuery(query({ text: 'the best coffee' }))).toBeNull();
+  });
+
+  it('keeps the city, which is what disambiguates the narrowed name', () => {
+    const narrowed = narrowedTextQuery(query({ text: 'Cafe Fiori' }));
+    expect(narrowed).toContain('fiori');
+    expect(narrowed, 'the city must survive the narrowing').toMatch(/,\s*\S/);
+  });
+});
+
+/**
+ * Address components as Google actually returned them, copied out of this project's own
+ * `place_lookups` cache on 2026-09-02 (`docs/evidence/db/` — the four Prague saves and the Tel Aviv
+ * ones). No live call was made for any of these, and none is needed: the cached response *is* the
+ * provider's answer for those exact queries.
+ */
+const PRAGUE_KUS_KOLACE: readonly GoogleAddressComponent[] = [
+  { longText: '90', shortText: '90', types: ['street_number'] },
+  { longText: 'Korunní', shortText: 'Korunní', types: ['route'] },
+  { longText: 'Vinohrady', shortText: 'Vinohrady', types: ['neighborhood', 'political'] },
+  {
+    longText: 'Praha 10',
+    shortText: 'Praha 10',
+    types: ['sublocality_level_1', 'sublocality', 'political'],
+  },
+  {
+    longText: 'Hlavní město Praha',
+    shortText: 'Hlavní město Praha',
+    types: ['administrative_area_level_2', 'political'],
+  },
+  {
+    longText: 'Hlavní město Praha',
+    shortText: 'Hlavní město Praha',
+    types: ['administrative_area_level_1', 'political'],
+  },
+  { longText: 'Czechia', shortText: 'CZ', types: ['country', 'political'] },
+  { longText: '101 00', shortText: '101 00', types: ['postal_code'] },
+];
+
+/** The same response for `Praha 1`, so the four districts can be shown to agree on one label. */
+function pragueDistrict(district: string): readonly GoogleAddressComponent[] {
+  return PRAGUE_KUS_KOLACE.map((component) =>
+    component.types?.includes('sublocality_level_1') === true
+      ? { longText: district, shortText: district, types: component.types }
+      : component,
+  );
+}
+
+/** Tel Aviv, from the cached `האחים` response — the ordinary case, which must not change. */
+const TEL_AVIV: readonly GoogleAddressComponent[] = [
+  { longText: '26', shortText: '26', types: ['street_number'] },
+  { longText: 'שלמה אבן גבירול', shortText: 'שלמה אבן גבירול', types: ['route'] },
+  { longText: 'תל אביב-יפו', shortText: 'תל אביב-יפו', types: ['locality', 'political'] },
+  {
+    longText: 'מחוז תל אביב',
+    shortText: 'מחוז תל אביב',
+    types: ['administrative_area_level_1', 'political'],
+  },
+  { longText: 'ישראל', shortText: 'IL', types: ['country', 'political'] },
+];
+
+describe('localityOf', () => {
+  it('takes the locality component when there is one', () => {
+    expect(localityOf(TEL_AVIV)).toBe('תל אביב-יפו');
+  });
+
+  it('names Prague, where Google returns no locality at all', () => {
+    // The defect this fixes: all four Czech saves in the local library have `places.locality` NULL,
+    // so `clusterLabel` had nothing to count and the group printed `this area`.
+    expect(localityOf(PRAGUE_KUS_KOLACE)).toBe('Praha');
+  });
+
+  it('gives all four Prague districts the same city, so they cannot tie', () => {
+    const labels = ['Praha 1', 'Praha 3', 'Praha 4', 'Praha 10'].map((district) =>
+      localityOf(pragueDistrict(district)),
+    );
+    // A four-way tie is what `clusterLabel` returns null for, and null is what prints `this area`.
+    expect(new Set(labels)).toEqual(new Set(['Praha']));
+  });
+
+  it('keeps a district number nothing corroborates', () => {
+    // `District 1` in Ho Chi Minh City. Deleting the number here would leave the word `District`,
+    // which is not the name of anywhere — so the stem must appear in a wider component or it stays.
+    expect(
+      localityOf([
+        { longText: 'District 1', shortText: 'District 1', types: ['sublocality_level_1'] },
+        {
+          longText: 'Ho Chi Minh City',
+          shortText: 'Ho Chi Minh City',
+          types: ['administrative_area_level_1'],
+        },
+        { longText: 'Vietnam', shortText: 'VN', types: ['country'] },
+      ]),
+    ).toBe('District 1');
+  });
+
+  it('reads the UK town out of postal_town', () => {
+    // ASSUMED, not measured here: no UK row exists in this project's lookup cache, so this asserts
+    // Google's documented UK shape rather than a response we hold. Named so nobody reads it as
+    // stronger evidence than it is.
+    expect(
+      localityOf([
+        { longText: 'Old Compton St', shortText: 'Old Compton St', types: ['route'] },
+        { longText: 'London', shortText: 'London', types: ['postal_town'] },
+        { longText: 'Greater London', shortText: 'Greater London', types: ['administrative_area_level_2'] },
+        { longText: 'England', shortText: 'England', types: ['administrative_area_level_1'] },
+        { longText: 'United Kingdom', shortText: 'GB', types: ['country'] },
+      ]),
+    ).toBe('London');
+  });
+
+  it('never promotes a county to a city', () => {
+    // `administrative_area_level_2` is only taken when it *is* the region — the Prague case. A US
+    // county sits under a state, so this must stay null rather than write `Cook County`.
+    expect(
+      localityOf([
+        { longText: 'Cook County', shortText: 'Cook County', types: ['administrative_area_level_2'] },
+        { longText: 'Illinois', shortText: 'IL', types: ['administrative_area_level_1'] },
+        { longText: 'United States', shortText: 'US', types: ['country'] },
+      ]),
+    ).toBeNull();
+  });
+
+  it('is null when Google named no place at all', () => {
+    expect(localityOf([])).toBeNull();
+    expect(localityOf(undefined)).toBeNull();
+  });
+});
+
+describe('countryCodeOf', () => {
+  it('reads the alpha-2 out of shortText, never the name out of longText', () => {
+    expect(countryCodeOf(TEL_AVIV)).toBe('IL');
+    expect(countryCodeOf(PRAGUE_KUS_KOLACE)).toBe('CZ');
+  });
+
+  it('is null rather than a guess when there is no country component', () => {
+    expect(countryCodeOf([{ longText: 'Korunní', types: ['route'] }])).toBeNull();
+    expect(countryCodeOf(undefined)).toBeNull();
+  });
+
+  it('refuses anything that is not two letters', () => {
+    // `places_country_code_check` is `^[A-Z]{2}$`; a country *name* here would fail at the database.
+    expect(countryCodeOf([{ longText: 'Israel', shortText: 'Israel', types: ['country'] }])).toBeNull();
+    expect(countryCodeOf([{ longText: 'x', shortText: '', types: ['country'] }])).toBeNull();
+  });
+});
+
+describe('toResolvedPlace, geography', () => {
+  it('carries Google own country onto the resolved place', () => {
+    const place = toResolvedPlace(row({ addressComponents: [...TEL_AVIV] }));
+    expect(place === null ? null : resolvedCountryCode(place)).toBe('IL');
+  });
+
+  it('carries a Prague result with both a city and a country', () => {
+    const place = toResolvedPlace(row({ addressComponents: [...PRAGUE_KUS_KOLACE] }));
+    expect(place?.locality).toBe('Praha');
+    expect(place === null ? null : resolvedCountryCode(place)).toBe('CZ');
+  });
+
+  it('reports no country rather than an empty one when Google gave none', () => {
+    const place = toResolvedPlace(row({ addressComponents: [] }));
+    expect(place === null ? null : resolvedCountryCode(place)).toBeNull();
   });
 });

@@ -171,6 +171,23 @@ export interface ScoringConstants {
     readonly preselectScore: number;
     readonly preselectMargin: number;
     readonly confirmScore: number;
+    /**
+     * The weakest distinctive query token must cover at least this well for a band above
+     * `no_match` to stand. See `nameIsEstablished`.
+     *
+     * **0.85 -> 0.81 on 2026-08-31, the same day it was introduced, because 0.85 cost a real
+     * place.** A transcript-sourced candidate `Pita Lila` matched Google's `Pizza Lila` — the same
+     * venue, the creator says both names in one breath and the cover frame reads the second — at a
+     * weakest-token coverage of **0.827**, and 0.85 threw it away.
+     *
+     * **Correct and wrong matches overlap on this signal and cannot be fully separated by it**:
+     * measured, the lowest correct is 0.827 and the highest wrong is 0.830. This number therefore
+     * chooses which error to make rather than avoiding both. 0.81 is set just above the clearest
+     * wrong match we hold (`Kiaans Tooting` -> `Kaosarn Tooting`, 0.804) so the guard keeps its
+     * live-path win, and below `Pita Lila` so a real place survives. `TLV-08` at 0.830 returns to
+     * the `confirm` band it occupied before this guard existed — a restoration, not a regression.
+     */
+    readonly weakestToken: number;
   };
   /**
    * The branch guard (TRACK2-BRANCH, 2026-08-28): when the top-1 and a close rival are plausibly
@@ -428,7 +445,7 @@ export const SCORING: ScoringConstants = Object.freeze({
   extraTokenPenalty: Object.freeze({ perToken: 0.04, max: 0.15 }),
   substringCredit: 0.97,
   minDistinctiveTokenLength: 2,
-  bands: Object.freeze({ preselectScore: 0.92, preselectMargin: 0.05, confirmScore: 0.8 }),
+  bands: Object.freeze({ preselectScore: 0.92, preselectMargin: 0.05, confirmScore: 0.8, weakestToken: 0.81 }),
   branchGuard: Object.freeze({ rivalScoreBand: 0.12 }),
   samePlaceMetres: 75,
   decisive: Object.freeze({ rivalNameSeparation: 0.02 }),

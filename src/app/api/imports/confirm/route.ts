@@ -58,6 +58,61 @@
  * The enrichment write happens **after** the save and can never fail it (`place-store.ts`), and
  * each item reports what became of it — `applied`, `empty`, `unavailable_v1` or `failed` — rather
  * than letting "no tags" mean four different things.
+ *
+ * The paragraph above calls those three columns "place facts", which migration `0036` and
+ * `docs/db-ruling-tag-ownership-2026-09-01.md` §2 overturn for one of them: `tags` is a **user
+ * annotation**, and it always was — it is a column on `saved_places`, the per-user row, not on
+ * `places`, the shared POI. The rest of the paragraph survives intact. Nothing about how the value
+ * is *derived* changes: it still comes from the server's own extraction row and the request still
+ * has no field that could reach it. What changes is who the words belong to afterwards.
+ *
+ * ## The confirmation stamp (`0036`, task `r3-tags-ui`)
+ *
+ * `saved_places.tags_confirmed_at` is `NULL` for as long as the array beside it is an unconfirmed
+ * model proposal. Before this route wrote it, it was `NULL` on every row in every database, and it
+ * had no caller anywhere — a live, reviewed, security-signed-off migration that the product never
+ * used, which `product-review-2026-08-31-r3.md` rightly calls a worse state than an unapplied one.
+ *
+ * **This route is that caller, and the review screen is what earns it the right to be.** The card
+ * now renders the proposed tags (`review/candidate-card.tsx`), in the same pill the library uses,
+ * derived by the same `deriveSavedPlaceEnrichment` call that produces the value written below. So
+ * the user saw these exact words and pressed Save — which is precisely the consent standard the
+ * rest of that screen already runs on, the category and the address and the resolved name all
+ * being stated rather than separately ratified.
+ *
+ * **It is written through `set_saved_place_tags`, not by an UPDATE, and that is a decision.** This
+ * route holds a service-role client and could set both columns directly in one statement. `0036`'s
+ * ruling 4 exists because two independently writable columns are two statements a caller can issue
+ * apart — the words without the record of who chose them, or the record of a choice nobody made —
+ * and it made that inexpressible for `authenticated` by granting no column privilege and exposing
+ * one `SECURITY DEFINER` function that always stamps. A server that reaches around the function
+ * re-creates the separability it removed, one privilege level up, for the convenience of not making
+ * an RPC call. So the call goes through the **user's own client**: `auth.uid()` is then the session
+ * this request already authenticated, the function's `where sp.user_id = (select auth.uid())`
+ * becomes a second and independent check on ownership where
+ * `apply_saved_place_extraction(p_user_id)` has only the argument this file passes it, and the
+ * product has exactly one write path to `tags` rather than one for browsers and a shortcut for us.
+ *
+ * **Three conditions, and each one is a way the stamp could otherwise become a lie:**
+ *
+ *  1. **The save is new** (`alreadySaved === false`). On a fresh row `tags` is `NULL` before the
+ *     enrichment write — `save_place` does not mention the column — so first-writer-wins stores
+ *     exactly what the card rendered. On a re-import of a place the user already holds, the row
+ *     keeps *its* tags and the card showed *this* post's, so the two can differ and stamping would
+ *     record a confirmation of words that are not in the column. It would also overwrite an
+ *     existing vocabulary with model output, which is the one thing `0036` §5 forbids the extractor
+ *     from doing; doing it here through the user's client would launder it, not avoid it.
+ *  2. **The enrichment write succeeded** (`enrichment === 'applied'`). If it failed the row has no
+ *     tags at all, and a stamp on an empty array is a confirmation of a deletion nobody made — and
+ *     `0036` §3(b) then bars every later import from ever tagging that place.
+ *  3. **There was at least one tag.** A candidate the caption supported no tags for must stay
+ *     `NULL`, not "confirmed empty": the user declined nothing, there was simply nothing to show
+ *     them, and a later post about the same venue must still be allowed to tag it. Confirming an
+ *     absence is an assertion, and it is one only a deliberate deletion may make.
+ *
+ * A failure here never fails the item. The place is saved and its tags are stored; only the record
+ * that the user asserted them is missing, and the safe direction for that record to be wrong in is
+ * absent. It is logged and reported as `tagsConfirmed: false`.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -82,6 +137,14 @@ import type { PlaceProvider } from '@/domain/types';
  * just a bug with better manners. One structured line, `07` §7.1's shape, on stderr — codes and
  * ids only, never a tag, a caption or a coordinate.
  */
+/**
+ * The caller's Supabase client, named once so `confirmOne` can take it without restating
+ * `Awaited<ReturnType<typeof createClient>>` twice. Structural, not nominal: it is exactly what
+ * `createClient()` returns, so a test double satisfies it by having the same shape and nothing has
+ * to be exported from `_lib/supabase/server.ts` to make that work.
+ */
+type SupabaseUserClient = Awaited<ReturnType<typeof createClient>>;
+
 function routeCtx(signal: AbortSignal): OpCtx {
   return {
     signal,
@@ -115,6 +178,13 @@ type ItemResult =
       /** The scorer's real 0..1 score for an Overture save, `null` for a model guess. */
       readonly resolutionScore: number | null;
       readonly enrichment: EnrichmentOutcome;
+      /**
+       * Whether `tags_confirmed_at` was stamped for this save — additive on the wire, and the one
+       * field that says the user's assertion was recorded rather than merely intended. `false` is a
+       * normal, frequent answer: no tags to confirm, a place already in the library, or a stamp
+       * that failed after a save that did not. See this file's header for all three.
+       */
+      readonly tagsConfirmed: boolean;
     }
   | { readonly status: 'skipped'; readonly candidateIndex: number; readonly reason: 'no_coordinates' }
   | { readonly status: 'failed'; readonly candidateIndex: number; readonly error: DomainErrorView };
@@ -144,6 +214,15 @@ type EnrichmentOutcome = 'applied' | 'empty' | 'unavailable_v1' | 'failed';
 
 async function confirmOne(
   store: ReturnType<typeof supabasePlaceStore>,
+  /**
+   * The **caller's** Supabase client, not the service-role one, and the distinction is the whole
+   * security argument for how the confirmation stamp is written. `set_saved_place_tags` is
+   * `SECURITY DEFINER` and bounded by `auth.uid()`; called on this client that is the session
+   * `POST` authenticated, so the function refuses a save that is not the caller's on its own
+   * authority. Called on a service-role client `auth.uid()` is `NULL` and it would raise `28000`,
+   * which is the guard working. See the header.
+   */
+  user: SupabaseUserClient,
   item: ConfirmItem,
   candidates: readonly StoredCandidate[],
   sourceId: string,
@@ -236,6 +315,8 @@ async function confirmOne(
       ctx,
     );
 
+    const outcome = enrichmentOutcome(schemaVersion, enrichment !== null, enrichmentApplied);
+
     return {
       status: alreadySaved ? 'already_saved' : 'saved',
       candidateIndex: item.candidateIndex,
@@ -244,12 +325,72 @@ async function confirmOne(
       name: place.name,
       provider: place.provider,
       resolutionScore: place.resolutionScore,
-      enrichment: enrichmentOutcome(schemaVersion, enrichment !== null, enrichmentApplied),
+      enrichment: outcome,
+      tagsConfirmed: await confirmTags(
+        user,
+        savedPlaceId,
+        // The same array the card rendered, from the same call — not `candidate.tags`, which would
+        // be a second reading free to drift from the one the user actually saw.
+        enrichment?.tags ?? null,
+        { alreadySaved, enrichmentApplied: outcome === 'applied' },
+        ctx,
+      ),
     };
   } catch (e) {
     const domainError = e instanceof DomainError ? e : internal(String(e), e);
     return { status: 'failed', candidateIndex: item.candidateIndex, error: domainError.toView() };
   }
+}
+
+/**
+ * Records that the user asserted this vocabulary — `saved_places.tags_confirmed_at` — or declines
+ * to, and returns which.
+ *
+ * The three refusals are the header's, restated here as one predicate so there is a single place to
+ * read what makes the stamp honest. They are checked *before* the call rather than left to the
+ * function, because none of them is something the database can see: `set_saved_place_tags` cannot
+ * know whether this save is new, whether the enrichment write landed, or whether a screen rendered
+ * anything. That knowledge is this route's, which is why the route is the caller.
+ *
+ * The value passed is the array the review card rendered. It is deliberately re-asserted rather
+ * than "just stamped": there is no way to write the stamp on its own (`0036` ruling 4), and there
+ * should not be — the words and the record of who chose them are one statement or the property is
+ * gone. On a new save the array is already in the column, so the UPDATE is a no-op in value and
+ * carries only the timestamp, which is exactly the shape wanted.
+ *
+ * Never throws. A place that saved and then failed to record its confirmation is a place that
+ * saved; `NULL` is the safe direction for this column to be wrong in, because it means "nobody has
+ * asserted these words", which is a true statement about a row whose write failed.
+ */
+async function confirmTags(
+  user: SupabaseUserClient,
+  savedPlaceId: string,
+  tags: readonly string[] | null,
+  gate: { readonly alreadySaved: boolean; readonly enrichmentApplied: boolean },
+  ctx: OpCtx,
+): Promise<boolean> {
+  if (tags === null || tags.length === 0) return false;
+  if (gate.alreadySaved || !gate.enrichmentApplied) return false;
+
+  try {
+    const { error } = await user.rpc('set_saved_place_tags', {
+      p_saved_place_id: savedPlaceId,
+      p_tags: tags,
+    });
+    if (error === null) return true;
+    // Codes and ids only — a tag is caption-derived text about a real place and does not belong in
+    // a log line (`07` §7.1, and the same rule `routeCtx` above is written to).
+    ctx.log.event('tag_confirmation_failed', { savedPlaceId, code: error.code });
+  } catch (e) {
+    // A thrown transport failure, not a SQL one. Caught **here** rather than left to `confirmOne`'s
+    // own `try`, which is the difference between an unrecorded confirmation and a save the user is
+    // told did not happen: that handler turns anything thrown into `status: 'failed'`, and the
+    // place is by this point already in the library. This is the same reason `applyEnrichment`
+    // swallows its own failures in `place-store.ts` — the last step of a successful save may not be
+    // allowed to retract it.
+    ctx.log.event('tag_confirmation_failed', { savedPlaceId, code: String(e).slice(0, 80) });
+  }
+  return false;
 }
 
 /** The four states, from the three facts that determine them. A separate function so the mapping
@@ -353,7 +494,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const results: ItemResult[] = [];
   for (const item of items) {
     results.push(
-      await confirmOne(store, item, candidates, extraction.source_id as string, user.id, ctx),
+      await confirmOne(
+        store,
+        supabase,
+        item,
+        candidates,
+        extraction.source_id as string,
+        user.id,
+        ctx,
+      ),
     );
   }
 

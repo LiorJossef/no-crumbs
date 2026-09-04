@@ -28,12 +28,15 @@
  * band, and a 32 px target. `summary-style.ts`'s `areaLayerLayout` records all three. Do not turn
  * it back into a circle to save a bitmap.
  *
- * **One layer per band, not two.** The area band used to carry a second symbol layer for the area's
- * name, drawn beneath the disc, where it landed on the basemap's own label for the same city. The
- * name now lives inside the pill's text field, which is the same field the country band uses.
+ * **One layer per band, not two, and one bitmap per marker.** The area band used to carry a second
+ * symbol layer for the area's name, drawn beneath the disc, where it landed on the basemap's own
+ * label for the same city; then the name was a `text-field` inside a stretchable pill. Since
+ * 2026-09-02 it is drawn into the pill's image, like the country band's — which is what puts a
+ * Hebrew city's count at the same end of the pill a Latin city's sits at. See `pillLayout` in
+ * `summary-style.ts` for why no bidi control character could do it instead.
  */
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import { useMap } from '@/components/ui/map';
 
@@ -44,18 +47,23 @@ import {
   type CountryDiscSpec,
   type DiscTheme,
 } from './country-flag-image';
-import { styleTextFont } from './style-text-font';
+import { AREA_BAND_STEPS, layoutAreaBand } from './area-band-layout';
 import {
-  AREA_BAND_ZOOM,
-  AREA_DISC_SPEC,
   AREA_LAYER_ID,
   areaLayerLayout,
+  areaStepFilter,
   COUNTRY_BAND_ZOOM,
   COUNTRY_LAYER_ID,
   countryLayerLayout,
+  countryPillsAffordLabels,
   summaryLayerPaint,
 } from './summary-style';
-import type { AreaFeatureCollection, CountryFeatureCollection } from './summary-features';
+import {
+  areaPillSpec,
+  type AreaFeatureCollection,
+  type CountryFeatureCollection,
+} from './summary-features';
+import type { SummaryPillLabel } from './country-flag-image';
 import { useStyleReady } from './use-style-ready';
 
 interface SummaryMarkerLayerProps {
@@ -79,11 +87,51 @@ export function SummaryMarkerLayer({
 }: SummaryMarkerLayerProps) {
   const { map } = useMap();
   const styleReady = useStyleReady(map);
+  /** The band's hierarchy, resolved once per library rather than per frame — see
+   *  `area-band-layout.ts`. Memoised on `areas` alone, which is the same key the source is
+   *  written on, so a pan, a tap or a re-render never recomputes a layout. */
+  const laidOut = useMemo(() => layoutAreaBand(areas), [areas]);
+  /**
+   * The area band's pills, one bitmap each — the same treatment the country band has had since
+   * `dedcf04`, and the whole of the Hebrew alignment fix.
+   *
+   * The spec is built from the **laid-out** feature rather than the source area, because
+   * `area-band-layout.ts` absorbs a pill that does not fit into the neighbour that displaced it and
+   * adds its places to that neighbour's count. The number on the pill is the step's number, so the
+   * image has to be keyed on it — a `תל אביב-יפו` drawing 33 at one step and 22 at another is two
+   * images, not one.
+   *
+   * Resolved into each feature's `icon` here rather than in a layer expression, for the reason
+   * `summary-features.ts` gives for the country band: an expression that assembled an id would have
+   * to concatenate the theme and the count, and `marker-style.ts` already documents why that shape
+   * is fatal in MapLibre.
+   */
+  const areaDiscs = useMemo(
+    () => laidOut.features.map((f) => areaPillSpec(f.properties.label, f.properties.count)),
+    [laidOut],
+  );
+  const bandAreas = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: laidOut.features.map((feature, index) => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          icon: countryDiscImageId(areaDiscs[index] as CountryDiscSpec, theme),
+        },
+      })),
+    }),
+    [laidOut, areaDiscs, theme],
+  );
   const instanceId = useId().replace(/:/g, '');
   const countrySourceId = `country-summary-${instanceId}`;
   const areaSourceId = `area-summary-${instanceId}`;
   const countryLayerId = `${COUNTRY_LAYER_ID}-${instanceId}`;
-  const areaLayerId = `${AREA_LAYER_ID}-${instanceId}`;
+  /** One layer per pre-computed step (`area-band-layout.ts`), all over the one area source. */
+  const areaLayerIds = useMemo(
+    () => AREA_BAND_STEPS.map((_, index) => `${AREA_LAYER_ID}-${index}-${instanceId}`),
+    [instanceId],
+  );
 
   // Held in refs so the listeners, attached once with the layers, always call the current handlers
   // rather than the ones that existed at mount.
@@ -99,7 +147,7 @@ export function SummaryMarkerLayer({
 
     const removeOurs = () => {
       try {
-        for (const id of [areaLayerId, countryLayerId]) {
+        for (const id of [...areaLayerIds, countryLayerId]) {
           if (map.getLayer(id)) map.removeLayer(id);
         }
         for (const id of [areaSourceId, countrySourceId]) {
@@ -113,27 +161,30 @@ export function SummaryMarkerLayer({
     removeOurs();
 
     const tokens = resolveDiscTokens(theme);
-    const font = styleTextFont(map);
 
     map.addSource(countrySourceId, { type: 'geojson', data: emptyCollection() });
     map.addSource(areaSourceId, { type: 'geojson', data: emptyCollection() });
 
     // The area band goes in first so the country pills, which are bigger and never share a zoom
     // with it, sit above it in the layer order — and so a future band never has to be re-ordered.
-    map.addLayer({
-      id: areaLayerId,
-      type: 'symbol',
-      source: areaSourceId,
-      ...AREA_BAND_ZOOM,
-      layout: areaLayerLayout(font, countryDiscImageId(AREA_DISC_SPEC, theme)) as never,
-      paint: summaryLayerPaint(tokens) as never,
+    AREA_BAND_STEPS.forEach((step, index) => {
+      map.addLayer({
+        id: areaLayerIds[index] as string,
+        type: 'symbol',
+        source: areaSourceId,
+        minzoom: step.minzoom,
+        maxzoom: step.maxzoom,
+        filter: areaStepFilter(index) as never,
+        layout: areaLayerLayout() as never,
+        paint: summaryLayerPaint(tokens) as never,
+      });
     });
     map.addLayer({
       id: countryLayerId,
       type: 'symbol',
       source: countrySourceId,
       ...COUNTRY_BAND_ZOOM,
-      layout: countryLayerLayout(font) as never,
+      layout: countryLayerLayout() as never,
       paint: summaryLayerPaint(tokens) as never,
     });
 
@@ -146,8 +197,25 @@ export function SummaryMarkerLayer({
     // back onto the fitted box, so the hit box is the whole pill — 50 px tall and at least as wide
     // as its label — where a 15 px circle was a 32 px target and would have needed the query padded
     // out to compensate.
+    /**
+     * **Every area pill opens the area it names, and there is no second class of tap.**
+     *
+     * There was one for a day. `617af6e` gave a pill that `area-band-layout.ts` had absorbed a
+     * neighbour into a different gesture — it expanded the camera instead of opening anything —
+     * because such a pill *counted* a group while its id named one area, so it said 13 and opened
+     * 6. The owner used it and rejected it the same day: *"when you click on 'tel aviv' cluster the
+     * reposition of the map isn't good why? it was better"*, then *"like when you click on ראשון —
+     * the zoom is good"*. `ראשון לציון` is an ungrouped pill, so what they were describing as good
+     * is exactly this line: camera mover 4, a fit over the area's own matching places with the
+     * sheet's padding.
+     *
+     * **The mismatch is fixed on the pill instead, which is the end of the problem it was always
+     * on** (owner-side ruling, 2026-09-04): a pill carries its own count and never the group's, so
+     * the number it shows is the number its tap opens. `area-band-layout.ts` holds that argument
+     * and the cost that comes with it.
+     */
     const openArea = (event: MapMouseEvent) => {
-      const feature = map.queryRenderedFeatures(event.point, { layers: [areaLayerId] })[0];
+      const feature = map.queryRenderedFeatures(event.point, { layers: [...areaLayerIds] })[0];
       const id = feature?.properties?.id;
       if (typeof id === 'string') onAreaClickRef.current?.(id);
     };
@@ -165,23 +233,23 @@ export function SummaryMarkerLayer({
       map.getCanvas().style.cursor = '';
     };
 
-    map.on('click', areaLayerId, openArea);
+    for (const id of areaLayerIds) map.on('click', id, openArea);
     map.on('click', countryLayerId, openCountry);
-    map.on('mouseenter', countryLayerId, pointer);
-    map.on('mouseleave', countryLayerId, resetPointer);
-    map.on('mouseenter', areaLayerId, pointer);
-    map.on('mouseleave', areaLayerId, resetPointer);
+    for (const id of [...areaLayerIds, countryLayerId]) {
+      map.on('mouseenter', id, pointer);
+      map.on('mouseleave', id, resetPointer);
+    }
 
     return () => {
-      map.off('click', areaLayerId, openArea);
+      for (const id of areaLayerIds) map.off('click', id, openArea);
       map.off('click', countryLayerId, openCountry);
-      map.off('mouseenter', countryLayerId, pointer);
-      map.off('mouseleave', countryLayerId, resetPointer);
-      map.off('mouseenter', areaLayerId, pointer);
-      map.off('mouseleave', areaLayerId, resetPointer);
+      for (const id of [...areaLayerIds, countryLayerId]) {
+        map.off('mouseenter', id, pointer);
+        map.off('mouseleave', id, resetPointer);
+      }
       removeOurs();
     };
-  }, [map, styleReady, theme, countrySourceId, areaSourceId, countryLayerId, areaLayerId]);
+  }, [map, styleReady, theme, countrySourceId, areaSourceId, countryLayerId, areaLayerIds]);
 
   /**
    * The images and the data, in one effect and in this order.
@@ -204,7 +272,7 @@ export function SummaryMarkerLayer({
    */
   useEffect(() => {
     if (!map || !styleReady) return;
-    for (const image of buildCountryDiscImages(discs, {
+    for (const image of buildCountryDiscImages([...discs, ...areaDiscs], {
       pixelRatio: window.devicePixelRatio || 1,
       theme,
     })) {
@@ -217,8 +285,62 @@ export function SummaryMarkerLayer({
       }
     }
     (map.getSource(countrySourceId) as GeoJSONSource | undefined)?.setData(countries);
-    (map.getSource(areaSourceId) as GeoJSONSource | undefined)?.setData(areas);
-  }, [map, styleReady, discs, theme, countries, areas, countrySourceId, areaSourceId]);
+    (map.getSource(areaSourceId) as GeoJSONSource | undefined)?.setData(bandAreas);
+  }, [
+    map,
+    styleReady,
+    discs,
+    areaDiscs,
+    theme,
+    countries,
+    bandAreas,
+    countrySourceId,
+    areaSourceId,
+  ]);
+
+  /**
+   * The pills the country band is about to draw, as widths — the same string the symbol layer
+   * shapes, taken from the features rather than from a constant.
+   */
+  const countryPillLabels: SummaryPillLabel[] = useMemo(
+    () =>
+      countries.features.map((feature) => ({
+        text: `${feature.properties.label}  ${feature.properties.count}`,
+        capped: feature.properties.countryCode !== '',
+      })),
+    [countries],
+  );
+
+  /**
+   * **A narrow container drops the country names**, leaving the flag and the count
+   * (`countryPillsAffordLabels`).
+   *
+   * A `setLayoutProperty` rather than a dependency of the layer effect above, deliberately: a
+   * rebuild would drop the source with it, and the source is written by a *different* effect keyed
+   * on `countries` — so a rebuild triggered by a resize would empty the band until the next data
+   * change. One layout property is also what actually differs.
+   *
+   * `resize` and not a `ResizeObserver`: MapLibre already fires it for every container size change
+   * it acts on, including the orientation flip that is the only way a phone crosses this threshold.
+   */
+  useEffect(() => {
+    if (!map || !styleReady) return;
+    const apply = () => {
+      if (!map.getLayer(countryLayerId)) return;
+      const width = map.getContainer().clientWidth;
+      const labelled = countryPillsAffordLabels(countryPillLabels, width);
+      map.setLayoutProperty(
+        countryLayerId,
+        'icon-image',
+        countryLayerLayout(labelled)['icon-image'] as never,
+      );
+    };
+    apply();
+    map.on('resize', apply);
+    return () => {
+      map.off('resize', apply);
+    };
+  }, [map, styleReady, countryLayerId, countryPillLabels]);
 
   return null;
 }

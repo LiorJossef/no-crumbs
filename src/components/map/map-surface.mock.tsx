@@ -146,15 +146,15 @@ export function MapSurfaceMock({ places, onPlaceClick, initialBounds }: MapSurfa
         }}
         aria-hidden="true"
       />
-      {/* A couple of soft "water" blobs, purely decorative. */}
+      {/* A couple of soft "water" blobs, purely decorative. The two mint steps that read as
+          atmosphere rather than as ink: `--brand-tint` is `--mint-300` and `--secondary` is
+          `--mint-200`, so this is the same pair it always was, named instead of reached for. */}
       <div
-        className="absolute -left-16 -top-24 h-72 w-72 rounded-full opacity-40 blur-2xl"
-        style={{ background: 'var(--mint-300)' }}
+        className="absolute -left-16 -top-24 h-72 w-72 rounded-full bg-brand-tint opacity-40 blur-2xl"
         aria-hidden="true"
       />
       <div
-        className="absolute -bottom-20 right-[-10%] h-80 w-80 rounded-full opacity-30 blur-3xl"
-        style={{ background: 'var(--mint-200)' }}
+        className="absolute -bottom-20 right-[-10%] h-80 w-80 rounded-full bg-secondary opacity-30 blur-3xl"
         aria-hidden="true"
       />
 
@@ -208,7 +208,7 @@ export function MapSurfaceMock({ places, onPlaceClick, initialBounds }: MapSurfa
                   href={selected.sourceUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-sm font-medium text-[var(--mint-700)] underline-offset-4 hover:underline"
+                  className="text-sm font-medium text-brand underline-offset-4 hover:underline"
                 >
                   View source
                 </a>

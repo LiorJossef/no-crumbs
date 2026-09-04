@@ -6,13 +6,38 @@
  * those is happening is decided here, once, as a pure function — so the field, the results list,
  * the primary action and the Enter key can never disagree about what is in the box.
  *
- * ## Two kinds, not five
+ * ## Three kinds — and the third one arrived by an owner reversal, so the history stays
  *
- * The owner's ruling (2026-08-29) is that Instagram and YouTube are **not** recognised here. There
- * is deliberately no `unsupported-host` arm: a link we do not read is not special, it is text, and
- * the honest offer against text is "add it manually". Adding a fourth kind later means adding a
- * branch to this union and to `addSubmitIntent`, which is exactly where that decision should be
- * forced to appear.
+ * This file used to carry the opposite ruling, and it is recorded rather than deleted because the
+ * reasoning was good and the reversal is what makes the current shape make sense.
+ *
+ * **The 2026-08-29 ruling** was that Instagram and YouTube are *not* recognised here: "a link we do
+ * not read is not special, it is text, and the honest offer against text is 'add it manually'".
+ * It also predicted its own undoing — "adding a fourth kind later means adding a branch to this
+ * union and to `addSubmitIntent`, which is exactly where that decision should be forced to appear".
+ * This is that branch.
+ *
+ * **Superseded 2026-08-31** (`overnight-run-plan.md` W1-5, growth defect G4). What the earlier
+ * ruling missed is that filing a link as text does not merely decline to recognise it — it feeds
+ * the URL to `manualAddLabel`, which quoted it back as `Add "https://www.instagram.com/reel/D…"
+ * manually`. That is an offer to **name a place after a URL**, and it is a thing the product says
+ * that is not true. Meanwhile `/import` handled the identical URL correctly, so the two ways into
+ * the product disagreed. The reversal also restores what `brand-and-product-foundation.md` §1 has
+ * said since 2026-08-20: a pasted Instagram or YouTube link is *recognised by name* and answered
+ * with the manual-add path, never with a failure.
+ *
+ * ## What counts as a link, and the line this deliberately does not cross
+ *
+ * `unsupported-link` means the canonicaliser **recognised a host and rejected it** —
+ * `UNSUPPORTED_HOST` (a real URL somewhere that is not TikTok) or `UNSUPPORTED_URL` (a TikTok URL
+ * that is not a post, such as a profile). Both are parseable absolute URLs.
+ *
+ * A **schemeless** bare domain stays `text`, and that is a decision rather than an omission.
+ * `canonicaliseTikTokUrl('kolamba.co.uk')` returns `MALFORMED_URL` — byte-identical to what it
+ * returns for `Kolamba`, because without a scheme there is nothing to parse. Separating them would
+ * mean guessing that a dot makes a string a URL, and that guess fails in the direction that costs
+ * the user something real: a place genuinely called `Ben & Jerry's` or `St. John` would stop being
+ * addable by name. The product may decline to read a link; it may not decide a place name is one.
  *
  * ## It reuses the two helpers that already exist, and adds no third regex
  *
@@ -34,15 +59,29 @@ export type UniversalInput =
   /** `url` is the link **as extracted from the surrounding text**, not the whole paste — it is what
    *  gets handed to the import pipeline, and it is what the field shows once the user pastes. */
   | { readonly kind: 'tiktok'; readonly url: string }
+  /**
+   * A link we recognised and cannot read: Instagram, YouTube, anywhere else, or a TikTok URL that
+   * is not a post. Carries the URL so a caller can offer to open it — never so it can be named as
+   * a place.
+   */
+  | { readonly kind: 'unsupported-link'; readonly url: string }
   /** Trimmed. This is both the search query and the name a manual add would start from. */
   | { readonly kind: 'text'; readonly text: string };
+
+/** The two canonicaliser verdicts that mean "this is a link, just not one we read". `MALFORMED_URL`
+ *  is deliberately absent — see the header: it is also what a plain place name returns. */
+const RECOGNISED_LINK_CODES: ReadonlySet<string> = new Set(['UNSUPPORTED_HOST', 'UNSUPPORTED_URL']);
 
 export function universalInput(raw: string): UniversalInput {
   const trimmed = raw.trim();
   if (trimmed.length === 0) return { kind: 'empty' };
 
   const candidate = extractPastedUrl(trimmed);
-  if (canonicaliseTikTokUrl(candidate).ok) return { kind: 'tiktok', url: candidate };
+  const canonical = canonicaliseTikTokUrl(candidate);
+  if (canonical.ok) return { kind: 'tiktok', url: candidate };
+  if (RECOGNISED_LINK_CODES.has(canonical.error.code)) {
+    return { kind: 'unsupported-link', url: candidate };
+  }
 
   return { kind: 'text', text: trimmed };
 }
@@ -76,6 +115,23 @@ export function addSubmitIntent(
       return { kind: 'none' };
     case 'tiktok':
       return { kind: 'tiktok', url: input.url };
+    /*
+     * Go on a link we cannot read opens manual add, **blank**.
+     *
+     * The first draft of this arm returned `none`, on the reasoning that the screen is already
+     * telling the user this is not a TikTok and the manual-add row is right there. The test named
+     * "never returns `none` while there is something in the field" rejected it, and it was right
+     * to: a dead Enter key is the exact regression this module was written to prevent (backlog
+     * 2.1 — the import field was a bare `<Input>` with no form, so Enter and the phone keyboard's
+     * Go both did nothing at all). A new kind must not quietly reopen it.
+     *
+     * Blank, not seeded, is what keeps this from being defect G4 wearing a different coat:
+     * `manualAddSeed` returns `''` for every kind that is not `text`, so the form opens empty and
+     * the URL is never offered as a place name. Go therefore does the one thing the screen offers,
+     * which is what Go is for.
+     */
+    case 'unsupported-link':
+      return { kind: 'manual', text: manualAddSeed(input) };
     case 'text':
       return firstResultId === null
         ? { kind: 'manual', text: input.text }

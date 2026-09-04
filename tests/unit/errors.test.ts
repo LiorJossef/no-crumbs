@@ -6,13 +6,13 @@ import {
   DomainError,
   type DomainErrorCode,
   extractorInvalidOutput,
+  extractorQuotaExhausted,
   extractorUnavailable,
   internal,
   malformedUrl,
   noCaption,
   notAuthenticated,
   postUnavailable,
-  rateLimitedLocal,
   rateLimitedUpstream,
   shortLinkUnresolved,
   unsupportedHost,
@@ -36,10 +36,10 @@ describe('DomainErrorCode — the closed 13-code union', () => {
         'POST_UNAVAILABLE',
         'UPSTREAM_TIMEOUT',
         'RATE_LIMITED_UPSTREAM',
-        'RATE_LIMITED_LOCAL',
         'NO_CAPTION',
         'EXTRACTOR_UNAVAILABLE',
         'EXTRACTOR_INVALID_OUTPUT',
+        'EXTRACTOR_QUOTA_EXHAUSTED',
         'NOT_AUTHENTICATED',
         'INTERNAL',
       ]),
@@ -67,10 +67,10 @@ describe('DomainErrorCode — the closed 13-code union', () => {
         case 'POST_UNAVAILABLE':
         case 'UPSTREAM_TIMEOUT':
         case 'RATE_LIMITED_UPSTREAM':
-        case 'RATE_LIMITED_LOCAL':
         case 'NO_CAPTION':
         case 'EXTRACTOR_UNAVAILABLE':
         case 'EXTRACTOR_INVALID_OUTPUT':
+        case 'EXTRACTOR_QUOTA_EXHAUSTED':
         case 'NOT_AUTHENTICATED':
         case 'INTERNAL':
           return code;
@@ -96,10 +96,13 @@ describe('DomainErrorCode — the closed 13-code union', () => {
     expect(postUnavailable().retryable).toBe(true);
     expect(upstreamTimeout().retryable).toBe(true);
     expect(rateLimitedUpstream().retryable).toBe(true);
-    expect(rateLimitedLocal().retryable).toBe(false);
     expect(noCaption().retryable).toBe(false);
     expect(extractorUnavailable().retryable).toBe(true);
     expect(extractorInvalidOutput().retryable).toBe(true);
+    // The one extractor failure that is not retryable, and it is baked in rather than passed:
+    // the next call spends the same empty allowance, so nothing downstream may put a retry back
+    // (`product-ruling-quota-copy-2026-08-31.md` R2).
+    expect(extractorQuotaExhausted().retryable).toBe(false);
     expect(notAuthenticated().retryable).toBe(false);
     expect(internal().retryable).toBe(true);
   });

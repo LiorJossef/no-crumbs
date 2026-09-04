@@ -11,30 +11,39 @@
  *  2. **A place selected from the list came to rest behind the bottom sheet.** The pin was framed
  *     into the whole viewport rather than into the band the half-height sheet leaves visible.
  *
- * **Rules 1 and 2 were inverted on 2026-08-30, on the owner's ruling, and that is deliberate.** The
- * fix for defect 1 above — anchor on one cluster, land in the pin band — was itself used in
- * production and rejected: anchoring on the cluster holding the most recent save meant that saving
- * a place and signing back in opened the map on that place. *"I added this Jerusalem Hotel, and
- * after that, when I signed in again, it opened on the Jerusalem Hotel, but I'm not interested in
- * that... So on mobile and on desktop."* The first load is now the **overview**: *"open the map
- * when you see the countries, not last added place."* §9.3's pin-on-screen criterion no longer
- * applies to the first load, and Rules 1 and 2 below assert the replacement rather than a
- * weakened version of what they used to say.
+ * **Rules 1 and 2 were inverted on 2026-08-30, on the owner's ruling, and Rule 1 was inverted again
+ * on 2026-08-31.** Both are deliberate and the second is not a return to the first.
+ *
+ * The fix for defect 1 above — anchor on one cluster, land in the pin band — was used in production
+ * and rejected: anchoring on the cluster holding the most recent save meant that saving a place and
+ * signing back in opened the map on that place. *"I added this Jerusalem Hotel, and after that, when
+ * I signed in again, it opened on the Jerusalem Hotel, but I'm not interested in that... So on
+ * mobile and on desktop."* Two things were changed in answer: the box widened from the anchor
+ * cluster to the whole library, and the resting zoom was clamped to a ceiling inside the area band.
+ *
+ * **Only the box answered the complaint.** A union is order-independent, which Rule 2 asserts
+ * directly and which is the whole of the fix. The ceiling was separate, and it was `W2-1`'s defect
+ * 0a: pins draw at `z >= PIN_BAND_MIN` and the ceiling sat below it, so **the home screen drew none
+ * of the user's places, for every library, at every size.** The ceiling is gone as of 2026-08-31;
+ * no floor replaces it, because a floor is the one change that would re-break the owner's
+ * complaint (it discards the box, so Israel-plus-Tokyo lands zoomed in on open sea).
  *
  * The assertions below are the product's **rules**, never pixel values, so they stay true when the
  * padding constants or the band edges are tuned:
  *
- *  - the first load frames the **whole library** and comes to rest **out of the pin band**, so the
- *    home view is geography — flag discs where the library spans countries, area pills where it
- *    does not — and never a place;
+ *  - the first load frames the **whole library** and comes to rest wherever that box honestly fits,
+ *    never inside the guard window around the band boundary — so a one-metro library opens on its
+ *    own pins and a three-continent library opens on flag discs, and both are correct;
  *  - what was saved **last cannot move it**, which is the defect stated as a property;
- *  - the movers that *are* about a place — selecting one, a finished import, near-me — still reach
- *    the pin band, because they never went through the home framing's range;
+ *  - the movers that *are* about a place — selecting one, a finished import, near-me — reach the
+ *    pin band through their own ranges, which the home rule may not leak into;
  *  - a selected place lands inside the **band above the sheet**, not merely inside the viewport;
+ *  - a summary pill is whole in frame wherever a summary pill is **drawn**, and the camera does not
+ *    pay for one where none is;
  *  - a zero-place library gets a camera of its own rather than MapLibre's constructor default.
  *
  * The derivation below is the page's own — `clusterByProximity` → `buildAreas`' boxes →
- * `unionBounds` → the surface's fit under `HOME_LANDING_ZOOM` — with the real functions wherever
+ * `unionBounds` → the surface's two-pass fit and `settleZoom` — with the real functions wherever
  * one is importable. `camera-model.ts` explains which two links are mirrored and why they cannot
  * be imported.
  */
@@ -58,12 +67,15 @@ import {
   summaryPillFitAllowance,
   type SummaryPillLabel,
 } from '@/components/map/country-flag-image';
+import { LABEL_FIT_ALLOWANCE } from '@/components/map/marker-style';
 import { NEAR_ME_ZOOM } from '@/components/map/near-me';
 import {
+  BAND_EDGE_GUARD,
   bandForZoom,
   COUNTRY_LANDING_ZOOM,
   HOME_LANDING_ZOOM,
   PIN_BAND_MIN,
+  settleZoom,
 } from '@/components/map/zoom-bands';
 
 import {
@@ -87,11 +99,13 @@ import {
   ANTIMERIDIAN,
   EMPTY,
   FIVE_ISRAELI_AREAS,
+  FOUR_CITIES,
   LABEL_SHAPES,
   ONE_CITY,
   POPULATED_SHAPES,
   SINGLE,
   TEL_AVIV_PLUS_TOKYO,
+  TWENTY_COUNTRIES,
   TWO_CITIES,
   type FixturePlace,
   type LibraryShape,
@@ -132,13 +146,84 @@ function initialBoundsFor(shape: LibraryShape): GeoBounds | undefined {
   return unionGeoBounds(clusters.map((cluster) => cluster.bounds));
 }
 
-/** The home framing as the surface performs it: that box, under `HOME_LANDING_ZOOM`'s ceiling.
- *  `frameBounds`' `Math.max(zoom, minZoom)` is a no-op at `min === 0`, so a `fitCamera` with the
- *  same ceiling is the whole of it. */
-function homeCamera(shape: LibraryShape, viewport: Viewport) {
-  return fitCamera(initialBoundsFor(shape) as GeoBounds, viewport, {
+/**
+ * **The home framing as the surface performs it, all of it** — `map-surface.mapcn.tsx`'s
+ * `fitToBounds`, mirrored.
+ *
+ * Fit the box bare, `settleZoom` the answer clear of the band boundary, then pay for whichever mark
+ * is actually drawn where it landed — and only if the library can afford it.
+ *
+ *  - **Out of the pin band**: re-fit paying the ~200 px summary-pill allowance, and settle again.
+ *    Paying it unconditionally is what pushed the fit back *out* of the pin band in the first place:
+ *    the owner's five-area library fits at z8.78 bare and z7.68 with the pill allowance at 390×844.
+ *  - **In the pin band**: no pill is drawn, but a *name* is (`W2-3`), and a name is wider than the
+ *    pin the fit frames. Re-fit paying `LABEL_FIT_ALLOWANCE`, and keep that fit only if it is still
+ *    in the pin band. The band wins; the label is what gives way.
+ *
+ * `homeCameraWithMarkers` used to be a second, fuller derivation beside this one. It is gone: there
+ * was never a case where the surface framed home *without* the allowance rule, so two functions
+ * meant Rule 1 and Rule 2c were asserting against two different cameras.
+ */
+function homeFraming(
+  shape: LibraryShape,
+  viewport: Viewport,
+): {
+  readonly camera: ReturnType<typeof fitCamera>;
+  readonly zoom: number;
+  readonly allowance: { readonly x: number; readonly y: number };
+  /**
+   * The honest fit before `settleZoom` touched it. Below `HOME_LANDING_ZOOM.min` it means *the box
+   * does not fit on this viewport at all* — `Math.max(zoom, minZoom)` then clamps the camera up to
+   * 0 and the outermost markers are outside the frame. Pre-existing and unchanged by `W2-1`:
+   * `frameBounds` has always clamped that way. See the degradation test below.
+   */
+  readonly fitZoom: number;
+} {
+  const bounds = initialBoundsFor(shape) as GeoBounds;
+  const none = { x: 0, y: 0 };
+  const bare = fitCamera(bounds, viewport, { maxZoom: HOME_LANDING_ZOOM.max });
+  const bareZoom = settleZoom(bare?.zoom ?? HOME_LANDING_ZOOM.min);
+  if (bandForZoom(bareZoom) === 'pin') {
+    // The pins are named at rest, and a name is wider than its pin, so the fit pays for one —
+    // but only where paying does not push the library back out of the band. See `fitToBounds`.
+    const padded = fitCamera(bounds, viewport, {
+      maxZoom: HOME_LANDING_ZOOM.max,
+      markerAllowance: LABEL_FIT_ALLOWANCE,
+    });
+    const paddedZoom = settleZoom(padded?.zoom ?? HOME_LANDING_ZOOM.min);
+    const affordable = bandForZoom(paddedZoom) === 'pin';
+    return {
+      camera: fitCamera(bounds, viewport, {
+        maxZoom: HOME_LANDING_ZOOM.max,
+        exactZoom: affordable ? paddedZoom : bareZoom,
+        ...(affordable ? { markerAllowance: LABEL_FIT_ALLOWANCE } : {}),
+      }),
+      zoom: affordable ? paddedZoom : bareZoom,
+      allowance: affordable ? LABEL_FIT_ALLOWANCE : none,
+      fitZoom: bare?.zoom ?? HOME_LANDING_ZOOM.min,
+    };
+  }
+  const allowance = summaryPillFitAllowance(markersOf(shape).map((marker) => marker.label));
+  const padded = fitCamera(bounds, viewport, {
     maxZoom: HOME_LANDING_ZOOM.max,
+    markerAllowance: allowance,
   });
+  const zoom = settleZoom(padded?.zoom ?? HOME_LANDING_ZOOM.min);
+  return {
+    camera: fitCamera(bounds, viewport, {
+      maxZoom: HOME_LANDING_ZOOM.max,
+      markerAllowance: allowance,
+      exactZoom: zoom,
+    }),
+    zoom,
+    allowance,
+    fitZoom: padded?.zoom ?? HOME_LANDING_ZOOM.min,
+  };
+}
+
+/** The settled camera alone, for the assertions that only care where things land on screen. */
+function homeCamera(shape: LibraryShape, viewport: Viewport) {
+  return homeFraming(shape, viewport).camera;
 }
 
 /* ------------------------------------------------------------------ Rule 1 */
@@ -147,22 +232,35 @@ describe('the first load opens on the overview, not on a place', () => {
   for (const shape of POPULATED_SHAPES) {
     for (const viewport of BREAKPOINTS) {
       /**
-       * **The inversion of what this assertion said until 2026-08-30.** It required
-       * `z >= PIN_BAND_MIN`; it now requires the opposite, because the owner used the pin-band home
-       * view in production and rejected it. At or below `HOME_LANDING_ZOOM.max` the pin layer does
-       * not draw (`place-marker-layer.tsx`), so what is on screen is the summary geography — flag
-       * discs below `COUNTRY_BAND_MAX`, area pills above it — which is *"open the map when you see
-       * the countries"*.
+       * **This assertion has now been inverted twice, and the second inversion is not a return to
+       * the first.**
        *
-       * Stated against `bandForZoom` rather than against 8.5, so tuning the bands moves it.
+       * Until 2026-08-30 it required `z >= PIN_BAND_MIN` — a *floor*, guaranteeing a pin on the
+       * home view. The owner used that in production and rejected it, so it was changed to require
+       * the opposite: a *ceiling*, at or below which the pin layer does not draw at all. That
+       * second version is what `current-state.md` defect 0a is: the home screen of a map product
+       * drew none of the user's places, for every library, at every size.
+       *
+       * What it asserts now is **neither**. No floor and no ceiling: the library's own box decides
+       * the band, and the only rule left is that the camera may not come to rest *inside the
+       * boundary's guard window*, where MapLibre's rounding would decide which of two layers draws.
+       * A one-city library therefore rests on pins and a three-continent library on flag discs, and
+       * both are correct — which is why "which band" is asserted per shape below rather than here.
+       *
+       * Stated against `PIN_BAND_MIN` and `BAND_EDGE_GUARD` rather than against 8.5 and 0.15, so
+       * tuning the bands moves it.
        */
-      it(`${shape.name} settles out of the pin band at ${viewport.label}`, () => {
+      it(`${shape.name} settles clear of the band edge at ${viewport.label}`, () => {
         const bounds = initialBoundsFor(shape);
         expect(bounds).toBeDefined();
-        const camera = homeCamera(shape, viewport);
+        const { camera, zoom } = homeFraming(shape, viewport);
         expect(camera).not.toBeNull();
-        expect(camera?.zoom).toBeLessThanOrEqual(HOME_LANDING_ZOOM.max);
-        expect(bandForZoom(camera?.zoom as number)).not.toBe('pin');
+        expect(camera?.zoom).toBe(zoom);
+        expect(zoom).toBeLessThanOrEqual(HOME_LANDING_ZOOM.max);
+        expect(zoom).toBeGreaterThanOrEqual(HOME_LANDING_ZOOM.min);
+        const inside =
+          zoom > PIN_BAND_MIN - BAND_EDGE_GUARD && zoom < PIN_BAND_MIN + BAND_EDGE_GUARD;
+        expect(inside).toBe(false);
       });
 
       /**
@@ -250,15 +348,91 @@ describe('what you saved last cannot decide where the map opens', () => {
 
   /**
    * A library that spans continents lands in the **country** band, which is the literal reading of
-   * the owner's words — flag discs, no pins, no area pills. The one-country shapes cannot get
-   * there (their own extent is smaller than a country band fit), so they land on area pills
-   * instead; that degradation is the ruling, not a gap.
+   * the owner's words — flag discs, no pins, no area pills. That half is unchanged by `W2-1` and
+   * is what makes "remove the ceiling" different from "restore the floor": a floor would have
+   * forced this library to z8.65 over the centroid of Israel-plus-Tokyo, i.e. open sea.
+   *
+   * **The third assertion is the defect, and it has flipped.** The owner's own five-area library
+   * used to be asserted into the area band — four grey capsules and none of their seven places —
+   * and the comment here called that *"the ruling, not a gap"*. It fits at z8.78 on a phone, which
+   * is the pin band, and that is where it now rests: seven pins across five cities, on one screen.
    */
   it('reaches the country band on a library that spans continents', () => {
     for (const shape of [TEL_AVIV_PLUS_TOKYO, TWO_CITIES]) {
       expect(bandForZoom(homeCamera(shape, PHONE)?.zoom as number)).toBe('country');
     }
-    expect(bandForZoom(homeCamera(FIVE_ISRAELI_AREAS, PHONE)?.zoom as number)).toBe('area');
+  });
+
+  /**
+   * **Defect 0a, as the property that fixes it.** `growth-plan.md`'s K14, restated by
+   * `ux-overnight-specs.md` `OQ-5` because the literal version is unachievable — no camera shows
+   * three continents *and* three pins — as: *home rests in the pin band whenever the library's
+   * bounding box allows it.*
+   *
+   * A library inside one metro area is exactly the case whose box allows it, at both breakpoints,
+   * and the shapes below are the two the product is actually used with. Nothing here is a fixed
+   * zoom: the assertion is the band, so tuning the padding or the bands cannot make it pass by
+   * accident.
+   */
+  it('rests on the pins whenever the library is small enough to allow it', () => {
+    for (const shape of [ONE_CITY, SINGLE, FIVE_ISRAELI_AREAS]) {
+      for (const viewport of BREAKPOINTS) {
+        const { zoom } = homeFraming(shape, viewport);
+        expect(bandForZoom(zoom)).toBe('pin');
+      }
+    }
+  });
+
+  /**
+   * **The measurement that made the two-pass allowance necessary, pinned so it cannot regress
+   * silently.** Removing the zoom ceiling is not on its own enough for the library the defect was
+   * reported against: paying the ~200 px summary-pill allowance widens the padding, which lowers
+   * the fitted zoom, which pushes the camera back down into the band that draws the pills it was
+   * paying for. At 390×844 the owner's library fits at z8.78 bare and z7.68 with the allowance —
+   * pins on one side of a pill's own width, four grey capsules on the other.
+   */
+  /**
+   * **The label allowance, and the rule that it is the label which gives way.** A pin's name is
+   * drawn at rest since `W2-3` and is wider than the pin the fit frames, so the camera pays for it
+   * — but paying widens the padding, which lowers the zoom, which on a phone is enough to push a
+   * library out of the pin band and back onto the capsules `W2-1` exists to remove.
+   *
+   * Both branches, on real shapes: a one-city library can afford it several times over, and the
+   * owner's five-area library at z8.78 cannot. Neither is asserted as a number — what is pinned is
+   * that the band survives either way, which is the property that makes the trade safe.
+   */
+  it('pays for a pin\'s name only where the band survives it', () => {
+    const oneCity = homeFraming(ONE_CITY, PHONE);
+    expect(oneCity.allowance).toEqual(LABEL_FIT_ALLOWANCE);
+    expect(bandForZoom(oneCity.zoom)).toBe('pin');
+
+    const owners = homeFraming(FIVE_ISRAELI_AREAS, PHONE);
+    expect(owners.allowance).toEqual({ x: 0, y: 0 });
+    expect(bandForZoom(owners.zoom)).toBe('pin');
+  });
+
+  /** And the allowance is real geometry rather than a tuned number: half a label's width, because
+   *  a name is centred on its pin, and the offset plus its lines below the anchor. */
+  it('reserves half a name horizontally and its lines vertically', () => {
+    expect(LABEL_FIT_ALLOWANCE.x).toBeGreaterThan(0);
+    expect(LABEL_FIT_ALLOWANCE.y).toBeGreaterThan(0);
+    // Wider than the control column it has to clear, which is what the photographed defect was.
+    expect(LABEL_FIT_ALLOWANCE.x).toBeGreaterThan(CONTROL_COLUMN_PX / 2);
+  });
+
+  it('does not pay for a pill it is not going to draw', () => {
+    const bounds = initialBoundsFor(FIVE_ISRAELI_AREAS) as GeoBounds;
+    const allowance = summaryPillFitAllowance(
+      markersOf(FIVE_ISRAELI_AREAS).map((marker) => marker.label),
+    );
+    const bare = fitCamera(bounds, PHONE, { maxZoom: HOME_LANDING_ZOOM.max });
+    const paid = fitCamera(bounds, PHONE, {
+      maxZoom: HOME_LANDING_ZOOM.max,
+      markerAllowance: allowance,
+    });
+    expect(bandForZoom(bare?.zoom as number)).toBe('pin');
+    expect(bandForZoom(paid?.zoom as number)).toBe('area');
+    expect(homeFraming(FIVE_ISRAELI_AREAS, PHONE).allowance).toEqual({ x: 0, y: 0 });
   });
 });
 
@@ -303,10 +477,25 @@ describe('the movers that are about a place still reach the pin band', () => {
    */
   it('keeps the home range out of the place framing', () => {
     const SOURCE = readFileSync('src/components/map/map-surface.mapcn.tsx', 'utf8');
-    expect(SOURCE).toContain('minZoom: HOME_LANDING_ZOOM.min');
+    // The home framing asks `cameraForBounds` under `HOME_LANDING_ZOOM.max`, settles the answer,
+    // and requests exactly that — the degenerate range near-me already uses. Its old
+    // `minZoom: HOME_LANDING_ZOOM.min` / `maxZoom: HOME_LANDING_ZOOM.max` request is gone with the
+    // ceiling; what is worth pinning now is that the settle rule is the *only* thing deciding
+    // where it comes to rest.
     expect(SOURCE).toContain('maxZoom: HOME_LANDING_ZOOM.max');
+    expect(SOURCE).toContain('settleZoom(');
+    expect(SOURCE).toContain('minZoom: bareZoom, maxZoom: bareZoom');
+    expect(SOURCE).toContain('minZoom: zoom, maxZoom: zoom');
+    // And the place framing is still on its own ceiling, which is what stops the home rule leaking
+    // into movers 2, 3 and 7.
     expect(SOURCE).toContain('maxZoom: FIT_BOUNDS_MAX_ZOOM');
     expect(SOURCE).not.toContain('HOME_LANDING_MIN_ZOOM');
+    // No camera may compare a band edge itself — `settleZoom` and `bandForZoom` are the two places
+    // that know where a band starts, and both live in `zoom-bands.ts`. Asserted over the code with
+    // the comments stripped, because the docblocks above quote the boundary in prose and the
+    // sentence *"pins draw at `z >= PIN_BAND_MIN`"* is exactly the explanation that has to survive.
+    const CODE = SOURCE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    expect(CODE).not.toMatch(/[<>]=?\s*PIN_BAND_MIN/);
   });
 });
 
@@ -365,24 +554,36 @@ function markersOf(shape: LibraryShape): readonly {
   ];
 }
 
-/** The home framing, allowance and all — the whole of what the surface does. */
-function homeCameraWithMarkers(shape: LibraryShape, viewport: Viewport) {
-  const allowance = summaryPillFitAllowance(markersOf(shape).map((marker) => marker.label));
-  return fitCamera(initialBoundsFor(shape) as GeoBounds, viewport, {
-    maxZoom: HOME_LANDING_ZOOM.max,
-    markerAllowance: allowance,
-  });
-}
-
 describe('every summary marker lands whole inside the visible map', () => {
   const SHAPES = [...POPULATED_SHAPES, ...LABEL_SHAPES];
 
   for (const shape of SHAPES) {
     for (const viewport of BREAKPOINTS) {
       it(`${shape.name} keeps every pill inside the frame at ${viewport.label}`, () => {
-        const camera = homeCameraWithMarkers(shape, viewport);
+        const { camera, zoom, fitZoom } = homeFraming(shape, viewport);
         expect(camera).not.toBeNull();
         const band = visibleBand(viewport);
+
+        // **The box does not fit on this viewport at any allowed zoom.** `frameBounds` answers that
+        // with `Math.max(zoom, minZoom)` — it clamps up to 0 and the outermost pill goes off the
+        // edge, and it has always done so. Recognised here rather than asserted away; the
+        // degradation has its own test below.
+        if (fitZoom < HOME_LANDING_ZOOM.min) return;
+
+        // **A pill that is not drawn cannot be clipped.** Since `W2-1` the home camera skips the
+        // pill allowance entirely when the library fits in the pin band, because no summary layer
+        // draws there — `summary-marker-layer.tsx`'s bands end at `PIN_BAND_MIN`. Asserting pill
+        // geometry against that camera would be asserting the position of something that is not on
+        // screen, and it would pass for the wrong reason. The band is what decides, so the band is
+        // what is checked first.
+        if (bandForZoom(zoom) === 'pin') {
+          // …and the camera has not paid for one either. What it may have paid for is the *label*
+          // allowance, which is a different and much smaller number for a mark that is drawn here.
+          expect(homeFraming(shape, viewport).allowance).not.toEqual(
+            summaryPillFitAllowance(markersOf(shape).map((marker) => marker.label)),
+          );
+          return;
+        }
 
         for (const marker of markersOf(shape)) {
           // Each marker is checked against **its own** width, not against the widest in the
@@ -462,6 +663,31 @@ describe('every summary marker lands whole inside the visible map', () => {
     expect(bounds.east - bounds.west).toBeGreaterThan(180);
     const SURFACE = readFileSync('src/components/map/map-surface.mapcn.tsx', 'utf8');
     expect(SURFACE).toContain('if (bounds.east - bounds.west > 180) {');
+  });
+
+  /**
+   * **A second degradation, found while `W2-1` made this model faithful, and pre-existing.**
+   *
+   * A library spread over four cities — or twenty countries — does not fit inside a 390 px phone at
+   * any zoom `HOME_LANDING_ZOOM.min` allows: its honest fit, once the pill allowance is paid, is
+   * *below* zoom 0. `frameBounds` has always answered that with `Math.max(zoom, minZoom)`, so the
+   * camera rests at 0 and the outermost pills are off the edge. Nothing in `W2-1` changed it; what
+   * changed is that `camera-model.ts` now models the clamp (`exactZoom`) instead of projecting the
+   * unreachable negative zoom, so the case became visible.
+   *
+   * Recorded rather than repaired: repairing it means either letting the camera go below zoom 0
+   * (MapLibre's own transform floor is `log2(containerHeight / 512)` under `renderWorldCopies:
+   * false`, so it cannot) or shrinking the allowance for very wide libraries, which is a change to
+   * what a pill *is*. Both are out of this package's scope, and a phone showing twenty countries
+   * with the two outermost pills clipped is a better screen than either a stranded camera or a
+   * silent lie in a test.
+   */
+  it('recognises the library that does not fit on a phone at all', () => {
+    for (const shape of [FOUR_CITIES, TWENTY_COUNTRIES]) {
+      expect(homeFraming(shape, PHONE).fitZoom).toBeLessThan(HOME_LANDING_ZOOM.min);
+      // Desktop has room for both, so this is a phone-width fact rather than a library-shape one.
+      expect(homeFraming(shape, DESKTOP).fitZoom).toBeGreaterThan(HOME_LANDING_ZOOM.min);
+    }
   });
 
   /**

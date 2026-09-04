@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import type { StoredResolution } from '@/domain/import/resolution-record';
 import type { RankedPlace, ResolveResult, ResolvedPlace } from '@/domain/types';
 import {
+  arrivesTicked,
   effectivePick,
   optionDetail,
   pickRequiredNotice,
@@ -64,10 +65,11 @@ function answered(
 }
 
 describe('resolutionView', () => {
-  it('maps the preselect band to `matched` and still offers the whole shortlist', () => {
+  it('maps the preselect band to `matched` and still offers the rivals of the top row', () => {
     // The top entry auto-accepts on save, but `chooseResolvedPlace` honours an explicit pick here
-    // too — "the top entry is a default, not a verdict" — so hiding the rest would remove a choice
-    // the server is willing to take.
+    // too — "the top entry is a default, not a verdict" — so hiding a *close* rival would remove a
+    // choice the server is willing to take. Rows far below the top are cut instead (E-T1); both
+    // rows here score 0.9, so both stay.
     const view = resolutionView(answered('preselect', [ranked(), ranked({ providerPlaceId: 'gers-2' })]));
     expect(view.kind).toBe('matched');
     expect(resolutionOptions(view)).toHaveLength(2);
@@ -231,9 +233,31 @@ describe('the pin line', () => {
     expect(resolverPinLine(ambiguous, null, true)).toBe('Pin from the caption');
   });
 
-  it('still hands the line back for the two states that were never put to the resolver', () => {
-    // "We never looked" is not "we looked and found nothing" — see the function's header.
-    expect(resolverPinLine(resolutionView(null), null, true)).toBeNull();
+  /**
+   * This assertion used to read `expect(resolverPinLine(resolutionView(null), null, true))
+   * .toBeNull()` for the never-looked states. The reasoning behind it was right and is unchanged —
+   * "we never looked" is not "we looked and found nothing", so these two may never render the bare
+   * `Pin from the caption`, which contrasts the caption *with* a place database.
+   *
+   * What was wrong was the conclusion drawn from it. Silence left the card that saves the model's
+   * coordinate with *nothing* said about where the pin came from, beside siblings reading `Pin from
+   * the map data` — which is not neutrality, it reads as having nothing to declare. They get their
+   * own line instead of the wrong one (defect G5, 2026-08-31).
+   */
+  it('says both facts for the states that were never put to the resolver', () => {
+    expect(resolverPinLine(resolutionView(null), null, true)).toBe(
+      'Pin from the caption. We didn’t check this one.',
+    );
+    expect(resolverPinLine(resolutionView({ kind: 'capped' }), null, true)).toBe(
+      'Pin from the caption. We didn’t check this one.',
+    );
+  });
+
+  it('says nothing about a pin when there is no pin', () => {
+    // No model coordinate: there is no provenance to state, and `locationLine`'s "We couldn't
+    // place this one" is still the whole truth.
+    expect(resolverPinLine(resolutionView(null), null, false)).toBeNull();
+    expect(resolverPinLine(resolutionView({ kind: 'capped' }), null, false)).toBeNull();
     expect(resolverPinLine(resolutionView(answered('no_match', [])), null, false)).toBeNull();
   });
 
@@ -344,5 +368,54 @@ describe('savedPlaceName', () => {
   it('is null when nothing resolved, so the caller falls back to the caption reading', () => {
     expect(savedPlaceName(resolutionView(answered('no_match', [])), null)).toBeNull();
     expect(savedPlaceName(resolutionView(null), null)).toBeNull();
+  });
+});
+
+/**
+ * Feedback 6.1 / 6.4, measured 2026-09-03 on the owner's six failing TikToks.
+ *
+ * Three of the six were one bug: a `confirm`-band result whose offerable list holds exactly one row
+ * still asked *"Which one is it?"* over a list of one, and — because `arrivesTicked` was
+ * `willSave(..., null)` — arrived pre-ticked on the model's own coordinate while that single
+ * unpicked provider row sat directly above it. Drift between the two, same candidate: 2.78 km
+ * (`רגאצי`), 4.70 km (`Bread - Lehi 2`), 1.36 km (`Kro Bakery`). One venue, two competing saves on
+ * one card, and nothing on screen said a choice was being made.
+ *
+ * Nothing here promotes the provider row to a match and nothing here moves a threshold. The band is
+ * still `deriveResolution`'s and the cut is still `offerableShortlist`'s.
+ */
+describe('a shortlist of one is not a "which one"', () => {
+  const sole = resolutionView(answered('confirm', [ranked()]));
+  const several = resolutionView(
+    answered('confirm', [ranked(), ranked({ providerPlaceId: 'gers-2' })]),
+  );
+
+  it('asks the question that actually has two answers', () => {
+    expect(resolutionHeadline(sole)).toBe('Is this the place?');
+    expect(resolutionExplanation(sole)).toBe('One close match. Pick it to use its pin.');
+    // No number, no band, no percentage — the score behind this is an internal ranking.
+    expect(`${resolutionHeadline(sole) ?? ''} ${resolutionExplanation(sole) ?? ''}`).not.toMatch(/\d/);
+  });
+
+  it('leaves real ambiguity asking exactly what it asked before', () => {
+    // The five-branch chain is genuine ambiguity and must keep asking. This is the regression that
+    // matters: the fix is scoped to the list of one.
+    expect(resolutionHeadline(several)).toBe('Which one is it?');
+    expect(resolutionExplanation(several)).toBe('The caption doesn’t say which.');
+    expect(pickRequiredNotice(false, several, null)).toBe('Pick one of these to save it.');
+  });
+
+  it('does not ask for "one of these" over a list of one', () => {
+    expect(pickRequiredNotice(false, sole, null)).toBe('Pick it to save this place.');
+    expect(pickRequiredNotice(false, sole, 0)).toBeNull();
+  });
+
+  it('keeps the row unaccepted', () => {
+    // The question is honest only while neither answer has been taken for the user: no auto-pick,
+    // no auto-tick, and the card still says its pin came from the caption until they choose.
+    expect(effectivePick(sole, null)).toBeNull();
+    expect(arrivesTicked(true, sole)).toBe(false);
+    expect(resolverPinLine(sole, null, true)).toBe('Pin from the caption');
+    expect(savedPlaceName(sole, null)).toBeNull();
   });
 });

@@ -28,7 +28,8 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 
-import { PinMark } from '@/components/brand/pin-mark';
+import { DISPLAY_HEADING_AXES } from '@/components/brand/display-type';
+import { CrumbMascot } from '@/components/brand/crumb-mascot';
 import { Button } from '@/components/ui/button';
 
 /** Exported so the wording is assertable as data — the test runner has no DOM. */
@@ -77,22 +78,74 @@ export default function ShellError({
 
   return (
     <main
-      className="relative flex min-h-dvh flex-col overflow-hidden px-6 pt-14 pb-8 lg:items-center lg:justify-center lg:pt-0"
+      className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-8"
       style={{ background: 'var(--brand-wash)' }}
     >
       {/* One column, not the two-panel split the other full-screen surfaces use: the split exists
           to hold an editorial column beside a form, and a failure screen has no second panel of
-          content to put there. Mobile keeps the shared shape — hero at the top, action in the
-          thumb zone via `mt-auto` — and desktop centres the same column. */}
-      <div className="w-full lg:max-w-[420px]">
-        <PinMark className="h-[30px] w-[30px] lg:h-9 lg:w-9" />
+          content to put there.
+
+          Centred at every breakpoint, not only `lg:` — `chrome-stage.tsx` names the reason for
+          this shape once for `/` and `/sign-in`: "one object on the screen, sized to what is in
+          it, and the slack is the room around it rather than a stretched gap above a pinned
+          action." This was that split until 2026-08-31 — content pinned near the top, the action
+          pushed down to the bottom edge with an auto top margin — and on a tall phone the two read as unrelated:
+          `ui-review-2026-08-31.md` finding 12 measured ≈460px, 55% of a 390×844 screen, sitting
+          empty between them. Group-centring the two children removes the gap by construction
+          rather than by tuning it, and it is the one thing `lg+` already did correctly — this
+          just stops stopping at that breakpoint. `not-found.tsx` takes the identical fix for the
+          identical reason; see its own header rather than this comment repeating it. */}
+      <div className="w-full lg:max-w-105">
+        {/*
+         * **The face, and the mood is a claim about this screen rather than decoration.**
+         *
+         * `#moods` binds `offline` to *"connection lost, retryable error"*, and this is the
+         * retryable error boundary — it ships a reset action, which is the *retryable* half stated
+         * in code. Flat eyes and a wiggle mouth: not a frown, not an apology. The voice rule that
+         * governs the no-places screen governs here too — *never apologetic, never cute* — and a
+         * neutral face is what says *that happened* and stops.
+         *
+         * **This overrides a recorded decision in `pin-mark.tsx`**, which said `error.tsx` and
+         * `not-found.tsx` *"are on neither list and call `PinMark` directly, which is what keeps
+         * them off it"*. That sentence is about §3.1 rule 2's face surfaces — app icon, splash,
+         * sign-in, link preview — and it was right when the only alternative was the `idle` face,
+         * which would have been a resting mark on a failure screen. `offline` is not a resting
+         * mark; it is a mood the design system bound to this exact state, and `#moods`' own rule is
+         * that a face may exist where a screen needs it. Noted at `pin-mark.tsx` too, so the two do
+         * not disagree.
+         *
+         * **`not-found.tsx` deliberately does not get this.** A 404 is not an error the product
+         * had — it is a URL that does not exist — and no mood is bound to it. Wearing `offline`
+         * there would claim a connection problem that did not happen, which is the one constraint
+         * on this whole package: no mood may assert more than the product knows.
+         *
+         * `animation="stir"` is the idle state, not a reaction to the failure: 17 s, 85.6% of it
+         * at rest. A character that holds still on an error screen reads as a picture; one that
+         * stirs occasionally reads as still being there.
+         */}
+        <CrumbMascot mood="offline" animation="stir" className="size-7.5 lg:size-9" />
 
         {/* Assertive: this content swaps in without a navigation, so nothing else announces it. */}
         <div role="alert">
-          <p className="mt-6 text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase lg:text-[13px]">
+          <p className="mt-6 text-micro font-bold tracking-[0.14em] text-brand uppercase">
             {SHELL_ERROR_COPY.kicker}
           </p>
-          <h1 className="mt-2 font-heading text-[34px] leading-[1.05] font-extrabold tracking-tight text-foreground lg:text-[40px]">
+          {/* The display face, and the token type scale. `brand-and-product-foundation.md` §3.1
+              gives `h1`/`h2` to Fraunces; a failure screen is still the product speaking. What was
+              here was `font-heading`, a bracketed 34px with a bracketed line height, and a
+              bracketed 40px at `lg` — three arbitrary values for a size W0 registered as
+              `--text-display` with its own line height. The `lg` bump to 40px goes with them: this
+              column is capped at 420px on desktop and 34px already fills it, so the bump only made
+              the failure louder.
+
+              The old classes are described rather than quoted. `token-call-sites.test.ts` counts
+              arbitrary-value classes with a regex over the source and cannot tell a comment from a
+              call site, so quoting them here would put back on the ledger exactly what this change
+              took off it. */}
+          <h1
+            className="mt-2 font-display text-display font-bold tracking-tight text-foreground"
+            style={DISPLAY_HEADING_AXES}
+          >
             {SHELL_ERROR_COPY.headline}
           </h1>
           <p className="mt-3 max-w-sm text-sm font-medium leading-snug text-muted-foreground lg:text-base">
@@ -101,17 +154,17 @@ export default function ShellError({
         </div>
       </div>
 
-      <div className="mt-auto w-full pt-10 lg:mt-0 lg:max-w-[420px]">
+      <div className="w-full pt-10 lg:max-w-105">
         <Button
           onClick={() => retry()}
-          className="h-12 w-full rounded-lg text-base font-bold lg:h-[52px] lg:text-[15.5px]"
+          className="h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading"
         >
           {SHELL_ERROR_COPY.retry}
         </Button>
 
         <Link
           href="/map"
-          className="mt-3 flex h-12 w-full items-center justify-center text-sm font-bold text-[var(--mint-700)]"
+          className="mt-3 flex h-12 w-full items-center justify-center text-sm font-bold text-brand"
         >
           {SHELL_ERROR_COPY.back}
         </Link>

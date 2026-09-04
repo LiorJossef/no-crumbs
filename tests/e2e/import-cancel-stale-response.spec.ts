@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 /**
  * FIX-ERR-QA — what `Cancel` on the rail actually cancels.
  *
@@ -27,19 +29,7 @@ const CACHED = 'https://www.tiktok.com/@joelleuzyel/video/7259010845558983978';
 const INSTAGRAM = 'https://www.instagram.com/reel/Cabcdefghij/';
 
 async function signIn(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try {
-      await page.waitForURL('**/map', { timeout: 20_000 });
-      return;
-    } catch { /* dev-mode hydration race */ }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 test.describe('a cancelled import cannot take the screen back', () => {
@@ -60,7 +50,7 @@ test.describe('a cancelled import cannot take the screen back', () => {
 
     await page.getByPlaceholder('Paste a TikTok link').fill(CACHED);
     await page.getByRole('button', { name: 'Add →' }).click();
-    await expect(page.getByRole('heading', { name: 'Adding your TikTok' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Adding your TikTok link' })).toBeVisible();
 
     await page.getByRole('button', { name: /cancel/i }).click();
     await expect(page.getByPlaceholder('Paste a TikTok link')).toBeVisible();

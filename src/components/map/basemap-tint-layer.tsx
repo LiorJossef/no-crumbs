@@ -10,17 +10,18 @@
 
 import { useEffect } from 'react';
 import type { LayerSpecification, Map as MapLibreMap } from 'maplibre-gl';
+import type { Theme } from '@/lib/theme';
 import { useMap } from '@/components/ui/map';
+import { useResolvedTheme } from '@/components/theme/theme-provider';
 
 import {
   BASEMAP_LABEL_FONT,
   LABEL_ZOOM_RANGES,
   POI_LABEL_LAYER_ID,
-  TINTED_PAINT_PROPERTIES,
-  roleFor,
+  tintColor,
   tintFor,
-  tintPaintValue,
 } from './basemap-tint';
+import { applyBasemapTint, paintSnapshotFor } from './basemap-tint-pass';
 import { poiColorExpression, POI_TIERS, type PoiTier } from './poi-style';
 import { useStyleReady } from './use-style-ready';
 
@@ -32,11 +33,25 @@ const DISTRICT_LABEL_LAYERS = ['place_suburbs', 'place_hamlet', 'place_villages'
 export function BasemapTint() {
   const { map } = useMap();
   const styleReady = useStyleReady(map);
+  /**
+   * **The opt-in that makes the night basemap reachable (W7-3).**
+   *
+   * Everything in `basemap-tint.ts` and `poi-style.ts` takes an optional theme defaulting to light,
+   * so until this line existed the night tables were built, measured and applied to nothing — and
+   * with the provider mounted a user on a dark device was getting a *light basemap under dark
+   * chrome*, which is the one combination that reads as a bug rather than as an unfinished feature.
+   *
+   * `theme` is in the effect's dependencies, so a change re-runs the whole body: CARTO's own layers
+   * are re-tinted from the style's current paint, and the POI layers are repainted below. It is not
+   * enough to colour them once — the toggle has to move a map that is already on screen.
+   */
+  const theme = useResolvedTheme();
 
   useEffect(() => {
     if (!map || !styleReady) return;
 
-    addPoiLabels(map);
+    addPoiLabels(map, theme);
+    repaintPoiLabels(map, theme);
     for (const [id, [minzoom, maxzoom]] of Object.entries(LABEL_ZOOM_RANGES)) {
       if (!map.getLayer(id)) continue;
       map.setLayerZoomRange(id, minzoom, maxzoom);
@@ -61,29 +76,13 @@ export function BasemapTint() {
     // the washed-out look — the eight numbers were. Revert = restore that table.
     if (!TINT_ENABLED) return;
 
-    for (const layer of map.getStyle().layers ?? []) {
-      // Our own POI layer is exempt. It carries a `match` on `class` rather than a flat colour
-      // (`poi-style.ts`), and the tint's job is to push a colour to one hue — run over this layer
-      // it would collapse six families back to one. It used to be *deliberately* included, which
-      // was right when the layer was a single grey.
-      if (layer.id.startsWith(POI_LABEL_LAYER_ID)) continue;
-      const role = roleFor(layer.id);
-      if (!role) continue;
-      const paint = (layer as { paint?: Record<string, unknown> }).paint;
-      if (!paint) continue;
-
-      for (const property of TINTED_PAINT_PROPERTIES) {
-        if (!(property in paint)) continue;
-        const tintedValue = tintPaintValue(paint[property], tintFor(role, property));
-        try {
-          map.setPaintProperty(layer.id, property, tintedValue as never);
-        } catch {
-          // A property this layer type does not accept, or a style mid-reload. The layer keeps
-          // CARTO's own colour, which is the right thing to fall back to.
-        }
-      }
-    }
-  }, [map, styleReady]);
+    // **From CARTO's own paint, never from the live style.** `basemap-tint-pass.ts` holds the loop
+    // and the reason: this effect re-runs on every theme change against a style that was never
+    // reloaded, so reading live paint here meant tinting a tinted colour — and the two tables do
+    // not compose back. Dark → light could not restore the light map. The snapshot is per map
+    // instance and outlives this component's mounts.
+    applyBasemapTint(map, theme, paintSnapshotFor(map));
+  }, [map, styleReady, theme]);
 
   return null;
 }
@@ -104,7 +103,7 @@ export function BasemapTint() {
  * Added coarsest-first so the finer tiers sit above them in layer order and win a collision at the
  * zoom where both are drawn; within a tier, placement is MapLibre's own.
  */
-function addPoiLabels(map: MapLibreMap): void {
+function addPoiLabels(map: MapLibreMap, theme: Theme): void {
   if (map.getLayer(poiTierLayerId(POI_TIERS[0]!))) return;
 
   const source = map.getStyle().layers?.find(
@@ -141,13 +140,47 @@ function addPoiLabels(map: MapLibreMap): void {
         // of place before reading any of them. `poi-style.ts` owns the mapping, and it is the same
         // expression on every tier — a tier is a zoom decision, a family is a colour decision.
         paint: {
-          'text-color': poiColorExpression() as never,
-          'text-halo-color': '#ffffff',
+          'text-color': poiColorExpression(theme) as never,
+          'text-halo-color': poiHaloColor(theme),
           'text-halo-width': 1.25,
         },
       },
       beforeId,
     );
+  }
+}
+
+/**
+ * The POI halo, through the basemap's own halo tint rather than as a second literal.
+ *
+ * This layer is exempt from the tint *loop* — a `match` on `class` would collapse six families to
+ * one hue — but its halo is not a family colour, it is the ground showing through, and it has to be
+ * the same ground every other label sits on. Running white through `labelHalo`'s tint is what
+ * guarantees that: in light the halo tint is uncapped, and any hue at L = 1 is white, so this is
+ * `#ffffff` exactly as it was before. At night `labelHalo` caps near black and this follows it.
+ */
+function poiHaloColor(theme: Theme): string {
+  return tintColor('#ffffff', tintFor('label', 'text-halo-color', theme));
+}
+
+/**
+ * Repaint the POI tiers for the current theme.
+ *
+ * `addPoiLabels` returns early once its layers exist, which is correct — they are added once per
+ * style load. But a theme change does not reload the style, so without this the names would keep
+ * whichever palette they were born with and a toggle would move every layer on the map except the
+ * one this file added.
+ */
+function repaintPoiLabels(map: MapLibreMap, theme: Theme): void {
+  for (const tier of POI_TIERS) {
+    const id = poiTierLayerId(tier);
+    if (!map.getLayer(id)) continue;
+    try {
+      map.setPaintProperty(id, 'text-color', poiColorExpression(theme) as never);
+      map.setPaintProperty(id, 'text-halo-color', poiHaloColor(theme));
+    } catch {
+      // A style mid-reload. The next style-ready pass re-runs this whole effect.
+    }
   }
 }
 

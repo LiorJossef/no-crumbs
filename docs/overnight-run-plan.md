@@ -141,25 +141,33 @@ Re-measure at the start of the run. If a number differs, trust your measurement 
 
 ## 6. One branch, and the CI reality
 
-**Owner decision, 2026-08-30: no new branches.** Everything in this run — all nine waves — lands on:
+**Owner decision, 2026-08-31.** Everything in this run — all nine waves — lands on one branch:
 
 ```
-docs/no-crumbs-brand-and-facelift-lock
+no-crumbs-implementation
 ```
 
-It already has `origin/main` merged in, and is tagged `pre-facelift` at its pre-implementation tip.
-No per-wave branches, no stack, no per-wave PRs. **PR #105** is the one PR and it grows.
+Cut from `docs/no-crumbs-brand-and-facelift-lock`, so it carries every planning document, the
+concurrency work from the parallel session, and `origin/main`. **No per-wave branches, no stack, no
+per-wave PRs** — one branch, and one PR opened once there is implementation on it worth reviewing.
+
+The planning branch and its **PR #105** stay where they are; do not commit implementation there. The
+`pre-facelift` tag sits on that branch's pre-implementation tip and is still the baseline to diff
+against, because `no-crumbs-implementation` descends from it.
 
 The consequence to hold on to: **there is no bisect boundary but the commit itself.** That makes two
 things load-bearing rather than tidy — the wave-close `verify` gate (§7a), now the only scheduled
 checkpoint, and atomic, well-scoped commits (§7b), now the only way to isolate a regression after the
 fact. A sloppy commit tonight is a lost hour tomorrow.
 
-**Another session may share this checkout.** It happened during the writing of this plan: a peer
-switched the working tree to a different branch and left uncommitted edits in it. Before you start,
-run `git branch --show-current` and `git status`. If you are not on the branch above, or the tree
-carries changes that are not yours, **do not switch and do not clean** — uncommitted changes are
-user-owned. Use `git worktree add` and work in isolation instead.
+**Another session shares this repository.** It happened repeatedly while this plan was written: a peer
+switched the working tree, left uncommitted edits in it, held a second worktree at
+`../P-002-overnight`, and pushed to the branch twice mid-edit — one of those rejecting a push of mine.
+So: run `git branch --show-current` and `git status` before you start, and **`git fetch` plus
+`git pull --no-rebase` before your first commit and again whenever a push is rejected.** Never rebase;
+it is on the deny list. If the tree carries changes that are not yours, **do not switch and do not
+clean** — uncommitted changes are user-owned. `git worktree add` is how you work in isolation without
+disturbing anyone.
 
 **CI cannot start a runner.** All four jobs report `steps=0` — a job that never began. `merge:pr` will
 correctly refuse the PR, so **nothing lands tonight and that is expected.** Do not try to merge. Do

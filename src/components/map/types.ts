@@ -172,6 +172,21 @@ export interface MapSurfaceProps {
    *  popup (or no handler) simply never calls it. */
   readonly onDeselect?: () => void;
   /**
+   * The place the user is **pointing at in the list**, or `null` — the row↔pin coupling (`W3-2`,
+   * `facelift-plan.md` §3a: *"pins and rows are the same object"*).
+   *
+   * A surface answers it by quietening every other pin and drawing this one lifted and named. It is
+   * a **hint about attention, not about state**: it does not select, it does not persist, it does
+   * not survive a pointer leaving the row, and it is emphatically **not a camera mover** — pointing
+   * at a row is not asking to go there, and it must never be added to the eight movers enumerated
+   * in `map-page-client.tsx`. A surface is free to ignore it entirely; `map-surface.mock.tsx` does.
+   *
+   * Separate from `selected` because the two mean different things and can be true at once: a
+   * selection is a decision the user made and a hover is where their pointer happens to be. A
+   * surface that conflated them would close a place's detail by moving the mouse.
+   */
+  readonly hoveredPlaceId?: string | null;
+  /**
    * "Frame exactly these places, now" — the one *explicit* camera mover this port exposes.
    *
    * It exists because of what an import used to look like: you paste a London TikTok, eight
@@ -325,6 +340,24 @@ export interface MapSurfaceProps {
    * Omitted, the column holds only whatever the surface draws itself.
    */
   readonly controlSlot?: ReactNode;
+  /**
+   * **Play the post-login entrance on this mount** (`I2-7`, `components/map/entrance.ts`).
+   *
+   * A surface answers it by descending into its home framing from altitude and by holding the pin
+   * landing back until the ground has settled under it. `false`, or absent, is the behaviour every
+   * surface had before: the camera frames the library instantly and the pins land on `idle` the way
+   * `W6-6` left them.
+   *
+   * **It is not a ninth camera mover and it may not become one**, and the mechanism is what makes
+   * that true rather than the promise: the honest fit runs *first*, the resting camera is read back
+   * off the map, and the descent's destination is that reading. So the entrance changes how the
+   * camera arrives at mover 1's answer and never what that answer is. A surface is free to ignore
+   * it — `map-surface.mock.tsx` does, and renders identically with or without it.
+   *
+   * A boolean rather than a timestamp because the clock is a document-scoped singleton the surface
+   * starts itself; see `entrance.ts` for why the zero is the framing rather than the mount.
+   */
+  readonly entrance?: boolean;
 }
 
 /**
@@ -386,6 +419,22 @@ export interface ViewportChangeMeta {
    * gestures apply their own guard; this field never lies about what is drawn to express one.
    */
   readonly band: ZoomBand;
+  /**
+   * The band of the **previous** settled report, or `null` when this is the first one.
+   *
+   * Here rather than in the page because it is a fact about the camera's history, and the camera's
+   * history is the surface's to keep — the same argument that puts `band` here rather than letting
+   * the page re-derive the thresholds. It is reported for programmatic moves too, so the band a
+   * flight *landed* in is the band the user's next gesture is measured against.
+   *
+   * `ui/place/list-scope.ts` needs it to tell a **crossing** from a membership: "the camera is in
+   * the pin band" is true of a 40 px drag as much as of the zoom that just arrived there, and only
+   * one of those may take a country scope apart. See `scopeAfterCameraSettled`.
+   *
+   * Optional so that a surface which cannot keep the history omits it and every consumer treats
+   * that as "decide nothing", which is the behaviour they all had before this existed.
+   */
+  readonly previousBand?: ZoomBand | null;
 }
 
 /** A framing request with a zoom range, for `MapSurfaceProps.focusBounds`. */

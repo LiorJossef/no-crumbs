@@ -457,9 +457,10 @@ no prose and error copy is not a deploy of the backend.
 | `SHORT_LINK_UNRESOLVED` | A1 | no | "This share link has expired…" |
 | `POST_UNAVAILABLE` | A2 | once | **F9 — the single honest state.** Private / deleted / region-locked are VERIFIED indistinguishable, and we do not guess |
 | `UPSTREAM_TIMEOUT` · `RATE_LIMITED_UPSTREAM` | A | yes | F9 with Retry primary |
-| `RATE_LIMITED_LOCAL` | pre-A | later | "You've tried this a few times…" |
+| ~~`RATE_LIMITED_LOCAL`~~ | — | — | **Retired 2026-08-31.** Named a per-user limiter that was never built, so it had a screen and a 429 and no producer. Returns with its producer, in one commit, when the limiter is (`07` §9). |
 | `NO_CAPTION` | A/B seam | no | F10 variant → manual place search |
 | `EXTRACTOR_UNAVAILABLE` · `EXTRACTOR_INVALID_OUTPUT` | B | yes | F9 with Retry (cheap — the source is cached) |
+| `EXTRACTOR_QUOTA_EXHAUSTED` | B | **no** | The day's model allowance is spent. Its own screen — the read succeeded, so no retry, no second link and no trip to TikTok; `Back to the map` alone. 503 |
 | `NOT_AUTHENTICATED` | pre-A | n/a | Redirect to sign-in, pasted URL preserved |
 | `INTERNAL` | any | yes | F9 generic; always a bug report |
 

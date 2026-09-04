@@ -74,6 +74,9 @@ import type { PlaceCandidate } from '../types';
  *   removed, which is precisely why the version had to move: a v3 row and a v4 row have the same
  *   *shape* and different *vocabularies*, so nothing but this number stops a cached v3 candidate
  *   being read back as if the model had been asked the new question.
+ * v4 → v5 (2026-08-31, E2-T3): added `postIntent` at the **response** level — not on the
+ *   candidate, which is why `CANDIDATE_FIELD_PROVENANCE` below does not grow a key. See
+ *   `PostIntentSchema`.
  *
  * ## v3, and why it is not the `nameAliases` the owner cut from v2
  *
@@ -99,7 +102,7 @@ import type { PlaceCandidate } from '../types';
  * deterministic transliterator measured on 2026-08-27 reached 47% recall and failed on exactly that
  * class, which is why this is the model's job and not a function's.
  */
-export const EXTRACTION_SCHEMA_VERSION = 4;
+export const EXTRACTION_SCHEMA_VERSION = 5;
 
 /** `places/category-hint.ts`'s `ExtractedCategoryHint` — the owner's three primary categories —
  *  as a Zod enum.
@@ -376,14 +379,150 @@ export const RawPlaceCandidateSchema = z.object({
 
 export type RawPlaceCandidate = z.infer<typeof RawPlaceCandidateSchema>;
 
+/* ------------------------------------------------------------------------------------------- *
+ * postIntent (v5) — what kind of post this was
+ * ------------------------------------------------------------------------------------------- */
+
 /**
- * The whole response. The 12-cap is at the schema level, below the API's own limits and above our
- * own `MAX_CANDIDATES = 7` (`07` §7) — a model that tries to emit 40 hashtag-derived "places" fails
- * schema validation rather than flooding the pipeline (`09` §3.3).
+ * The three things a post can be, as far as this product cares.
+ *
+ *  - `place_recommendation` — the post recommends one or more real places, **whether or not the
+ *    caption names any of them**. A voice-over listing six Tokyo spots under the caption
+ *    "6 Must Try Spots in Tokyo" is this, and it yields zero candidates.
+ *  - `place_question` — the post is *about* places, names none, and is not trying to: "what's the
+ *    best X?", "drop your recs below", a name deliberately withheld to drive comments.
+ *  - `not_a_place` — not about places at all. A cat video.
+ */
+export const POST_INTENTS = ['place_recommendation', 'place_question', 'not_a_place'] as const;
+
+export type PostIntent = (typeof POST_INTENTS)[number];
+
+/**
+ * What kind of post this was, asked of the model directly. Response-level, not per candidate:
+ * it describes the post, and the interesting case has no candidates to hang it on.
+ *
+ * ## What it is for
+ *
+ * ~73% of imports find no place, and every one of them reaches one screen that says nothing was
+ * found. Those imports are not alike — a genuine recommendation whose venue is only spoken, a
+ * "drop your recs below" question where no venue exists anywhere, and a cat video are three
+ * different things to say to a person, and the engine could not tell them apart. The measured
+ * alternatives are all bad: the best available trigger, "the extractor returned zero candidates",
+ * runs at 0.33–0.57 precision (`docs/evidence/extraction/transcription-and-media-feasibility-
+ * 2026-08-28.md` §3). Asking the model costs about ten output tokens and no extra request.
+ *
+ * ## The constraint, which is the whole design and is deliberate
+ *
+ * **This value may only ever ADD an explanation. It must never suppress, drop, filter, gate or
+ * reorder a candidate, and no code path may branch on it to withhold a place.**
+ *
+ * The reason is the error budget. This is one unmeasured classification from a model that is
+ * already wrong about other things, and it arrives next to candidates that went through
+ * `plausibility.ts`, `grounding.ts` and a human review screen. If a wrong `not_a_place` could
+ * suppress a candidate, one bad classification would cost a real place silently — the failure this
+ * product least tolerates. Wired as an explanation only, the worst a wrong classification can cost
+ * is a slightly-off sentence on a screen the user is already reading, next to whatever we found.
+ * That asymmetry is why the field is allowed in at all before its accuracy is known.
+ *
+ * ## `caption_inference`, and why it is not in `CANDIDATE_FIELD_PROVENANCE`
+ *
+ * It is the model's reading of what the caption says, so it belongs to the `caption_inference`
+ * class — but that map is keyed on `RawPlaceCandidate` and this is not a candidate field. The map
+ * stays exactly as wide as the candidate, and this comment carries the classification instead.
+ *
+ * ## Accuracy is unmeasured
+ *
+ * Nothing here has been run against a live model. The parse, the absence handling and the
+ * unrecognised-value handling are tested; whether the model *classifies correctly* is not known
+ * and needs a labelled set and a live run. Do not present this value to a user as a fact about
+ * the post without that measurement.
+ */
+export const PostIntentSchema = z.enum(POST_INTENTS);
+
+/** `value` if it is one of the three, `null` for anything else — a missing key, an explicit
+ *  `null`, a string the model invented, a number, an object. See `LenientPostIntentSchema`. */
+export function coercePostIntent(value: unknown): PostIntent | null {
+  return typeof value === 'string' && (POST_INTENTS as readonly string[]).includes(value)
+    ? (value as PostIntent)
+    : null;
+}
+
+/**
+ * How `postIntent` is read on every parse: **never strictly**.
+ *
+ * `extractions` is cached on `(source_id, model, prompt_version)`, and while the v4 → v5 bump
+ * means no pre-v5 row can be read back under this prompt version, that is a guarantee about the
+ * cache key rather than about this schema — and this schema is also what parses the model's live
+ * reply. A model that omits the key, sends `null`, or invents a fourth value must not cost the
+ * caption its candidates. So absence, `null` and any unrecognised value all yield `null`, and
+ * nothing else in the response is affected.
+ *
+ * That is a deliberate departure from the rest of this file, where a field the model got wrong
+ * fails the candidate. It follows from the constraint above: a field that may only add an
+ * explanation has no business being able to fail a parse.
+ */
+const LenientPostIntentSchema = z.unknown().optional().transform(coercePostIntent);
+
+/* ------------------------------------------------------------------------------------------- *
+ * The two candidate limits
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * The most candidates this system carries out of one response.
+ *
+ * It is the number the model is *asked* for (`integrations/llm/json-schema.ts`'s
+ * `candidates.maxItems`, which `MAX_OUTPUT_TOKENS` is in turn derived from) and the number the rest
+ * of the system is built to address: `import/confirm.ts` bounds `candidateIndex` at 11 precisely
+ * because no stored extraction can hold a thirteenth candidate. It sits above the pipeline's
+ * `MAX_CANDIDATES` (`07` §7), which decides how many are *resolved*; everything between the two is
+ * kept and shown with `resolution.status = 'capped'`.
+ *
+ * A reply longer than this is **truncated, not refused** — see `FLOOD_GUARD_CANDIDATES`.
+ */
+export const CANDIDATE_CAP = 12;
+
+/**
+ * The flood guard (`09` §3.3): the point at which a reply stops being an over-long answer and
+ * becomes evidence that the model is not answering the question at all. "A model emitting 40
+ * hashtag 'places'" is that section's archetype, and it must still fail.
+ *
+ * ## Why this is no longer the same number as `CANDIDATE_CAP`, which is the defect it fixes
+ *
+ * It used to be. `ExtractionEnvelopeSchema` bounded `candidates` at 12, the envelope is parsed
+ * *before* the item-by-item salvage below, and a failed envelope returns `{ ok: false }` — so a
+ * post naming 13 places produced **zero** places rather than twelve, silently, with the salvage
+ * that exists for exactly this kind of over-production never running (`growth-plan.md` G2). One
+ * number was doing two incompatible jobs: "how many we keep" and "this is not an answer".
+ *
+ * Twice the model-facing cap is where the second job starts. A model that overshoots the schema it
+ * was handed by one, or by ten, is still reading the caption, and its first `CANDIDATE_CAP`
+ * candidates are worth keeping; a model past two dozen has stopped reading it and is listing
+ * hashtags. So nothing between 13 and 24 can be lost to a cliff any more, and 40 still fails.
+ *
+ * A *complete* reply this long cannot in fact arrive: `MAX_OUTPUT_TOKENS` is sized for twelve
+ * worst-case candidates, so a genuine 24-candidate response overruns the output ceiling and
+ * surfaces through `stop-reason.ts` first. That is the second reason the guard can be this
+ * generous without becoming ornamental.
+ */
+export const FLOOD_GUARD_CANDIDATES = CANDIDATE_CAP * 2;
+
+/**
+ * The whole response, parsed strictly: one bad element fails everything. The cap is at the schema
+ * level, below the API's own limits and above the pipeline's `MAX_CANDIDATES` (`07` §7).
+ *
+ * This is the reference shape — what a well-formed response looks like, and what
+ * `json-schema.ts`'s round-trip test and `confirm.ts`'s index bound are written against, so its cap
+ * stays `CANDIDATE_CAP` exactly. The adapters do not run it: they run
+ * `parseExtractionResultPartial` below, which is item-by-item and treats an over-long reply as
+ * something to truncate up to `FLOOD_GUARD_CANDIDATES` rather than something to refuse.
  */
 export const ExtractionResultSchema = z.object({
-  candidates: z.array(RawPlaceCandidateSchema).max(12),
+  candidates: z.array(RawPlaceCandidateSchema).max(CANDIDATE_CAP),
   cityHint: boundedText(80).nullable(),
+  /** v5. Lenient by construction — see `LenientPostIntentSchema`. A response that omits it is
+   *  still a well-formed response, which is the one place this reference shape is deliberately
+   *  looser than the schema the model is handed. */
+  postIntent: LenientPostIntentSchema,
 });
 
 export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;
@@ -394,12 +533,17 @@ export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;
 
 /**
  * The response minus the candidates: everything that has to be right for the reply to be a reply
- * at all. `candidates` is only checked for *being* a capped array here; each element is parsed
- * separately below.
+ * at all. `candidates` is only checked for *being* an array here, and one bounded by the flood
+ * guard rather than by the keep-cap — the difference between those two bounds is what stopped a
+ * 13-place post from returning nothing. Each element is parsed separately below.
  */
 const ExtractionEnvelopeSchema = z.object({
-  candidates: z.array(z.unknown()).max(12),
+  candidates: z.array(z.unknown()).max(FLOOD_GUARD_CANDIDATES),
   cityHint: boundedText(80).nullable(),
+  /** v5, and it cannot fail: absent, `null` and unrecognised all read as `null`
+   *  (`LenientPostIntentSchema`). A post-intent the model got wrong must never be the reason a
+   *  caption's candidates are lost. */
+  postIntent: LenientPostIntentSchema,
 });
 
 /** A response parsed item by item: the candidates that were valid, plus an honest count of the
@@ -408,10 +552,35 @@ const ExtractionEnvelopeSchema = z.object({
 export interface PartialExtractionResult {
   readonly candidates: readonly RawPlaceCandidate[];
   readonly cityHint: string | null;
+  /**
+   * What kind of post the model said this was, or `null`. See `PostIntentSchema` — in particular
+   * the constraint that this may only ever add an explanation, never withhold a candidate. It is
+   * carried alongside `candidates`, never applied to them.
+   */
+  readonly postIntent: PostIntent | null;
   /** How many elements of `candidates` failed `RawPlaceCandidateSchema`. */
   readonly dropped: number;
-  /** How many the model sent. `dropped + candidates.length`, kept explicitly so a log line does
-   *  not have to reconstruct the denominator. */
+  /**
+   * How many **valid** candidates were cut because the reply ran past `CANDIDATE_CAP`.
+   *
+   * Deliberately not folded into `dropped`, which would have been one fewer field and a lie:
+   * `dropped` means "the model said this and it was malformed", and this means "the model said
+   * this, it was fine, and we do not carry more than `CANDIDATE_CAP`". A reader who cannot tell
+   * those apart cannot tell a broken model from an over-productive one, and would read a healthy
+   * 14-place listicle as a partly unreadable reply.
+   *
+   * It shares `dropped`'s limitation: `ports.ts`'s `PlaceExtractor` returns candidates and a
+   * `cityHint` and has no way to say "there were more", so nothing downstream can see this. The log
+   * line is therefore the only place the fact exists, and both adapters emit
+   * `extraction.candidates_truncated` on every non-zero count — a **separate** event from
+   * `extraction.candidates_dropped`, because anything counting that one is counting replies we
+   * could not read and this is not one of those. What it counts is at least the thirteenth
+   * candidate of a reply, already far past the pipeline's `MAX_CANDIDATES`, so it would have been
+   * shown as `capped` at best and the resolver would never have seen it.
+   */
+  readonly truncated: number;
+  /** How many the model sent. `dropped + truncated + candidates.length`, kept explicitly so a log
+   *  line does not have to reconstruct the denominator. */
   readonly total: number;
 }
 
@@ -433,10 +602,17 @@ export type PartialExtractionParse =
  *
  * ## The two limits, which are the point
  *
- * **The envelope is strict.** A reply that is not an object, whose `candidates` is not an array,
- * that exceeds the 12-item cap, or whose `cityHint` is not a bounded string or `null`, is a hard
- * failure exactly as before. There is nothing to salvage from a shape we cannot read, and the
- * 12-cap is a flood guard (`09` §3.3) — a model emitting 40 hashtag "places" must still fail.
+ * **The envelope is strict about shape.** A reply that is not an object, whose `candidates` is not
+ * an array, or whose `cityHint` is not a bounded string or `null`, is a hard failure exactly as
+ * before: there is nothing to salvage from a shape we cannot read. So is a reply longer than
+ * `FLOOD_GUARD_CANDIDATES` — the flood guard is intact (`09` §3.3) and a model emitting 40 hashtag
+ * "places" still fails.
+ *
+ * **Between the keep-cap and the flood guard, an over-long reply is truncated, not refused.** That
+ * band did not exist: the envelope bound *was* the keep-cap, so a caption naming 13 places lost all
+ * thirteen (`growth-plan.md` G2). The first `CANDIDATE_CAP` valid candidates are now carried and
+ * the remainder is reported as `truncated`, which is counted separately from `dropped` on purpose —
+ * see `PartialExtractionResult.truncated`.
  *
  * **All-invalid stays a hard failure.** If the model sent candidates and not one of them parsed,
  * that is a broken response, not an empty one. Returning `[]` there would be a lie of exactly the
@@ -453,6 +629,10 @@ export type PartialExtractionParse =
  * Until that port carries the fact, the log line is the only place it exists, and the adapters
  * emit `extraction.candidates_dropped` on every non-zero count. Do not add a caller that ignores
  * it.
+ *
+ * `truncated > 0` is **not** a fault — it is a productive caption meeting a policy limit — but it
+ * is subject to the same silence, so it gets the same treatment under a different name:
+ * `extraction.candidates_truncated`, never folded into the dropped count.
  */
 export function parseExtractionResultPartial(value: unknown): PartialExtractionParse {
   const envelope = ExtractionEnvelopeSchema.safeParse(value);
@@ -476,9 +656,23 @@ export function parseExtractionResultPartial(value: unknown): PartialExtractionP
   const total = envelope.data.candidates.length;
   if (total > 0 && kept.length === 0) return { ok: false, error: new z.ZodError(issues) };
 
+  // Truncation runs *after* the per-item parse rather than by slicing the raw array first, so the
+  // cap is spent on candidates that actually parsed: a thirteen-element reply whose second element
+  // is junk carries twelve real venues, not eleven.
+  const carried = kept.slice(0, CANDIDATE_CAP);
+
   return {
     ok: true,
-    value: { candidates: kept, cityHint: envelope.data.cityHint, dropped: total - kept.length, total },
+    value: {
+      candidates: carried,
+      cityHint: envelope.data.cityHint,
+      // Carried, never applied. `carried` above was computed without consulting it, and nothing in
+      // this function may change that (`PostIntentSchema`).
+      postIntent: envelope.data.postIntent,
+      dropped: total - kept.length,
+      truncated: kept.length - carried.length,
+      total,
+    },
   };
 }
 

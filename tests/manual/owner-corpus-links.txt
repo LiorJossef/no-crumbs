@@ -1,0 +1,37 @@
+# OWNER CORPUS — paste your links here, one per line. Blank lines and `#` comments are ignored.
+#
+# Prefer full https://www.tiktok.com/@handle/video/<id> links. A vt.tiktok.com / vm.tiktok.com
+# short link works, but it has to be resolved over the network every time, so a corpus made of
+# them cannot be replayed offline.
+#
+# Then, once:
+#   set -a && . ./.env.local && set +a
+#   OWNER_CORPUS_MAX_MODEL_CALLS=60 npx vitest run \
+#     tests/manual/owner-corpus-seed.manual.ts --config tests/manual/vitest.manual.config.ts
+#
+# ----------------------------------------------------------------------------------------------
+# YOUR LINKS GO HERE
+# ----------------------------------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------------------------------
+# DEMONSTRATION SET — delete this block once you have pasted your own.
+#
+# Ten of the sixteen borrowed posts from docs/evidence/tiktok/07-caption-content-scoring.md, in
+# lookup-priority order, covering all four classes. Their captions are already committed in
+# docs/evidence/tiktok/oembed-set1-raw.json, so seeding them costs no oEmbed calls. They carry
+# `classSource: "e7"` in the corpus — real labels on the wrong sample — and are always reported in
+# their own block, never averaged with yours.
+# ----------------------------------------------------------------------------------------------
+https://www.tiktok.com/@muchmorethanmatcha/video/7496222617053990175
+https://www.tiktok.com/@travel.by.ann/video/7395598157620497696
+https://www.tiktok.com/@yallabikestlv/video/7494360070369709354
+https://www.tiktok.com/@alexandramoulavi/video/7347722826654305578
+https://www.tiktok.com/@briancantstopeating/video/7245648559981350186
+https://www.tiktok.com/@marielleisrael/video/7448327861636943150
+https://www.tiktok.com/@gadderhq/video/7205629856716000517
+https://www.tiktok.com/@emshelx/video/7541775954906041622
+https://www.tiktok.com/@petsmeowwoof/video/7290074173500706079
+https://www.tiktok.com/@exploringlondon/video/7346702347491446049
+https://www.tiktok.com/@sivanskitchen/video/7573466599361924382
+https://www.tiktok.com/@austintravelhacks/video/7641500459747839252

@@ -57,25 +57,49 @@
  *    it for what that buys and what it cost.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
+import { Map as MapcnMap, MapControls, MapPopup, useMap } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { FocusBoundsRequest, LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
+import { whenAtRest, type AtRestMap } from './at-rest';
+import { isRevealPanWorthMaking, revealPanDuration } from './reveal-pan';
 import { savedPlaceRef } from './saved-place-ref';
 import { SummaryMarkerLayer } from './summary-marker-layer';
-import { toAreaFeatures, toCountryFeatures } from './summary-features';
-import { AREA_DISC_SPEC } from './summary-style';
+import { countryPillSpecs, toAreaFeatures, toCountryFeatures } from './summary-features';
 import { useDiscTheme } from './use-disc-theme';
-import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
-import { pinGeometry } from './marker-style';
+import {
+  affordableMarkerAllowance,
+  clampFitPadding,
+  LG_BREAKPOINT_PX,
+  mapOcclusionInsets,
+  queryRectFrom,
+} from './query-rect';
+import { LABEL_FIT_ALLOWANCE, pinGeometry } from './marker-style';
 import { nearbyPlaces } from '@/ui/place/nearby';
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
+import { PinHighlightLayer } from './pin-highlight-layer';
 import { ensureRtlTextPlugin } from './rtl-text';
-import { bandForZoom, HOME_LANDING_ZOOM, PIN_BAND_MIN } from './zoom-bands';
+import {
+  bandForZoom,
+  HOME_LANDING_ZOOM,
+  PIN_BAND_MIN,
+  settleZoom,
+  ZERO_STATE_ZOOM,
+  type ZoomBand,
+} from './zoom-bands';
 import { summaryPillFitAllowance, type SummaryPillLabel } from './country-flag-image';
+import {
+  ENTRANCE_BEATS,
+  ENTRANCE_CLOCK_FLOOR_MS,
+  ENTRANCE_DESCENT_MS,
+  ENTRANCE_ZOOM_LIFT,
+  entranceDelayMs,
+  prefersReducedMotion,
+  startEntranceClock,
+} from './entrance';
 
 // Called at module scope, not in an effect. MapLibre applies the plugin when a tile's glyphs are
 // first shaped, so it has to be in place before any `Map` is constructed — an effect in this
@@ -141,9 +165,8 @@ const FIT_BOUNDS_MAX_ZOOM = 15;
  *  `FIT_BOUNDS_PADDING` on purpose: this is a corrective nudge, and every pixel of margin here is a
  *  pixel the map moves that the user did not ask it to. */
 const REVEAL_MARGIN_PX = 24;
-/** Shorter than `FOCUS_FLIGHT_MS`: a nudge that takes as long as a journey reads as a journey.
- *  `easeTo` sets its own duration to 0 under `prefers-reduced-motion`, so there is no branch. */
-const REVEAL_PAN_MS = 320;
+// The nudge's duration is proportional to how far it actually pans, and its floor is in
+// `./reveal-pan` — a flat constant made a 10 px correction take as long as a 200 px one.
 
 // Extra top padding for the floating chrome that overlays the map's top edge — the **default**,
 // used by any surface that does not declare its own (`MapSurfaceProps.floatingTopChromePx`).
@@ -208,6 +231,30 @@ const COUNTRY_FLIGHT_MS = 600;
  * phone the margin is thin enough that a phantom 100 px is the difference. See `clampFitPadding`,
  * which is explicit that surviving the clamp is not the same as clearing the sheet.
  */
+/**
+ * **Clicking the map where nothing is dismisses the open place.**
+ *
+ * This is what `closeOnClick` used to do implicitly on the popup, and doing it here is what makes
+ * it correct: the pin layer's own click fires in the same dispatch, and the caller's `onDeselect`
+ * already ignores a click that selected something (`map-page-client.tsx`'s `pinTapInFlight`). So a
+ * pin tap selects, a bare-map click deselects, and re-tapping the selected pin keeps its card —
+ * three behaviours out of one listener rather than three special cases.
+ */
+function BackgroundDismiss({ onDeselect }: { onDeselect: () => void }) {
+  const { map } = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const onClick = () => onDeselect();
+    map.on('click', onClick);
+    return () => {
+      map.off('click', onClick);
+    };
+  }, [map, onDeselect]);
+
+  return null;
+}
+
 function fitBoundsPadding(
   viewportWidth: number,
   containerWidth: number,
@@ -238,12 +285,16 @@ function fitBoundsPadding(
   const topChrome =
     floatingTopChromePx ??
     (viewportWidth < LG_BREAKPOINT_PX ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX);
+  // Only the part of the allowance this container can afford. A phone cannot afford a 206 px
+  // country pill and pays none of it, which is the whole of `W2-B`'s root cause — see
+  // `affordableMarkerAllowance`.
+  const allowance = affordableMarkerAllowance(markerAllowance, containerWidth, containerHeight);
   return clampFitPadding(
     {
-      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top + markerAllowance.y,
-      bottom: FIT_BOUNDS_PADDING + occlusion.bottom + markerAllowance.y,
-      left: FIT_BOUNDS_PADDING + occlusion.left + markerAllowance.x,
-      right: FIT_BOUNDS_PADDING + occlusion.right + markerAllowance.x,
+      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top + allowance.y,
+      bottom: FIT_BOUNDS_PADDING + occlusion.bottom + allowance.y,
+      left: FIT_BOUNDS_PADDING + occlusion.left + allowance.x,
+      right: FIT_BOUNDS_PADDING + occlusion.right + allowance.x,
     },
     containerWidth,
     containerHeight
@@ -262,6 +313,18 @@ function fitBoundsPadding(
 type Framing =
   | { readonly kind: 'fit'; readonly target: [[number, number], [number, number]] }
   | { readonly kind: 'bounds'; readonly request: FocusBoundsRequest }
+  /**
+   * **The home overview, recorded as a decision to re-take rather than as a camera to replay.**
+   *
+   * Every other arm reproduces a *request*. This one deliberately reproduces nothing: `fitToBounds`
+   * chooses its resting zoom by fitting the library against the container it has **now** and
+   * settling that fit clear of the band boundary, so replaying the box, the zoom or the marker
+   * allowance it happened to choose against the old container would replay an answer to a question
+   * that has changed. A rotation, an orientation change or mobile Safari collapsing its URL bar
+   * re-runs the whole derivation instead — which is the only way the home view stays the overview
+   * at both sizes rather than the overview of whichever size it was first measured at.
+   */
+  | { readonly kind: 'home' }
   /**
    * **The user moved the camera themselves, so there is nothing for a resize to reproduce.**
    *
@@ -355,6 +418,10 @@ function whenReady(map: MapLibreMap, action: () => void): void {
  *  because each of them individually has a case it does not cover — see `whenReady`. */
 const READY_EVENTS = ['load', 'styledata', 'sourcedata', 'idle'] as const;
 
+/** A stand-in for the map in the cases where the place card's opening gate has nothing to wait for
+ *  — no map attached yet, or a deselection, which is never gated. */
+const AT_REST: AtRestMap = { isMoving: () => false, on: () => {}, off: () => {} };
+
 export function MapSurfaceMapcn({
   places,
   onPlaceClick,
@@ -372,6 +439,8 @@ export function MapSurfaceMapcn({
   floatingTopChromePx,
   onViewportChange,
   controlSlot,
+  hoveredPlaceId,
+  entrance = false,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
   /** The open pin's neighbours, for the popover's `Nearby` section. Same rule as the mobile
@@ -395,19 +464,18 @@ export function MapSurfaceMapcn({
    * `minzoom` was applied unconditionally that second surface simply emptied as you zoomed out.
    */
   const hasSummaryBands = summaries !== undefined;
-  // Every disc either band's features can reference: one per country in the state it is drawn in,
-  // plus the plain flagless disc the *area* band draws on. Derived from the same list the features
-  // are, so an `icon-image` id can never be referenced without its image having been offered to
-  // `addImage` in the same commit — a symbol that names a missing image draws no icon, and with a
-  // count in the same layer it would degrade to a bare number floating on the map.
+  // Every disc the *country* band's features can reference, in the state each is drawn in. Derived
+  // from the same list the features are, so an `icon-image` id can never be referenced without its
+  // image having been offered to `addImage` in the same commit — a symbol that names a missing
+  // image draws no icon at all.
+  //
+  // The area band's pills are not here: they carry the area's name and its **laid-out** count, and
+  // that count is decided by `area-band-layout.ts` inside `SummaryMarkerLayer`, which builds and
+  // adds them there.
   const discs = useMemo(
-    () => [
-      AREA_DISC_SPEC,
-      ...(summaries?.countries ?? []).map((country) => ({
-        countryCode: country.countryCode,
-        ...(country.key === summaries?.activeCountryKey ? { active: true } : {}),
-      })),
-    ],
+    // Both label states, because a resize swaps `icon-image` between them and an id whose image
+    // was never added draws nothing at all.
+    () => countryPillSpecs(summaries?.countries ?? [], summaries?.activeCountryKey ?? null),
     [summaries]
   );
   /**
@@ -452,6 +520,25 @@ export function MapSurfaceMapcn({
   useEffect(() => {
     latestAllowance.current = markerAllowance;
   }, [markerAllowance]);
+  /**
+   * **Whether there is anything saved at all** — the one fact the home framing cannot read off the
+   * box it was handed.
+   *
+   * `/map` delivers the zero-place region through the *identical* prop path as a real library's box
+   * (`map-page-client.tsx`: `areas.length > 0 ? unionBounds(…) : EMPTY_LIBRARY_BOUNDS`), so
+   * `initialBounds` is a well-formed rectangle either way and the surface cannot tell the two apart
+   * by looking at it. That is deliberate — the page owns *where* the empty camera points — but it
+   * means the surface has to be told *that* it is empty, and `places` is the honest signal.
+   *
+   * A ref, and for the same reason as the two above rather than a new one: `fitToBounds` is a
+   * transitive dependency of `attachMapRef`, and a callback ref whose identity changes is detached
+   * and re-attached by React — which re-frames the whole library and rebuilds the `ResizeObserver`.
+   * Depending on `places.length` directly would therefore re-frame the camera on every import.
+   */
+  const latestPlaceCount = useRef(places.length);
+  useEffect(() => {
+    latestPlaceCount.current = places.length;
+  }, [places]);
 
   /** The last framing the camera actually took. A resize re-runs *this*, not whatever the full
    *  `places` bounding box happens to be now — otherwise a resize silently undoes a focus flight
@@ -489,6 +576,54 @@ export function MapSurfaceMapcn({
       selected === null ? restingSheetFraction : (selectedOcclusionFraction ?? restingSheetFraction);
   }, [selected, restingSheetFraction, selectedOcclusionFraction]);
 
+  /**
+   * **`floatingTopChromePx`, as a ref, for the same reason as the five refs above it.**
+   *
+   * It used to be `paddingFor`'s only dependency, and through `paddingFor` it reached `frameBounds`,
+   * `fitTo`, `fitToBounds`, `refitFramed` and finally `attachMapRef` — so a change to it detached
+   * and re-attached the callback ref, and **the re-attach re-runs the home framing**, which
+   * `hasFramedOnce` did not stop because that guard sat on the sibling effect below and not on the
+   * attach-time call.
+   *
+   * That was inert for as long as a surface belonged to one route for its whole life: nothing ever
+   * changed this prop on a live instance. `components/shell/persistent-map.tsx` changed the
+   * lifetime — one MapLibre instance now outlives the route that borrowed it — and `/map` omits
+   * this prop while `/collections` passes `0`, so from that point **every tab hop re-framed the
+   * library**.
+   *
+   * Worse, it re-framed against a **mixed** budget. `sheetFractionRef` is written from a passive
+   * effect, and the ref re-attach happens before that effect runs, so the fit read the *arriving*
+   * route's chrome with the *departing* route's sheet fraction. Traced at 390×844 with this
+   * function instrumented, `d77a1c6`:
+   *
+   * | | `sheetFraction` | `chrome` | rest |
+   * |---|---|---|---|
+   * | load `/map` | `null` | `null` | z11.60 |
+   * | tap Collections | `null` | `0` | z11.60 |
+   * | tap Map | **`0.55`** | `null` | **z10.46** |
+   *
+   * `/map` framed with `/collections`' full-sheet fraction — a whole zoom band out, two towns
+   * wider, every time. With this ref and the guard below, **no camera mover fires on either hop at
+   * all** and `/map` after a round trip is byte-identical to `/map` on first load — SHA-256
+   * `63ef5f61…` for both screenshots, 390×844, measured against this commit rather than against the
+   * instrumented build the trace above came from. That is the standard a camera should be held to,
+   * because a whole band of drift is exactly what "looks the same" looks like.
+   *
+   * It also costs less than the persistence alone did: a camera that does not move needs no new
+   * tiles, so the return hop went from 4 tile requests and 5 requests total at `d77a1c6` to **0 and
+   * 1** here.
+   *
+   * A prop change is not a camera mover — this file already says exactly that of `places` — so the
+   * fix is the pattern already used five times here (`latestBounds`, `latestAllowance`,
+   * `latestPlaceCount`, `sheetFractionRef`, `accessibleNameRef`) rather than a new guard.
+   * `tests/unit/map/framing-stability.test.ts` pins the dependency array empty, because the whole
+   * nature of this defect is that it was invisible until somebody changed a lifetime assumption.
+   */
+  const topChromeRef = useRef(floatingTopChromePx);
+  useEffect(() => {
+    topChromeRef.current = floatingTopChromePx;
+  }, [floatingTopChromePx]);
+
   /** The padding a fit has to leave for whatever chrome is over the map right now, measured
    *  against the container the camera is actually in. Read by every mover, so none of them can
    *  frame against a different idea of the visible band than the others. */
@@ -500,11 +635,11 @@ export function MapSurfaceMapcn({
         container.clientWidth,
         container.clientHeight,
         sheetFractionRef.current,
-        floatingTopChromePx,
+        topChromeRef.current,
         markerAllowance
       );
     },
-    [floatingTopChromePx]
+    []
   );
 
   const fitTo = useCallback(
@@ -592,51 +727,232 @@ export function MapSurfaceMapcn({
   );
 
   /**
-   * **Camera mover 1: the home framing.** The whole library's box, come to rest at or below the
-   * top of the area band — the overview, not a place.
+   * **Whether this mount owes the post-login descent**, spent by the first home framing.
    *
-   * Two things changed here on 2026-08-30, both on the owner's ruling after using production, and
-   * they are one change: the box widened from the anchor cluster to the whole library, and the
-   * resting range flipped from a pin-band **floor** to an area-band **ceiling**
-   * (`HOME_LANDING_ZOOM`, where the argument lives). Either alone fails — a wide box with the old
-   * floor is zoomed straight back in on its own centre, and a ceiling over the anchor box still
-   * opens on the city you saved in last. The symptom was *"I added this Jerusalem Hotel, and after
-   * that, when I signed in again, it opened on the Jerusalem Hotel"*.
+   * A ref for the same reason `latestBounds` is one: `beginEntranceDescent` is a transitive
+   * dependency of `attachMapRef` through `fitToBounds`, and a callback ref whose identity changes
+   * is detached and re-attached by React — which re-frames the library and rebuilds the
+   * `ResizeObserver`. Reading the prop directly would make that happen the first time the entrance
+   * was spent.
+   */
+  const entrancePending = useRef(entrance);
+  const descentTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(
+    () => () => {
+      for (const timer of descentTimers.current) clearTimeout(timer);
+    },
+    []
+  );
+
+  /**
+   * **The descent** (`I2-7`) — the prelude to camera mover 1, never a substitute for it.
    *
-   * It still goes through `frameBounds` rather than `fitTo`, and the reason survives the reversal:
-   * `fitBounds`' `minZoom` is inherited from `FlyToOptions` and bounds the flight arc, not where
-   * the camera stops (camera mover 5's docblock measured that), so only `cameraForBounds` → clamp →
-   * `easeTo` can express a resting range at all. Recording the request rather than a box is what
-   * lets `refitFramed` reproduce that range after an orientation change instead of re-fitting
-   * through a path with no range of its own.
+   * Called *after* the home framing has already put the camera exactly where an honest fit answers,
+   * and the ordering is the whole design. The resting camera is read back off the map rather than
+   * recomputed, so the descent's destination is literally the answer `settleZoom` gave; the
+   * entrance cannot land somewhere prettier than the library deserves, because it has no
+   * opportunity to decide where to land. Everything it does is lift off that answer and come back
+   * down to it.
    *
-   * The pin-band guarantee it used to enforce has not been dropped from the product, only from the
-   * first load: movers 2, 3, 7 and 8 are each *about* a place, frame through `fitTo` or their own
-   * `FocusBoundsRequest`, and none of them read this function.
+   * **Nothing here is allowed to leave the camera somewhere else.** The lift is a `jumpTo` and the
+   * return is an `easeTo` to the values just read, so the resting transform is identical to the one
+   * the same commit produces with the entrance off — which is what makes `06` §9.2's list of movers
+   * still complete at eight.
+   *
+   * **Reduced motion skips the flight entirely rather than shortening it**, and that is a
+   * correctness point rather than a preference: MapLibre's `easeTo` sets its own duration to 0 under
+   * `prefers-reduced-motion` unless a caller passes `essential`, so a lift followed by an
+   * instantaneous return would be a hard cut to altitude and back — motion, and worse motion than
+   * the descent. The collapse §3a specifies lives in the opacity beats, where it belongs.
+   *
+   * ## Where the clock's zero is, and this was measured rather than reasoned
+   *
+   * **The lift is applied here; the clock starts on the first `idle` after it.** The first version
+   * started the clock at framing time, which is `whenReady` — and `whenReady` fires on `styledata`
+   * and `sourcedata`, long before a tile has been drawn. Filmed at 390×844 against the local
+   * harness, the sheet rose at its 900 ms beat over a **blank map**, and the map itself did not
+   * paint until ~2.6 s. Every beat of the choreography had run out before there was anything to
+   * choreograph.
+   *
+   * That is `W6-6`'s own lesson arriving through a different door — *a stagger nobody can see is a
+   * stagger that is not there* — and it takes `W6-6`'s own answer. `idle` is MapLibre's statement
+   * that the camera has stopped and every requested tile is in, so the first one after the lift is
+   * the frame in which the ground exists, at altitude, with the descent still to come.
+   *
+   * **And a floor under that**, for the reason the landing's own floor exists: a tile request that
+   * never resolves would otherwise leave the camera parked at altitude for the life of the page,
+   * looking at a library from two bands too far out with nothing on screen saying why.
+   */
+  const beginEntranceDescent = useCallback((map: MapLibreMap) => {
+    if (!entrancePending.current) return;
+    entrancePending.current = false;
+    if (prefersReducedMotion()) {
+      // No flight at all, and the clock starts now: with every beat due at once (`entrance.ts`),
+      // the sheet, the panel and the wordmark fade in together and nothing is withheld.
+      startEntranceClock();
+      return;
+    }
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    // `Math.max(…, 0)` rather than the map's own `minZoom`: the transform clamps a request it
+    // cannot honour, and the descent returns to the reading above either way, so an over-lifted
+    // altitude costs a shorter flight and never a wrong resting place.
+    map.jumpTo({ center, zoom: Math.max(zoom - ENTRANCE_ZOOM_LIFT, 0) });
+
+    let armed = false;
+    const arm = () => {
+      if (armed) return;
+      armed = true;
+      map.off('idle', arm);
+      startEntranceClock();
+      descentTimers.current.push(
+        setTimeout(() => {
+          map.easeTo({ center, zoom, duration: ENTRANCE_DESCENT_MS });
+        }, entranceDelayMs(ENTRANCE_BEATS.camera))
+      );
+    };
+    map.once('idle', arm);
+    descentTimers.current.push(setTimeout(arm, ENTRANCE_CLOCK_FLOOR_MS));
+  }, []);
+
+  /**
+   * **Camera mover 1: the home framing.** The whole library's box, framed as tightly as the library
+   * allows — the overview, and the zoom is a consequence rather than an input.
+   *
+   * ## What changed, and when
+   *
+   * Two things changed on 2026-08-30, both on the owner's ruling after using production, and they
+   * were treated as one change: the box widened from the anchor cluster to the whole library, and
+   * the resting range flipped from a pin-band **floor** to an area-band **ceiling**. The warning
+   * that stood here is still the important sentence and is still true — *either alone fails: a wide
+   * box with the old floor is zoomed straight back in on its own centre, and a ceiling over the
+   * anchor box still opens on the city you saved in last.* The symptom was *"I added this Jerusalem
+   * Hotel, and after that, when I signed in again, it opened on the Jerusalem Hotel"*.
+   *
+   * **Only the box half of that answered the complaint, and the box half stays.** The ceiling was
+   * the cause of `current-state.md` defect 0a — pins draw at `z >= PIN_BAND_MIN` (8.5) and the
+   * ceiling was 8.0, so the home screen drew none of the user's places for any library at any size
+   * — and it is gone as of 2026-08-31 (`W2-1`, `ux-overnight-specs.md` Spec 1). Removing a ceiling
+   * is not restoring a floor: nothing here forces a minimum zoom, so the Tel-Aviv-plus-Tokyo case
+   * still fits at z≈2 on flag discs rather than at 8.65 over open sea. `HOME_LANDING_ZOOM`'s
+   * docblock carries the full argument and both reversals.
+   *
+   * ## How the resting zoom is chosen — ask, settle, then request exactly that
+   *
+   * `cameraForBounds` answers *"where would an honest fit come to rest"*, `settleZoom` moves it
+   * clear of the band boundary if it landed in the ambiguous window, and the result is requested as
+   * a degenerate range (`minZoom === maxZoom`). That last step is why this still goes through
+   * `frameBounds` rather than `fitTo`, and the reason survives both reversals: `fitBounds`' own
+   * `minZoom` is inherited from `FlyToOptions` and bounds the flight *arc*, not where the camera
+   * stops (camera mover 5's docblock measured that), so only `cameraForBounds` → clamp → `easeTo`
+   * can express a resting zoom at all. Near-me (mover 8) already asks in exactly this shape, so
+   * this is an existing code path and not a new one.
+   *
+   * ## The marker allowance is paid only when a marker is drawn, and this is measured
+   *
+   * The allowance is room for the ~200 px summary pill hanging off a corner anchor. It is real —
+   * `Israel 14` was clipped under the zoom controls in the 2026-08-30 report — but it is only real
+   * in the two bands that *draw* pills, and paying it unconditionally is self-defeating: it widens
+   * the padding, which lowers the fitted zoom, which is what pushes a library that would have
+   * settled on pins back down into the band that draws pills. Measured against
+   * `library-shapes.ts` at 390×844: the owner's own five-area library fits at **z8.78 with no
+   * allowance and z7.68 with it** — pins on one side of the pill's own width, four grey capsules on
+   * the other. Removing the ceiling alone would not have fixed defect 0a for the library the defect
+   * was reported against.
+   *
+   * So it is two passes. Fit bare; if that settles in the pin band there are no pills to pay for
+   * and the bare fit is the answer; otherwise re-fit with the allowance and settle again. The
+   * second pass cannot bounce back into the pin band — more padding only ever lowers the zoom —
+   * so this terminates in one step, and every pill is still whole in frame wherever pills are
+   * drawn, which is the whole of what the 2026-08-30 report asked for.
+   *
+   * The pin-band guarantee that movers 2, 3, 7 and 8 carry is untouched: each is *about* a place,
+   * frames through `fitTo` or its own `FocusBoundsRequest`, and none of them reads this function.
    */
   const fitToBounds = useCallback(
     (map: MapLibreMap) => {
       const target = latestBounds.current;
       if (!target) return;
-      frameBounds(
-        map,
-        {
-          bounds: {
-            west: target[0][0],
-            south: target[0][1],
-            east: target[1][0],
-            north: target[1][1],
-          },
-          minZoom: HOME_LANDING_ZOOM.min,
+      const bounds = {
+        west: target[0][0],
+        south: target[0][1],
+        east: target[1][0],
+        north: target[1][1],
+      };
+      // Recorded as `home` rather than as the `bounds` request `frameBounds` files for itself, so a
+      // resize re-derives the whole decision against the new container instead of replaying a zoom
+      // that was correct for the old one. Written *after* the call, because `frameBounds` records
+      // its own arm on the way in. See `Framing`'s `home` note.
+      const frameHome = (request: FocusBoundsRequest) => {
+        frameBounds(map, request, false);
+        framing.current = { kind: 'home' };
+        // After the framing, never instead of it, and never before it — see `beginEntranceDescent`.
+        // A resize that re-decides the home view later finds the entrance already spent, so the
+        // descent cannot replay and a re-fit mid-flight simply lands the camera at rest.
+        beginEntranceDescent(map);
+      };
+
+      // Nothing saved: there is no library to fit, so there is nothing for a fit to answer. The
+      // page has handed us a designed region (`zeroStateBounds`) and the camera rests at a fixed
+      // metro zoom over it — see `ZERO_STATE_ZOOM`. Fitting the region's own box instead would make
+      // the zoom a function of how wide someone drew a placeholder rectangle.
+      if (latestPlaceCount.current === 0) {
+        frameHome({ bounds, minZoom: ZERO_STATE_ZOOM, maxZoom: ZERO_STATE_ZOOM });
+        return;
+      }
+
+      const box: [[number, number], [number, number]] = target;
+      // `undefined` is MapLibre's answer to an impossible fit — padding wider or taller than the
+      // transform — which `fitTo`'s docblock records as a real production failure. Degrading to the
+      // world view is honest and leaves the `ResizeObserver` free to retry against a real container.
+      const bare = map.cameraForBounds(box, {
+        padding: paddingFor(map),
+        maxZoom: HOME_LANDING_ZOOM.max,
+      });
+      const bareZoom = settleZoom(bare?.zoom ?? HOME_LANDING_ZOOM.min);
+      if (bandForZoom(bareZoom) === 'pin') {
+        // **Pay for the name if the library can afford it.** The fit frames pin *anchors*, and
+        // 48 px of `FIT_BOUNDS_PADDING` is exactly the width of the zoom-control column, so a pin
+        // comes to rest precisely at that column's leading edge — correct until `W2-3` started
+        // drawing names at rest, after which the name went under the buttons (photographed at
+        // 390×844: `Filter C…` / `Bar N…` beneath the geolocate control) and off the bottom edge at
+        // 1440×900. `LABEL_FIT_ALLOWANCE` is the room a name needs; the question is what it costs.
+        //
+        // It is not free: more padding is a lower fitted zoom, and on a phone that is enough to
+        // push a library out of the pin band and back onto the capsules `W2-1` exists to get rid
+        // of. So it is spent only where spending it changes nothing else — measured against the
+        // owner's own five-area library, which fits at z8.78 and cannot afford it, and against a
+        // one-city library at z12.5, which can several times over. **The band wins; the label is
+        // what gives way**, because a clipped name is a blemish and no pins at all is the defect.
+        //
+        // It fixes the *resting* view only. A user who pans a pin under the controls still has its
+        // name under them, and no camera can answer that — a symbol layer cannot see a DOM button.
+        const padded = map.cameraForBounds(box, {
+          padding: paddingFor(map, LABEL_FIT_ALLOWANCE),
           maxZoom: HOME_LANDING_ZOOM.max,
-          // The only framing in the app whose box is a set of *summary* anchors, and so the only
-          // one that has to pay for the pill drawn at each of them.
-          markerAllowancePx: latestAllowance.current,
-        },
-        false
-      );
+        });
+        const paddedZoom = settleZoom(padded?.zoom ?? HOME_LANDING_ZOOM.min);
+        if (bandForZoom(paddedZoom) === 'pin') {
+          frameHome({
+            bounds,
+            minZoom: paddedZoom,
+            maxZoom: paddedZoom,
+            markerAllowancePx: LABEL_FIT_ALLOWANCE,
+          });
+          return;
+        }
+        frameHome({ bounds, minZoom: bareZoom, maxZoom: bareZoom });
+        return;
+      }
+      const allowance = latestAllowance.current;
+      const padded = map.cameraForBounds(box, {
+        padding: paddingFor(map, allowance),
+        maxZoom: HOME_LANDING_ZOOM.max,
+      });
+      const zoom = settleZoom(padded?.zoom ?? HOME_LANDING_ZOOM.min);
+      frameHome({ bounds, minZoom: zoom, maxZoom: zoom, markerAllowancePx: allowance });
     },
-    [frameBounds]
+    [beginEntranceDescent, frameBounds, paddingFor]
   );
 
   /**
@@ -648,12 +964,16 @@ export function MapSurfaceMapcn({
    * on the country marker the user just tapped for a large one — which is precisely the pair of
    * failures camera mover 5 exists to prevent. Never animated: a resize is not a journey.
    *
-   * A `user` framing is reproduced by leaving the camera alone — see the union's own note.
+   * A `user` framing is reproduced by leaving the camera alone — see the union's own note. A
+   * `home` framing is reproduced by **re-deciding** it, which is the one arm that deliberately does
+   * not replay what it recorded: the home resting zoom is a function of the container, so replaying
+   * it would reproduce the answer the old container deserved. `null` takes the same path, because
+   * "nothing has been framed yet" and "the overview" want the same thing.
    */
   const refitFramed = useCallback(
     (map: MapLibreMap) => {
       const current = framing.current;
-      if (current === null) {
+      if (current === null || current.kind === 'home') {
         fitToBounds(map);
         return;
       }
@@ -707,6 +1027,11 @@ export function MapSurfaceMapcn({
    */
   const pannedSinceReport = useRef(false);
 
+  /** The band of the last report this surface sent, so the next one can say what it crossed. Written
+   *  for programmatic reports as well as gestures: a flight's landing band is what the user's next
+   *  gesture is measured against. `null` until the first report. */
+  const lastReportedBand = useRef<ZoomBand | null>(null);
+
   /** Report the current query rect, now. Reads the breakpoint from `window.innerWidth` (the same
    *  width `PlaceDesktopPanel` switches on) but measures the rect in *canvas* pixels, which is what
    *  `unproject` speaks. */
@@ -741,12 +1066,29 @@ export function MapSurfaceMapcn({
     // flick, and `ux-library-at-scale.md` §2.1's whole point is that the swap is MapLibre's, with
     // no zoom listener and nothing re-rendering under a moving thumb.
     const zoom = instance.getZoom();
-    if (rect) handler(rect, { userInitiated, zoom, band: bandForZoom(zoom) });
+    const band = bandForZoom(zoom);
+    if (!rect) return;
+    const previousBand = lastReportedBand.current;
+    lastReportedBand.current = band;
+    handler(rect, { userInitiated, zoom, band, previousBand });
   }, []);
 
   /**
-   * A pan by the user. `dragend` covers pointer drags, touch drags and their inertia; MapLibre's
-   * keyboard handler pans through the same drag machinery, so arrow keys arrive here too.
+   * A pan by the user. `dragend` covers pointer drags, touch drags and their inertia.
+   *
+   * **It does not cover the keyboard, and this docblock claimed it did until 2026-08-31.** It said
+   * *"MapLibre's keyboard handler pans through the same drag machinery, so arrow keys arrive here
+   * too"*. Read against the installed `maplibre-gl` 6.4.1 that is false, and the mechanism is worth
+   * writing down because it is the same one `handleZoomEnd` relies on:
+   * `handler/keyboard.ts` returns a `cameraAnimation` that calls `map.easeTo(…, {originalEvent: e})`
+   * directly. It sets neither `panDelta` nor `zoomDelta`, so `handler_manager.ts`'s
+   * `mergeHandlerResult` never records a `drag` event-in-progress — and `dragend` is only ever
+   * fired from there. `camera.ts` fires no `dragend` at all.
+   *
+   * So arrow-key panning emitted no `dragend`, and (the pan leaves the zoom alone) no `zoomend`
+   * either. It therefore neither retired the recorded framing nor marked the report user-initiated:
+   * a keyboard user could pan the map and have the next resize throw the camera back, with the list
+   * still naming where they started. `handleMoveEnd` below closes it.
    */
   const handleDragEnd = useCallback(() => {
     pannedSinceReport.current = true;
@@ -766,8 +1108,16 @@ export function MapSurfaceMapcn({
    * The guard is `originalEvent`, not the event name. `zoomend` fires for `flyTo`, `fitBounds` and
    * `easeTo` too, so keying on it alone would let all six camera movers rewrite the list — exactly
    * what the `userInitiated` flag exists to prevent, and worse than not reporting zooms at all.
-   * MapLibre's handler manager attaches the wheel/touch/dblclick event that caused the zoom,
+   * MapLibre's handler manager attaches the touch/dblclick/keyboard event that caused the zoom,
    * including onto the inertial `easeTo` it starts itself; a programmatic command carries none.
+   *
+   * **It does not attach the wheel event on every wheel path, and this comment claimed it did.**
+   * Measured 2026-09-04 at `72346dc`, instrumented, at both breakpoints: a *trackpad* burst reports
+   * `originalEvent` on `zoomend`, and 26 consecutive **discrete mouse-wheel notches** at 650 ms
+   * spacing report none at all — see `noteUserZoom` for the line of `ScrollZoomHandler` responsible.
+   * So this guard was silently device-dependent: alive on a trackpad, dead on a mouse. It stays
+   * exactly as it is, because it is right about every gesture it *does* see and its whole value is
+   * refusing the ones it does not; the wheel is covered beside it rather than through it.
    *
    * **The zoom buttons are the exception, and this comment used to deny they existed.** It said
    * there is no `NavigationControl` on this map and therefore no buttons to account for — true of
@@ -776,7 +1126,7 @@ export function MapSurfaceMapcn({
    * pressing `−` until the country badges appear left the list still describing a city the map had
    * stopped drawing — the exact symptom `8a15423` was meant to end, surviving on the one zoom
    * affordance a desktop user is most likely to reach for. They report themselves instead, through
-   * `onUserZoom`; the guard below stays as it is, because it is right about everything else.
+   * `onUserZoom`, together with the two other gestures MapLibre leaves bare (`noteUserZoom`).
    */
   const handleZoomEnd = useCallback(
     (event: { originalEvent?: unknown }) => {
@@ -787,12 +1137,67 @@ export function MapSurfaceMapcn({
     [noteUserGesture]
   );
 
-  /** A zoom the user asked for through a control rather than a gesture. Same authority as a wheel
-   *  or a pinch: the button is the user's hand, it just leaves no `originalEvent` behind. */
-  const handleControlZoom = useCallback(() => {
+  /**
+   * **A user zoom that leaves no `originalEvent` on the camera event it produces**, and there are
+   * three of them. Same authority as a wheel or a pinch — the hand is on the glass either way;
+   * MapLibre simply does not carry the DOM event through to `zoomend`/`moveend` on these paths.
+   *
+   *  - **The `+` / `−` controls** (`MapControls showZoom`, through `onUserZoom`). They call
+   *    `map.zoomTo`, a programmatic command, so the guard in `handleZoomEnd` correctly rejects it
+   *    and this is what tells it apart from a re-fit.
+   *  - **A discrete mouse-wheel notch**, through `instance.on('wheel')`. This one is a defect in
+   *    MapLibre 6.4.1 rather than a design: `ScrollZoomHandler.wheel` only assigns
+   *    `this._lastWheelEvent` once `this._type` is known, and a notch arriving more than 400 ms
+   *    after the previous one takes the `timeDelta > 400` branch, which defers to `_onTimeout` —
+   *    and `_onTimeout` sets `_type = 'wheel'` and starts the zoom **without ever assigning
+   *    `_lastWheelEvent`**. `renderFrame()` then returns `originalEvent: undefined`, and every
+   *    `zoom`, `zoomend` and `moveend` the gesture fires is bare. Measured 2026-09-04 at `72346dc`,
+   *    instrumented, 1280x900: 26 consecutive notches at 650 ms spacing, `userInitiated: false`
+   *    every time — while a trackpad burst of the same size, which takes the `trackpad` branch and
+   *    does assign `_lastWheelEvent`, reported `true`. So the zoom transitions in
+   *    `ui/place/list-scope.ts` were live on a trackpad and dead on a mouse, which is not a
+   *    distinction any of this was meant to make.
+   *  - **A shift-drag box zoom**, through `boxzoomend`. `BoxZoomHandler` drives the camera with
+   *    `map.fitScreenCoordinates(p0, p1, bearing, { linear: true })` and passes no `eventData`, so
+   *    its `moveend` is bare too. `boxzoomend` itself carries the `originalEvent`.
+   *
+   * Every other user zoom — trackpad, pinch, double-click, two-finger tap, the keyboard's `+`/`-`
+   * — routes through a `cameraAnimation` that MapLibre calls with `{ originalEvent: e }`, and is
+   * already covered by `handleZoomEnd` / `handleMoveEnd`.
+   */
+  const noteUserZoom = useCallback(() => {
     pannedSinceReport.current = true;
     noteUserGesture();
   }, [noteUserGesture]);
+
+  /**
+   * **The general form of the rule the other three are special cases of: a camera event carrying an
+   * `originalEvent` was caused by a person.**
+   *
+   * `dragend` and `zoomend` between them cover the pointer, the touch and the wheel. They miss the
+   * keyboard, because MapLibre's keyboard handler drives the camera through a bare
+   * `easeTo(…, {originalEvent: e})` rather than through the drag or zoom machinery — see
+   * `handleDragEnd`. `moveend` is the one event *every* camera move ends with, and `camera.ts`
+   * passes the caller's `eventData` straight through to it, so the presence of `originalEvent` is
+   * the same structural guard `handleZoomEnd` already trusts, applied where it is exhaustive.
+   *
+   * It is additive rather than a replacement: `dragend` also sets the pan flag *before* the inertia
+   * decays, which is the sticky-across-the-debounce behaviour `pannedSinceReport` documents, and
+   * the zoom buttons still need `noteUserZoom` because a programmatic `zoomTo` carries no
+   * `originalEvent` by construction. Both remaining handlers are idempotent with this one.
+   *
+   * Nothing this file issues can trip it: every `easeTo`, `fitBounds` and `flyTo` here is called
+   * with options only and no `eventData`, so a programmatic framing's `moveend` carries no
+   * `originalEvent` — which is the same property that makes `userInitiated` trustworthy at all.
+   */
+  const handleMoveEnd = useCallback(
+    (event: { originalEvent?: unknown }) => {
+      if (!event.originalEvent) return;
+      pannedSinceReport.current = true;
+      noteUserGesture();
+    },
+    [noteUserGesture]
+  );
 
   /** Trailing debounce (§4). One pinch or inertial flick emits several `moveend`s; the list must
    *  settle once, after the camera has, and never reflow under a moving thumb. */
@@ -858,6 +1263,9 @@ export function MapSurfaceMapcn({
       if (previous && previous !== instance) {
         previous.off('dragend', handleDragEnd);
         previous.off('zoomend', handleZoomEnd);
+        previous.off('wheel', noteUserZoom);
+        previous.off('boxzoomend', noteUserZoom);
+        previous.off('moveend', handleMoveEnd);
         previous.off('moveend', scheduleViewportReport);
         previous.off('resize', scheduleViewportReport);
         observers.get(previous)?.disconnect();
@@ -917,13 +1325,31 @@ export function MapSurfaceMapcn({
       });
       observer.observe(container);
       observers.set(instance, observer);
-      whenReady(instance, () => fitToBounds(instance));
+      // **The same guard its sibling effect below already carries**, and closing that asymmetry is
+      // half the fix above: the effect at `[bounds, fitToBounds]` returns early once the library has
+      // been framed, and this call — reached whenever React re-attaches the callback ref — did not.
+      // With `attachMapRef` now stable this cannot fire twice anyway; it is here so that a
+      // dependency creeping back into the chain costs a missed re-frame rather than a silently
+      // re-framed camera, which is the failure mode that took an instrumented build to see.
+      whenReady(instance, () => {
+        if (hasFramedOnce.current) return;
+        fitToBounds(instance);
+      });
       // `moveend` only — no `move`, no `render`, no rAF. `resize` too, because the insets are
       // viewport-dependent: crossing `lg` changes which edge the chrome covers. `dragend` and
       // `zoomend` carry no rect of their own; they only record that the move about to be reported
       // was the user's.
       instance.on('dragend', handleDragEnd);
       instance.on('zoomend', handleZoomEnd);
+      // The two user zooms whose own camera events arrive without an `originalEvent` — see
+      // `noteUserZoom`. Both are idempotent with the two listeners around them: they set the same
+      // flag, and the report consumes it once.
+      instance.on('wheel', noteUserZoom);
+      instance.on('boxzoomend', noteUserZoom);
+      // Before the report's own `moveend` listener, so the pan flag is set by the time the
+      // trailing debounce reads it. They are two listeners on one event rather than one that does
+      // both jobs, because the report is debounced and this is not.
+      instance.on('moveend', handleMoveEnd);
       instance.on('moveend', scheduleViewportReport);
       instance.on('resize', scheduleViewportReport);
       // The first settle. Without this the caller holds no rect until the user touches the map,
@@ -932,7 +1358,15 @@ export function MapSurfaceMapcn({
       // instead of producing a pre-fit rect and then a post-fit one.
       whenReady(instance, scheduleViewportReport);
     },
-    [fitToBounds, refitFramed, scheduleViewportReport, handleDragEnd, handleZoomEnd]
+    [
+      fitToBounds,
+      refitFramed,
+      scheduleViewportReport,
+      handleDragEnd,
+      handleZoomEnd,
+      handleMoveEnd,
+      noteUserZoom,
+    ]
   );
 
   // The **initial** framing, and only that. `attachMapRef`'s `once('load', ...)` races against
@@ -970,7 +1404,9 @@ export function MapSurfaceMapcn({
    *
    * It is `easeTo` rather than `flyTo` because the two are different gestures. A flight arcs out
    * through a lower zoom and reads as "we are going somewhere"; this is a nudge, the zoom never
-   * changes, and it should read as the sheet pushing the map up rather than as travel.
+   * changes, and it should read as the sheet pushing the map up rather than as travel. Its
+   * duration is proportional to the distance it pans (`./reveal-pan`) for the same reason: a
+   * correction of a few pixels that takes a third of a second is not a nudge, it is a stall.
    *
    * Keyed on the selected id, so re-rendering for any other reason cannot re-pan; and it reads the
    * **container**, never `window.innerHeight`, because the container is what `project` speaks and a
@@ -1028,12 +1464,15 @@ export function MapSurfaceMapcn({
 
     const dx = point.x < minX ? point.x - minX : point.x > maxX ? point.x - maxX : 0;
     const dy = point.y < minY ? point.y - minY : point.y > maxY ? point.y - maxY : 0;
-    if (dx === 0 && dy === 0) return;
+    // Includes the `dx === 0 && dy === 0` case this used to test for. Anything under a few pixels
+    // is not a movement anyone can see, and animating it only delays the card — see `reveal-pan`
+    // for why spending that much of `REVEAL_MARGIN_PX` still leaves the pin clear of the chrome.
+    if (!isRevealPanWorthMaking(dx, dy)) return;
 
     // `panBy` negates its argument and hands it to `easeTo` as an offset, so passing the point's
     // own overshoot moves that point onto the boundary. Verified in `maplibre-gl/src/ui/camera.ts`
     // (`panBy` at :432 does `Point.convert(offset).mult(-1)`), not assumed.
-    instance.panBy([dx, dy], { duration: REVEAL_PAN_MS });
+    instance.panBy([dx, dy], { duration: revealPanDuration(dx, dy) });
   }, [selected, selectedOcclusionFraction]);
 
   // The explicit post-import camera mover. Keyed on the `focusPlaceIds` array identity so the same
@@ -1107,6 +1546,49 @@ export function MapSurfaceMapcn({
     return () => window.removeEventListener('resize', handleResize);
   }, [refitFramed]);
 
+  /**
+   * **The place card does not open while the map is still moving.**
+   *
+   * `MapPopup` passes no `anchor`, so MapLibre derives one from the pin's screen position and
+   * re-derives it on every `move` — every animation frame. Opening the card in the same commit as
+   * the selection therefore put it on screen *during* camera mover 6's reveal pan (and during the
+   * framing flights), and it visibly flipped from below the pin to above it as the pin crossed the
+   * viewport's midpoint. Waiting for rest means the anchor is computed once, at the position it
+   * keeps.
+   *
+   * **Only the opening is gated.** Once the card is up, movement changes nothing — gating it while
+   * open would blink it out and back every time the user panned with a card on screen, which is a
+   * worse defect than the one this fixes.
+   *
+   * **It is declared after every camera mover on purpose.** React runs effects in declaration
+   * order, and `easeTo`/`panBy`/`flyTo` set the map moving synchronously, so by the time this runs
+   * the commit's camera command — if there was one — is already in flight and `isMoving()` answers
+   * truthfully. It issues no camera command itself, so the "last camera command in a commit wins"
+   * ordering that mover 6's docblock depends on is untouched.
+   *
+   * The common path is the immediate one: mover 6 legitimately declines to move in several cases
+   * (pin already inside the visible band, zero-size container, an occlusion taller than the
+   * container), so "a selection with no camera move" is ordinary, and it opens with no wait at all.
+   */
+  const [openedId, setOpenedId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = selected?.id ?? null;
+    if (openedId === id) return; // Already open. Movement is not allowed to close or re-gate it.
+    // Closing is never gated, and neither is a surface whose map has not attached yet: both are
+    // trivially at rest. Waiting for a `moveend` that cannot arrive would trade a flicker for a
+    // card that never appears — and a selection that moves no camera is the common case, not an
+    // edge one.
+    const gate = (id === null ? null : mapRef.current) ?? AT_REST;
+    // Cancels cleanly on deselection and on re-selection: the cleanup detaches the listener, so a
+    // move still in flight for the previous selection can never open a card for it late.
+    return whenAtRest(gate, () => setOpenedId(id));
+  }, [selected, openedId]);
+
+  /** The selection, but only once it has been cleared to open. Never a stale one: a new selection
+   *  arriving mid-move takes the card down until *its* camera settles, rather than leaving the
+   *  previous place's card sitting at the previous place's coordinates. */
+  const card = selected !== null && openedId === selected.id ? selected : null;
+
   return (
     <MapcnMap
       ref={attachMapRef}
@@ -1136,11 +1618,11 @@ export function MapSurfaceMapcn({
           group cannot drift apart at a breakpoint. `MapControls` is taken out of its own corner by
           `relative bottom-auto right-auto`, which `cn`'s tailwind-merge resolves against the
           `absolute bottom-* right-*` it applies itself. */}
-      <div className="absolute right-2 z-10 flex flex-col items-end gap-1.5 bottom-[calc(128px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10">
+      <div className="absolute right-2 z-10 flex flex-col items-end gap-1.5 bottom-[calc(156px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10">
         {controlSlot}
         <MapControls
           showZoom
-          onUserZoom={handleControlZoom}
+          onUserZoom={noteUserZoom}
           className="relative bottom-auto right-auto"
         />
       </div>
@@ -1163,6 +1645,12 @@ export function MapSurfaceMapcn({
         // bands (`/collections/[id]`) gets `null` and keeps every pin at every zoom, instead of
         // going blank below z8.5 with nothing drawn in their place — see `place-marker-layer.tsx`.
         replacedBelowZoom={hasSummaryBands ? PIN_BAND_MIN : null}
+        hoveredId={hoveredPlaceId ?? null}
+        // The pin beat of the same choreography the camera above is playing. Read from the prop
+        // rather than from `entrancePending`, which the framing spends: this layer's own landing is
+        // guarded once by `hasLanded`, and it must not change its mind about the entrance between
+        // being told about it and `idle` arriving.
+        entrance={entrance}
         onPlaceClick={(id) => {
           const place = places.find((candidate) => candidate.id === id);
           // Selection lives with the caller (`map-page-client.tsx`'s `selected` state) — this
@@ -1171,29 +1659,52 @@ export function MapSurfaceMapcn({
           if (place && onPlaceClick) onPlaceClick(place);
         }}
       />
-      {selected && (
+      {onDeselect && <BackgroundDismiss onDeselect={onDeselect} />}
+      {/* The lifted, named pin for whichever row the pointer is on. Mounted *after* the pin layer,
+          which is what puts it above — MapLibre draws in the order layers are added, and the
+          highlight has to be on top of the neighbour it overlaps. It answers no pointer events, so
+          the pin underneath it keeps owning taps. See `pin-highlight-layer.tsx`. */}
+      <PinHighlightLayer
+        data={data}
+        hoveredId={hoveredPlaceId ?? null}
+        replacedBelowZoom={hasSummaryBands ? PIN_BAND_MIN : null}
+      />
+      {card && (
         // Anchored at the selected place's own lng/lat — mapcn's `MapPopup` keeps a MapLibre
         // `Popup` instance pinned to that point and repositions it on every pan/zoom, so this
         // reads as a Google Maps-style info card stuck to the pin rather than a fixed-position
         // overlay. `lg+`-only via a Tailwind class on `MapPopup`'s own `className` (its *shell*,
         // not just its content) — matching `PlaceSheet`/`PlaceDesktopPanel`'s own `hidden lg:block`
         // convention — so below `lg` no popup DOM (not even an empty padded shell) mounts over the
-        // map; the mobile `PlaceSheet` remains the only detail surface there. Keyed on
-        // `selected.id` so switching between two pins remounts the popup at the new anchor instead
-        // of animating the old DOM node across the map.
+        // map; the mobile `PlaceSheet` remains the only detail surface there. Keyed on the open
+        // place's id so switching between two pins remounts the popup at the new anchor instead
+        // of animating the old DOM node across the map. It renders `card`, not `selected`: the
+        // gate above holds it back until the camera is at rest, because an anchor derived
+        // mid-animation flips from below the pin to above it.
         <MapPopup
-          key={selected.id}
-          longitude={selected.lng}
-          latitude={selected.lat}
+          key={card.id}
+          longitude={card.lng}
+          latitude={card.lat}
+          // MapLibre's own `closeOnClick` removed this popup's DOM on *any* map click, including
+          // the click that selected a pin — so a tap read as select-then-dismiss, and re-tapping
+          // the pin already selected left the place selected with no card. Dismissal is explicit
+          // now, in `BackgroundDismiss`, which is the same event routed through the caller's guard
+          // instead of around it.
+          closeOnClick={false}
           onClose={() => onDeselect?.()}
-          className="hidden max-w-none p-0 lg:block"
+          // `overflow-hidden` so the shell's own `rounded-md` clips what it contains — specifically
+          // the source still, which is full-bleed here and would otherwise paint its square corners
+          // into the card's rounded ones. Safe rather than a new clip: `PlaceDetail` already puts
+          // its whole column inside its own `overflow-y-auto`, so nothing in this popover was ever
+          // able to escape its bounds anyway.
+          className="hidden max-w-none overflow-hidden p-0 lg:block"
         >
           {/* The write target comes from `selected.savedPlaceId`, never from `selected.id` — the
               latter is a collection item id on `/collections/[id]`, and this surface is about to
               be the shell that route renders too. No id, no mutations. */}
           <PlaceDetail
-            place={selected}
-            savedPlace={savedPlaceRef(selected)}
+            place={card}
+            savedPlace={savedPlaceRef(card)}
             nearby={nearbyToSelected}
             onSelectNearby={(id) => {
               const neighbour = places.find((candidate) => candidate.id === id);

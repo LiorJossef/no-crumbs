@@ -43,7 +43,7 @@ const shot = (n) => page.screenshot({ path: `${OUT}/${n}.png` });
 
 await page.goto('http://localhost:3000/sign-in');
 await page.getByPlaceholder('you@example.com').fill('demo@example.com');
-await page.getByPlaceholder('At least 6 characters').fill('local-dev-preview-1234');
+await page.locator('#password').fill('local-dev-preview-1234');
 await page.getByRole('button', { name: /sign in/i }).click();
 await page.waitForURL('**/map', { timeout: 60000 });
 await page.waitForTimeout(4000);
@@ -54,7 +54,9 @@ async function openList() {
   if (await b.count()) { await b.first().click(); await page.waitForTimeout(600); }
 }
 async function search(q) {
-  const f = page.getByRole('searchbox', { name: /search your places/i }).first();
+  // Matches the field by what it is, not by its current wording: the placeholder doubles as the
+  // accessible name and changes when the product learns to say what it searches.
+  const f = page.getByRole('searchbox', { name: /^search/i }).first();
   await f.fill(q);
   await page.waitForTimeout(1200);
 }

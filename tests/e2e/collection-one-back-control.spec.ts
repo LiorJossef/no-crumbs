@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 /**
  * `docs/ux-collections-as-scope.md` §2.2, held in a real accessibility tree:
  * **at most one back-shaped control is on screen at any moment.**
@@ -9,37 +11,42 @@ import { expect, test, type Page } from '@playwright/test';
  * two exits apart. The tabs are excluded on purpose: the ruling says a tab is a destination that
  * names itself, not a back control.
  *
- * Two facts a unit test cannot reach, both of which this file exists for:
+ * The fact a unit test cannot reach, and the reason this file exists: a collection mounts its
+ * content **twice** — once in the vaul drawer, once in the `lg+` panel — so a
+ * `renderToStaticMarkup` count is double and a naive `getByRole` count is whatever the breakpoint
+ * happens to hide. Only a browser knows which copy is on screen.
  *
- *  1. `/collections/[id]` mounts its content **twice** — once in the vaul drawer, once in the
- *     `lg+` panel — so a `renderToStaticMarkup` count is double and a naive `getByRole` count is
- *     whatever the breakpoint happens to hide. Only a browser knows which copy is on screen.
- *  2. the picker's back control is drawn by a *different component* than the one that owns the
- *     picker (`HostedPaneBackContext`), so the invariant only exists once both are mounted and the
- *     effect that hands the control over has run.
+ * **A second fact is retired (2026-09-03, `aa2ae44`).** This file used to also exist because the
+ * picker's back control was drawn by a *different component* than the one that owned the picker,
+ * handed over through `HostedPaneBackContext`. The picker no longer replaces the detail pane: it
+ * opens as an `InlinePanel` under its own row, draws no back control of any kind, and is dismissed
+ * by pressing its trigger again. That context is deleted. §2.2 is unchanged and still worth
+ * holding — with nothing to borrow the slot, the count simply must never rise above the one
+ * control the host draws.
  */
 
 const EMAIL = process.env.E2E_EMAIL ?? 'demo@example.com';
 const PASSWORD = process.env.E2E_PASSWORD;
 
-/** Names that are, or could be mistaken for, "go back". The Map/Collections/Profile tabs are not
- *  here: they name a destination, which is the whole reason the ruling allows them everywhere. */
+/** Names that are, or could be mistaken for, "go back". Persistent navigation is not here: a tab
+ *  and a view switch name a *destination*, which is the whole reason the ruling allows them
+ *  everywhere. See `NAVIGATION_LANDMARKS`. */
 const BACK_SHAPED = /^(back\b|collections$)/i;
 
+/**
+ * The two `<nav>`s that are navigation rather than a way out of a pane, excluded from the count.
+ *
+ * `Main` is `BottomNav`. **`Places and collections` is the drawer's view switch** (owner,
+ * 2026-08-31, `map-shell.tsx`'s `DrawerViewSwitch`), which took over the job the `Collections` tab
+ * used to do — so it inherits the tab's exemption for the tab's reason, verbatim: it is on every
+ * collections surface on purpose, its `Collections` segment names where it goes, and it carries
+ * `aria-current` rather than a back arrow. Counting it would make §2.2 fail on the list view for a
+ * control the ruling explicitly permits.
+ */
+const NAVIGATION_LANDMARKS = ['nav[aria-label="Main"]', 'nav[aria-label="Places and collections"]'];
+
 async function signIn(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(700);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try {
-      await page.waitForURL('**/map', { timeout: 20_000 });
-      return;
-    } catch { /* dev-mode hydration race; the other specs retry the same way */ }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 /**
@@ -50,12 +57,13 @@ async function signIn(page: Page): Promise<void> {
  * be excluded exactly the way a screen reader excludes it.
  */
 async function visibleControlNames(page: Page): Promise<string[]> {
-  return page.evaluate(() =>
+  return page.evaluate((landmarks) =>
     [...document.querySelectorAll('a,button,[role="button"]')]
       .filter((element) => {
-        // The three tabs are destinations, not back controls, and the ruling puts them on every
-        // route on purpose — so the bar is not part of the count.
-        if (element.closest('nav[aria-label="Main"]') !== null) return false;
+        // Persistent navigation names destinations, not a way back, and the ruling puts it on
+        // every route on purpose — so neither the bar nor the drawer's view switch is part of the
+        // count.
+        if (landmarks.some((selector) => element.closest(selector) !== null)) return false;
         const box = element.getBoundingClientRect();
         const styles = getComputedStyle(element);
         return box.width > 0 && box.height > 0 && styles.visibility !== 'hidden';
@@ -63,6 +71,7 @@ async function visibleControlNames(page: Page): Promise<string[]> {
       .map((element) =>
         (element.getAttribute('aria-label') ?? element.textContent ?? '').replace(/\s+/g, ' ').trim(),
       ),
+  NAVIGATION_LANDMARKS,
   );
 }
 
@@ -72,17 +81,41 @@ async function backShaped(page: Page): Promise<string[]> {
 
 /** The first collection on the index, whatever the database happens to hold. */
 async function openFirstCollection(page: Page): Promise<void> {
-  await page.goto('/collections');
+  await page.goto('/map?view=collections');
   const first = page.getByRole('link', { name: /\d+ places?/ }).first();
   await expect(first).toBeVisible({ timeout: 15_000 });
   await first.click();
-  await page.waitForURL(/\/collections\/[0-9a-f-]{36}/, { timeout: 15_000 });
+  // **All three of the drawer's views are search params on `/map`** since 2026-08-31
+  // (`app/map/_lib/drawer-view.ts`), which is what stops the drawer being torn down and rebuilt on
+  // this tap: a dynamic segment's value is part of the router's cache key and a search param is
+  // not. `/collections/<id>` still resolves — it is a redirect shim, kept forever — and matching it
+  // here would let a regression back to two segments pass.
+  await page.waitForURL(/\/map\?view=collections&collection=[0-9a-f-]{36}/, { timeout: 15_000 });
   await page.waitForTimeout(2500);
 }
 
-/** The `Add to a collection` row inside an open place detail, whose label carries a count. */
+/**
+ * The `Add to a collection` row inside an open place detail, whose label carries a count.
+ *
+ * **The `Collections` prefix is not optional slack, it is the row's section label.** When this row
+ * became a `DETAIL_FIELD_ROW` — the same shape as `Category` and `Your note` — it gained a
+ * `SECTION_LABEL` span above its value, so the button's text content changed from
+ * `Add to a collection` to `CollectionsAdd to a collection`. The old anchored regex matched
+ * nothing, and CI run 33661142026 reported `toHaveCount(1)` receiving **0** on both projects, for a
+ * control that is present and working. Verified at `4ca68e6`, before that redesign: the same test
+ * passes there, which is what pins the cause to the label rather than to the picker.
+ *
+ * **The prefix went again on 2026-09-03 under spec §A2** — a row that is an offer carries no
+ * label, so the text is back to `Add to a collection` / `In <name>`. The optional group stays: it
+ * costs nothing and it is the only part of this regex with a history of breaking.
+ *
+ * Still anchored, and `toHaveCount(1)` is still the assertion, so this cannot quietly widen into
+ * matching some other button that happens to contain the word "In".
+ */
+const PICKER_TRIGGER = /^(Collections\s*)?(In\b|Add to a collection)/;
+
 function pickerTrigger(page: Page) {
-  return page.locator('button').filter({ hasText: /^(In\b|Add to a collection)/ }).first();
+  return page.locator('button').filter({ hasText: PICKER_TRIGGER }).first();
 }
 
 /** Presses it wherever it is in the column. The sheet rests at `half`, so this row is often below
@@ -91,7 +124,7 @@ async function press(page: Page, name: RegExp, by: 'text' | 'label' = 'text'): P
   const target =
     by === 'label'
       ? page.getByRole('button', { name }).first()
-      // `:visible`, because `/collections/[id]` mounts its content twice — drawer and `lg+` panel —
+      // `:visible`, because a collection mounts its content twice — drawer and `lg+` panel —
       // and the copy the breakpoint hides is first in document order. Pressing that one opens a
       // picker nobody can see.
       : page.locator('button:visible').filter({ hasText: name }).first();
@@ -111,15 +144,23 @@ test.describe('one back control, at every step inside a collection', () => {
     await signIn(page);
     await openFirstCollection(page);
 
-    // 1. The list. No arrow at layer 0 — the kicker up-link, which says where it goes.
+    // 1. The list. Layer 0 now draws NO back control at all — the kicker up-link was deleted
+    // 2026-09-02 (see `ux-collections-as-scope.md` §5 item 3). The invariant it guarded got
+    // stronger rather than weaker: the drawer's `Places / Collections` switch renders directly
+    // above this header and its `Collections` segment resolves to the same `/map?view=collections`,
+    // so the escape route survives the row's deletion and layer 0 owes nothing.
     const onList = await backShaped(page);
-    expect(onList, 'the list header carries exactly the up-link').toEqual(['Collections']);
-    // Scoped outside the bar: the Collections *tab* shares this name by design, and is a
-    // destination rather than a back control.
+    expect(onList, 'layer 0 carries no back control of its own').toEqual([]);
+    // Scoped outside both navigation landmarks: the drawer's `Collections` segment shares this
+    // name by design, and is a destination rather than a back control. (The bar carried a
+    // `Collections` tab until 2026-08-31 and was excluded here for the same reason; it now holds
+    // Map and Profile, so that half of the selector is belt to the switch's braces.)
     const upLink = page
-      .locator('a[aria-label="Collections"]:not(nav[aria-label="Main"] a)')
+      .locator(
+        'a[aria-label="Collections"]:not(nav[aria-label="Main"] a):not(nav[aria-label="Places and collections"] a)',
+      )
       .locator('visible=true');
-    await expect(upLink).toHaveAttribute('href', '/collections');
+    await expect(upLink).toHaveAttribute('href', '/map?view=collections');
     // ≥44 px, and leading: it stands where the deleted arrow stood.
     const upLinkBox = await upLink.boundingBox();
     expect(upLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -129,30 +170,34 @@ test.describe('one back control, at every step inside a collection', () => {
     await page.waitForTimeout(1500);
     expect(await backShaped(page)).toEqual(['Back to the collection']);
 
-    // 3. The picker. It borrows the header's control rather than drawing a second one.
+    // 3. The picker. It opens under its own row and draws no back control at all, so the host's
+    // is still the only one on screen — the collision the borrowing existed to solve is gone
+    // because the navigation that caused it is gone.
     const trigger = pickerTrigger(page);
     await expect(trigger).toHaveCount(1);
-    await press(page, /^(In\b|Add to a collection)/);
+    await press(page, PICKER_TRIGGER);
     await page.waitForTimeout(1200);
     await expect(
       page.getByRole('button', { name: 'New collection' }),
       'the picker is actually open',
     ).toBeVisible();
-    expect(await backShaped(page)).toEqual(['Back to the place']);
+    expect(await backShaped(page)).toEqual(['Back to the collection']);
 
-    // 4. And back. The borrowed control returns the pane, not the route.
-    await page.getByRole('button', { name: 'Back to the place' }).click();
+    // 4. And closed. Dismissal is the trigger again — there is no second pane to come back from,
+    // so pressing the row that opened the panel is what shuts it. The host's control is untouched
+    // throughout, which is the point: it never changed hands.
+    await press(page, PICKER_TRIGGER);
     await page.waitForTimeout(1200);
     expect(await backShaped(page)).toEqual(['Back to the collection']);
     await expect(page.getByRole('button', { name: 'New collection' })).toHaveCount(0);
   });
 });
 
-test.describe('the map is untouched by the borrowing', () => {
+test.describe('the map draws exactly one exit, and the picker adds none', () => {
   test.skip(PASSWORD === undefined, 'set E2E_PASSWORD to run the signed-in checks');
   test.describe.configure({ timeout: 180_000 });
 
-  test('the picker keeps its own arrow where the host affordance is an ×', async ({ page }) => {
+  test('the picker adds no back control where the host affordance is an ×', async ({ page }) => {
     await signIn(page);
     await page.goto('/map');
     await page.waitForTimeout(3000);
@@ -167,12 +212,13 @@ test.describe('the map is untouched by the borrowing', () => {
     await press(page, /^⁨?Open /, 'label');
     await page.waitForTimeout(2000);
 
-    // `/map` provides no host control, so the picker must draw one.
+    // `/map`'s host affordance is an ×, and the picker draws nothing back-shaped of its own —
+    // so opening it leaves the count at zero rather than at one.
     await expect(pickerTrigger(page)).toHaveCount(1);
-    await press(page, /^(In\b|Add to a collection)/);
+    await press(page, PICKER_TRIGGER);
     await page.waitForTimeout(1500);
     await expect(page.getByRole('button', { name: 'New collection' })).toBeVisible();
-    expect(await backShaped(page)).toEqual(['Back to the place']);
+    expect(await backShaped(page)).toEqual([]);
     // The host's own exit is an ×, which is not back-shaped and stays alongside it.
     await expect(page.getByRole('button', { name: 'Close place detail' })).toBeVisible();
   });

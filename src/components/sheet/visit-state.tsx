@@ -3,7 +3,7 @@
 /**
  * How been / not-been looks on a list row: the badge that says a place is done. This file used to
  * hold the `Not been yet` filter chip as well; the nav ruling moved that into
- * `category-filter-bar.tsx`, which is also what lifted it to the 44 px touch floor, so only the
+ * `library-filter-bar.tsx`, which is also what lifted it to the 44 px touch floor, so only the
  * badge lives here. The write control lives in `saved-place-edits.tsx` with the other
  * Server-Action writes; `src/ui/place/visit-state.ts` owns every word any of them says.
  *
@@ -42,11 +42,24 @@ export function BeenBadge({ className }: { className?: string }) {
     <span
       aria-hidden
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--tag-selected)] px-1.5 py-0.5 text-[11px] font-bold leading-4 text-[var(--tag-selected-foreground)]',
+        // **Quieter than it was, and the word is untouched.** This used to be `bg-tag-selected`
+        // with white text — the deep mint the *selected tag chip* wears — at `font-bold` with a
+        // 12px tick. On a row whose subject is the place's name at `text-sm`, a saturated filled
+        // pill on the muted line underneath was the loudest object in the row: round 3 of the
+        // owner's feedback filed it as oversized and overemphasised against the place identity,
+        // which is exactly what a state marker must not be.
+        //
+        // `bg-accent text-brand` is not a new colour: it is the same pair the pressed `Been`
+        // toggle wears in the detail (`saved-place-edits.tsx`), so the row and the control that
+        // sets it now read as one fact stated twice rather than two different marks. The tick
+        // stays — the badge's whole argument is that "done" is carried by shape, never by colour
+        // alone — at `size-2.5`, and `font-semibold` puts it a step under the name it sits beside.
+        // `voice-and-vocabulary.md` §3 ratifies the word, so `Been` is unchanged.
+        'inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-micro font-semibold leading-4 text-brand',
         className,
       )}
     >
-      <Check className="size-3" />
+      <Check className="size-2.5" />
       {BEEN_STATE_LABEL}
     </span>
   );

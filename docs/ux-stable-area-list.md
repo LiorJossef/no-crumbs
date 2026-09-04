@@ -1,5 +1,19 @@
 # Map list stability — design ruling (ux-interaction, 2026-08-28). BUILT.
 
+> **Status 2026-09-04 — the zoom rule below is superseded, and this is where it says so.**
+> §Behaviour's *"Zoom, any amount: NOTHING, ever"* was written when `activeAreaId` was the whole
+> model and the list could only ever be one city; a zoom could then only hand it to another city by
+> accident, so refusing every zoom was the right rule. The **zoom bands** (`ux-library-at-scale.md`
+> §2.1) changed what a zoom means: the map now draws countries, then areas, then pins, and crossing
+> a band is the user asking for a different *kind* of answer. `ui/place/list-scope.ts` therefore
+> makes the discrete band the trigger, and a zoom is the only gesture that can cross one.
+>
+> So the live rule is: **a zoom that stays inside one band still changes nothing, ever** — that half
+> of the sentence survives intact, and it is the half the owner's "do not refilter on every small
+> map pan" was about. A zoom that **crosses a band** changes the scope, in the three ways
+> `scopeAfterCameraSettled` tabulates. Everything else here — writer 4, the `originalEvent`
+> enforcement, the cluster-not-rectangle decision, the pan rules, the copy — is unchanged.
+>
 > **Status 2026-08-30.** **Dead:** the "Elsewhere" one-row-per-area section and everything leaning on
 > it — the owner deleted that tree (`d9cbdf2`, one `git revert` away), so §"The list" bullet 2, the
 > `No matches in London` rationale and §"Disclosure" describe a UI that is gone; cut 6's "no
@@ -43,6 +57,18 @@ NEVER re-derived from settled bounds. Enforcement: in `moveend`, only consider w
 `e.originalEvent` is present — a programmatic move has none, so it structurally cannot rewrite
 the list. THIS IS THE SPECIFIC FIX FOR 21 -> 9.
 
+**`originalEvent` is necessary and not sufficient, measured 2026-09-04.** Three user gestures drive
+the camera and produce `moveend`/`zoomend` with no `originalEvent` on them, so the guard as written
+refuses the user as well as the machine: the `+`/`−` controls (`map.zoomTo` is a programmatic
+command), a **discrete mouse-wheel notch** (MapLibre 6.4.1's `ScrollZoomHandler._onTimeout` sets
+`_type = 'wheel'` and starts the zoom without ever assigning `_lastWheelEvent`, so `renderFrame()`
+returns `originalEvent: undefined` — 26 consecutive notches at 650 ms spacing all reported
+`userInitiated: false`, while a trackpad burst of the same size reported `true`), and a shift-drag
+box zoom (`fitScreenCoordinates` is called with no `eventData`). Those three are covered by
+listening to `wheel`, `boxzoomend` and the control's own callback. The rule the enforcement is
+really after is *the camera event was caused by a person*, and `originalEvent` answers it for every
+gesture MapLibre routes through a `cameraAnimation` and for none of these three.
+
 ## The list
 - Section 1: EVERY place in the active area, filtered by search/tags, sorted most-recently-saved
   first. Order never changes on pan/zoom/resize.
@@ -55,7 +81,23 @@ the list. THIS IS THE SPECIFIC FIX FOR 21 -> 9.
 - Load: anchor frames one cluster. Header/rows correct on first paint, DO NOT change when the map
   settles/resizes/re-fits.
 - Pan within area: NOTHING (not header, rows, order, or scroll offset).
-- Zoom, any amount: NOTHING, ever.
+- Zoom **inside one band**, any amount: NOTHING, ever.
+- Zoom **across a band edge** (`zoom-bands.ts`), settled and user-initiated: the scope follows what
+  the map has started drawing — into the country band the list becomes the whole library; out of it
+  the area under the camera, or — **in the area band only** — its country when two of that country's
+  areas are on screen; and out of the area band into the pin band a *country* scope narrows to one
+  of its own cities. A country never narrows to somewhere it does not contain, and a country
+  arrived at by a landing that was already in the pin band is left alone — see `list-scope.ts`.
+  Superseded the 2026-08-28 rule; see the status note at the top.
+- **The country promotion is an area-band rule**, corrected 2026-09-04 after it made the fix above
+  fire and change nothing. It exists so a country tap's landing and a manual zoom to the same
+  camera produce the same heading, and a country tap cannot land in the pin band
+  (`COUNTRY_LANDING_ZOOM.max` is half a band below it) — so in the pin band there is no second
+  route to reconcile, and no area capsule on screen to promote. Measured against the real library:
+  Israel's clusters are small enough that *every* view of the Tel Aviv metro holds eight to ten of
+  them, so with the promotion applied at pin zoom `36 places in Israel` could never be escaped by
+  zooming at all. Narrowing hides nothing — the map draws `matches`, not the scope, and every
+  out-of-scope match stays in the continuation below the heading.
 - Pan across boundary: at moveend (keep 120ms trailing debounce) with originalEvent -> dominant
   area = cluster with most pin anchors in the query rect; none in view -> nearest centroid to
   viewport centre; TIES PREFER CURRENT. Header crossfades 140ms, list scrolls to top.

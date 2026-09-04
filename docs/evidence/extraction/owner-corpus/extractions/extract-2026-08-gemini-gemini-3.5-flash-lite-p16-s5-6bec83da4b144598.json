@@ -1,0 +1,38 @@
+{
+  "candidates": [
+    {
+      "rawName": "Cafe Fiori",
+      "cityHint": "Tel Aviv-Yafo",
+      "countryHint": "Israel",
+      "areaHint": "Shuk HaCarmel",
+      "categoryHint": "cafe",
+      "addressHint": "Yom Tov St 20",
+      "evidence": "Cafe Fiori 📍 Yom Tov St 20",
+      "modelConfidence": 0.95,
+      "identifiedName": "Cafe Fiori",
+      "nameVariants": [],
+      "tags": [
+        "specialty coffee"
+      ],
+      "dishes": [],
+      "whyGo": {
+        "text": "Located in a shuk setting, offering coffee to go.",
+        "groundedIn": "Nothing like a shuk coffee shop ☕️"
+      },
+      "coordinates": {
+        "lat": 32.0664,
+        "lng": 34.7681
+      }
+    }
+  ],
+  "cityHint": "Tel Aviv-Yafo",
+  "postIntent": "place_recommendation",
+  "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+  "promptVersion": "p16-s5",
+  "captionSha": "6bec83da4b1445986f1cdcec2f98f5359e7bf74ec62ee4bac0f0af0b338f8c32",
+  "inputTokens": 6406,
+  "outputTokens": 267,
+  "costUsd": 0,
+  "costModel": "unmeasured",
+  "extractedAt": "2026-08-31T21:55:58.113Z"
+}

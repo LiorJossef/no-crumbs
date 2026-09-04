@@ -32,11 +32,13 @@ import { NO_COUNTRY_KEY, summariseByCountry, type CountrySummary } from '@/ui/pl
 import {
   GLOBAL_SCOPE,
   activeCountryKey,
+  defaultScope,
   fallbackScope,
   resolveScope,
   resolveScopeOrFallback,
   sameScope,
   scopeAfterCameraSettled,
+  scopeAfterSelection,
   scopeAreaId,
   scopeForAreaTap,
   scopeForCountryTap,
@@ -231,6 +233,69 @@ describe('resolveScope', () => {
   });
 });
 
+describe('defaultScope — what the page opens on before anything is chosen', () => {
+  it('gives a one-area library that area, not its country', () => {
+    // The defect, in one line. Measured at `83b7489` with the three Tel Aviv fixtures: the header
+    // read `3 places in Israel` over a street map of Tel Aviv, and a 40 px drag with no data change
+    // made it `3 places in Tel Aviv-Yafo`. This is the default agreeing with what the machinery
+    // already produced the moment the user touched anything.
+    const oneCity = areasOf(telAvivPlaces);
+    expect(defaultScope(oneCity)).toEqual(scopeForAreaTap(areaNamed('Tel Aviv-Yafo', oneCity).id));
+  });
+
+  it('says the same thing the first user gesture would have said', () => {
+    // The property, rather than the value: a default that disagrees with `scopeAfterCameraSettled`
+    // is a header that changes when you touch the map. Asserted through the real transition so it
+    // cannot pass by two copies of one constant agreeing with each other.
+    const oneCity = areasOf(telAvivPlaces);
+    const afterAGesture = scopeAfterCameraSettled({
+      scope: GLOBAL_SCOPE,
+      zoom: ZOOM.pin,
+      userInitiated: true,
+      areas: oneCity,
+      countries: countriesOf(oneCity),
+      rect: rectAround(TEL_AVIV),
+    });
+    expect(sameScope(defaultScope(oneCity), afterAGesture)).toBe(true);
+  });
+
+  it('names the area rather than the country in the heading, and counts the same places', () => {
+    const oneCity = areasOf(telAvivPlaces);
+    const resolved = resolveScope(oneCity, countriesOf(oneCity), defaultScope(oneCity));
+    const global = resolveScope(oneCity, countriesOf(oneCity), GLOBAL_SCOPE);
+    expect(scopeLabel(resolved!)).toBe('Tel Aviv-Yafo');
+    expect(scopeLabel(global!)).toBe('Israel');
+    // The half that makes the change safe: with one area the two scopes hold the same places, so
+    // nothing but the label moved. A default that changed the list would be a different fix.
+    expect(resolved!.count).toBe(global!.count);
+    expect([...resolved!.memberIds].sort()).toEqual([...global!.memberIds].sort());
+  });
+
+  it('keeps a two-area library global, because the camera really does open on both', () => {
+    // London and Bristol are one country and two areas. `restoredScope` promotes that pair to a
+    // country rather than to an area, so global — which reads `the United Kingdom` — is already
+    // what a gesture would produce, and there is nothing to correct.
+    const england = areasOf([...londonPlaces, ...bristolPlaces]);
+    expect(defaultScope(england)).toBe(GLOBAL_SCOPE);
+  });
+
+  it('keeps the whole four-area library global', () => {
+    expect(defaultScope(areas)).toBe(GLOBAL_SCOPE);
+  });
+
+  it('keeps an empty library global, which is the only answer a library with no areas has', () => {
+    expect(defaultScope([])).toBe(GLOBAL_SCOPE);
+  });
+
+  it('gives a one-area library with no agreed city name that area anyway', () => {
+    // `this area` rather than a country name, and that is deliberate. The alternative special-cases
+    // the label into a state-machine decision and reintroduces the exact inconsistency this fixes:
+    // the user pans, `restoredScope` hands them the area, and the header changes under them.
+    const nameless = areasOf(orphanPlaces);
+    expect(defaultScope(nameless)).toEqual(scopeForAreaTap(areaNamed(null, nameless).id));
+  });
+});
+
 describe('fallbackScope', () => {
   it('prefers the page anchor area when it still exists', () => {
     expect(fallbackScope(areas, london.id)).toEqual(scopeForAreaTap(london.id));
@@ -392,6 +457,21 @@ describe('scopeAfterCameraSettled — the whole transition table', () => {
       ).toEqual(scopeForCountryTap('GB'));
     });
 
+    it('does not promote in the pin band, where no area capsule is drawn to promote', () => {
+      // The promotion exists so a country tap's landing and a manual zoom to the same camera agree,
+      // and a country tap cannot land in the pin band (`COUNTRY_LANDING_ZOOM.max` is half a band
+      // below it). With nothing to reconcile, the most specific true label wins.
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope: GLOBAL_SCOPE,
+          zoom: ZOOM.pin,
+          userInitiated: true,
+          rect: ENGLAND_RECT,
+        }),
+      ).toEqual(scopeForAreaTap(london.id));
+    });
+
     it('never promotes the countryless bucket, however many of its areas are on screen', () => {
       // Its areas are grouped by an admission rather than by a country, so "you are looking at two
       // of them" is not a fact about anywhere.
@@ -446,6 +526,144 @@ describe('scopeAfterCameraSettled — the whole transition table', () => {
         }),
       ).toBe(scope);
     });
+
+  /**
+   * **The owner's report of 2026-09-04**, and the one row of the table that used to be a flat
+   * `return scope`.
+   *
+   * Reproduced at 1280x900 against `72346dc`: tapping `Israel 36` and then zooming in by hand left
+   * the header reading `36 places in Israel` over a screen of Herzliya and Ra'anana pins. Ten
+   * settled user zooms from z8.26 to z10.58, every one of them reporting `userInitiated: true`, and
+   * every one of them swallowed here.
+   *
+   * The crossing is what is being tested, never the membership — which is why `previousBand`
+   * appears in every case below, including the ones that must change nothing.
+   */
+  describe('a country scope and the pin band', () => {
+    it('hands the list to the area under the camera when a zoom crosses into the pin band', () => {
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope: scopeForCountryTap('GB'),
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: rectAround(LONDON, 0.04),
+        }),
+      ).toEqual(scopeForAreaTap(london.id));
+    });
+
+    it('narrows to the dominant area even when two of the country\'s areas are on screen', () => {
+      // **The measurement that made this the behaviour rather than the opposite one.** Israel's
+      // clusters are small, so every view of the Tel Aviv metro holds eight to ten of them — the
+      // area-band promotion, applied at pin zoom, made `36 places in Israel` inescapable by
+      // zooming. The promotion belongs to the band whose layer it describes; see `restoredScope`.
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope: scopeForCountryTap('GB'),
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: ENGLAND_RECT,
+        }),
+      ).toEqual(scopeForAreaTap(london.id));
+    });
+
+    it('does not move on a pan that was already in the pin band', () => {
+      // The regression this guard exists for: a sentence apply writes a country scope and lands on
+      // pins (`SENTENCE_LANDING_ZOOM`), so a rule reading "the camera is in the pin band" would let
+      // the first drag afterwards replace the country the sentence just chose.
+      const scope = scopeForCountryTap('IL');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: 'pin',
+          userInitiated: true,
+          rect: rectAround(TEL_AVIV, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('does not move on a zoom that stays inside the area band', () => {
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.area,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: rectAround(LONDON, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('does not move when the crossing was the camera moving itself', () => {
+      // Movers 4 and 5 land on pins, and a sentence apply fires both. They must not rewrite the
+      // scope the tap or the sentence just wrote.
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: false,
+          rect: rectAround(LONDON, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('decides nothing when the surface reports no previous band', () => {
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: null,
+          userInitiated: true,
+          rect: rectAround(LONDON, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('holds the country over open water, where the nearest area is not a fact about anywhere', () => {
+      // `dominantArea` answers with the nearest centroid when the rect holds no pins, which is right
+      // for a global scope and wrong here: it would hand `18 places in the United Kingdom` to
+      // whichever cluster happened to be closest to a patch of sea.
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: rectAround({ lat: 0, lng: 0 }, 0.04),
+        }),
+      ).toBe(scope);
+    });
+
+    it('holds the country when the crossing landed in a different one', () => {
+      // A country is still a thing you chose. Arriving in the pin band over Tel Aviv with the list
+      // scoped to the United Kingdom is drifting, however you got there.
+      const scope = scopeForCountryTap('GB');
+      expect(
+        scopeAfterCameraSettled({
+          ...base,
+          scope,
+          zoom: ZOOM.pin,
+          previousBand: 'area',
+          userInitiated: true,
+          rect: rectAround(TEL_AVIV, 0.04),
+        }),
+      ).toBe(scope);
+    });
+  });
 
     it('holds an area scope through a pan inside it, by object identity', () => {
       const scope = scopeForAreaTap(london.id);
@@ -538,15 +756,62 @@ describe('scopeLabel', () => {
     );
   });
 
-  it('keeps the countryless label when the bucket has a real one', () => {
-    // The bucket takes the first area's own name where the areas can be named at all, and that is
-    // a place — so it is not lowercased.
+  it('says `another area` even where the bucket holds one named area', () => {
+    // Changed 2026-09-02 with `CountrySummary.label`. The bucket used to take the first area's own
+    // name, which is how a city came to be rendered as a peer of a country; a group we cannot name
+    // a country for now says exactly that, wherever it is read. The cost is visible here: a header
+    // that could have said `Kowloon` says `another area` instead. `scopeLabel` could recover it
+    // from `only.areas[0]`, which this test deliberately does not pretend has happened.
     const named = areasOf(city('nc', 3, NOWHERE, 'Kowloon', null));
-    expect(labelOf(scopeForCountryTap(NO_COUNTRY_KEY), named, countriesOf(named))).toBe('Kowloon');
+    expect(labelOf(scopeForCountryTap(NO_COUNTRY_KEY), named, countriesOf(named))).toBe(
+      UNNAMED_OTHER_AREA_LABEL.toLowerCase(),
+    );
   });
 
-  it('counts the countries under a global scope', () => {
-    expect(labelOf(GLOBAL_SCOPE)).toBe('3 countries');
+  it('counts the countries under a global scope when every group is one', () => {
+    const allNamed = areasOf([...londonPlaces, ...telAvivPlaces]);
+    expect(labelOf(GLOBAL_SCOPE, allNamed, countriesOf(allNamed))).toBe('2 countries');
+  });
+
+  it('gives up the count entirely once one group is not a country', () => {
+    // **Changed 2026-09-02, and it reverses the second half of the same day's fix.** That fix
+    // stopped the countryless bucket being *counted* — `2 countries`, not `3` — and an audit of
+    // the running product then found the sentence still contradicting the screen: `58 places in
+    // 3 countries` over a map drawing four capsules and a `/profile` listing four rows. Not
+    // counting the bucket was necessary and was not sufficient, because the sentence is about all
+    // 58 places and one of them is in none of the countries it names. No value of N makes it true.
+    //
+    // The fixture is the owner's library in miniature: two real countries and one place whose
+    // country the resolver never established.
+    const mixed = areasOf([
+      ...londonPlaces,
+      ...telAvivPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', null),
+    ]);
+    const buckets = countriesOf(mixed);
+    expect(buckets).toHaveLength(3);
+    expect(labelOf(GLOBAL_SCOPE, mixed, buckets)).toBe('your library');
+  });
+
+  it('says the number again as soon as every place has a country', () => {
+    // The fallback is a response to a data gap, not a permanent retreat: `A-T2`'s backfill closes
+    // it, and this asserts that the header comes back on its own rather than needing a second fix.
+    const resolved = areasOf([
+      ...londonPlaces,
+      ...telAvivPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', 'HK'),
+    ]);
+    expect(labelOf(GLOBAL_SCOPE, resolved, countriesOf(resolved))).toBe('3 countries');
+  });
+
+  it('falls back to `your library` for one country beside a countryless bucket', () => {
+    // `1 countries` is not the repair, and the single-country shortcut is only sound when the
+    // label speaks for everything under it — here it does not, because the list also holds Kowloon.
+    const oneAndOther = areasOf([
+      ...londonPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', null),
+    ]);
+    expect(labelOf(GLOBAL_SCOPE, oneAndOther, countriesOf(oneAndOther))).toBe('your library');
   });
 
   it('names the single country instead of saying `1 country`', () => {
@@ -572,9 +837,13 @@ describe('scopeLabel', () => {
     expect(labelOf(GLOBAL_SCOPE, unplaced, buckets)).toBe('your library');
   });
 
-  it('still names a countryless bucket that is one area, because then it speaks for all of it', () => {
+  it('still speaks for a countryless bucket that is one area, without naming it a country', () => {
+    // Same change as above: the whole library is one unplaceable area, and the honest header is
+    // `3 places in another area` rather than a city standing in for a country.
     const single = areasOf(city('kwn', 3, { lat: 22.31, lng: 114.17 }, 'Kowloon', null));
-    expect(labelOf(GLOBAL_SCOPE, single, countriesOf(single))).toBe('Kowloon');
+    expect(labelOf(GLOBAL_SCOPE, single, countriesOf(single))).toBe(
+      UNNAMED_OTHER_AREA_LABEL.toLowerCase(),
+    );
   });
 });
 
@@ -592,13 +861,16 @@ describe('scopeHeading', () => {
 
   it('is `areaHeading` with a different `where`, not a second copy table', () => {
     expect(headingFor(scopeForCountryTap('GB'), 18).text).toBe('18 places in the United Kingdom');
-    expect(headingFor(GLOBAL_SCOPE, library.length).text).toBe('29 places in 3 countries');
+    // `your library`, not `2 countries`: this fixture holds two orphan places, so a country count
+    // would be a sentence about 29 places that is only true of 27. See `scopeLabel`.
+    expect(headingFor(GLOBAL_SCOPE, library.length).text).toBe('29 places in your library');
     expect(headingFor(scopeForAreaTap(london.id), 12).text).toBe('12 places in London');
   });
 
   it('keeps every harder state `areaHeading` already owns', () => {
     const nowhere = headingFor(GLOBAL_SCOPE, 0, { searchQuery: 'momos', matchesAnywhere: 0 });
-    expect(nowhere.text).toBe('Nothing matches "momos"');
+    // The list quotes the query now; the heading names the library and keeps the escape.
+    expect(nowhere.text).toBe('Your places');
     expect(nowhere.escape).toBe('clear-search');
 
     const notHere = headingFor(scopeForCountryTap('IL'), 0, {
@@ -658,5 +930,111 @@ describe('scopeAreaId', () => {
   it('is null under a country or global scope, because several areas are listed above', () => {
     expect(idFor(scopeForCountryTap('GB'))).toBeNull();
     expect(idFor(GLOBAL_SCOPE)).toBeNull();
+  });
+});
+
+/**
+ * `scopeAfterSelection` — the header stops describing somewhere the user has left.
+ *
+ * The owner's report, 2026-09-03, reproduced at 1280x900 before this existed: scoped to a one-place
+ * Budapest area, opening a Tel Aviv place from the continuation below flew the camera to Tel Aviv,
+ * opened a Tel Aviv card and left the header reading `1 place in Budapest`. The fixtures here use
+ * the one-area country the same way Budapest is used in the library — an area whose count makes the
+ * lie loud.
+ *
+ * The tests are written over the header sentence as well as the scope, because the sentence is what
+ * was wrong: a scope assertion alone would pass for a rule that moved the scope somewhere else
+ * false.
+ */
+describe('scopeAfterSelection — opening a place the scope does not contain', () => {
+  function resolve(scope: ListScope) {
+    return resolveScopeOrFallback(areas, countries, scope, null);
+  }
+
+  function after(scope: ListScope, placeId: string): ListScope {
+    return scopeAfterSelection({ scope: resolve(scope), placeId, areas, countries });
+  }
+
+  /** The header as the page renders it: unfiltered, everything matching. */
+  function headingFor(scope: ListScope): string {
+    const resolved = resolve(scope);
+    return scopeHeading({
+      scope: resolved,
+      countInScope: resolved.count,
+      searchQuery: '',
+      tagLabel: null,
+      matchesAnywhere: library.length,
+    }).text;
+  }
+
+  it("is the owner's report: the header named an area the open place is not in", () => {
+    const bristolScope = scopeForAreaTap(bristol.id);
+    // Before: six places in Bristol, and opening a London place changed neither the sentence nor
+    // the rows it sits above.
+    expect(headingFor(bristolScope)).toBe('6 places in Bristol');
+    const next = after(bristolScope, 'ldn-3');
+    expect(next).toEqual(scopeForAreaTap(london.id));
+    expect(headingFor(next)).toBe('12 places in London');
+  });
+
+  it('holds the scope, by identity, for a place already in it', () => {
+    const resolved = resolve(scopeForAreaTap(london.id));
+    const next = scopeAfterSelection({ scope: resolved, placeId: 'ldn-0', areas, countries });
+    expect(next).toBe(resolved.scope);
+  });
+
+  it('never moves a global scope, which holds every place there is', () => {
+    for (const id of ['ldn-0', 'tlv-0', 'bri-0', 'orp-0']) {
+      const resolved = resolve(GLOBAL_SCOPE);
+      expect(scopeAfterSelection({ scope: resolved, placeId: id, areas, countries }))
+        .toBe(resolved.scope);
+    }
+  });
+
+  it('keeps the kind and moves the value: a country scope goes to the country, not the city', () => {
+    // The user chose that granularity. A place in another country is a reason to change which
+    // country the list is, and no reason at all to narrow it to one of its cities.
+    expect(after(scopeForCountryTap('GB'), 'tlv-2')).toEqual(scopeForCountryTap('IL'));
+    expect(headingFor(after(scopeForCountryTap('GB'), 'tlv-2'))).toBe('9 places in Israel');
+  });
+
+  it('holds a country scope for another city of the same country', () => {
+    const resolved = resolve(scopeForCountryTap('GB'));
+    expect(scopeAfterSelection({ scope: resolved, placeId: 'bri-1', areas, countries }))
+      .toBe(resolved.scope);
+  });
+
+  it('moves a country scope onto the countryless bucket rather than refusing it', () => {
+    // The bucket is a group the map draws and a scope a tap can already enter, so a place inside it
+    // is somewhere the list can honestly say it is.
+    expect(after(scopeForCountryTap('GB'), 'orp-0')).toEqual(scopeForCountryTap(NO_COUNTRY_KEY));
+  });
+
+  it('moves an area scope out of the countryless bucket like any other', () => {
+    expect(after(scopeForAreaTap(orphan.id), 'ldn-0')).toEqual(scopeForAreaTap(london.id));
+  });
+
+  it('holds the scope for an id no area contains, rather than inventing one', () => {
+    // A just-saved place arrives before the refreshed rows do. Holding still is honest; scoping to
+    // an id nothing contains is how a save turns into a teleport.
+    const resolved = resolve(scopeForAreaTap(london.id));
+    expect(scopeAfterSelection({ scope: resolved, placeId: 'not-a-place', areas, countries }))
+      .toBe(resolved.scope);
+  });
+
+  it('agrees with where the next user gesture would have put the scope anyway', () => {
+    // This is the whole argument for the rule: the camera flies to the opened place, and a settled
+    // user gesture of any size then hands the scope to the area under it. The two must not
+    // disagree, or the header would change again for no reason the user can see.
+    const opened = after(scopeForAreaTap(bristol.id), 'ldn-3');
+    const settled = scopeAfterCameraSettled({
+      scope: opened,
+      zoom: ZOOM.pin,
+      userInitiated: true,
+      areas,
+      countries,
+      rect: rectAround(LONDON),
+    });
+    expect(settled).toBe(opened);
   });
 });

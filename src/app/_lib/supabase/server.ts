@@ -25,9 +25,22 @@ export async function createClient() {
               cookieStore.set(name, value, options);
             }
           } catch {
-            // Called from a Server Component that cannot set cookies (no request/response
-            // round-trip). The middleware below refreshes the session on every request, so this
-            // is safe to ignore here.
+            // Called from a Server Component, which cannot set a cookie — it has no response to
+            // put one on. Nothing else reaches this branch: a Route Handler and a Server Action
+            // both own a response, so `cookieStore.set` succeeds there and they persist their own
+            // refreshed session.
+            //
+            // **Dropping it is only safe because `src/proxy.ts` already wrote it.** The proxy runs
+            // ahead of every page render, calls `getUser()`, and puts the refreshed cookies on the
+            // response — so by the time a Server Component gets here the token has been saved and
+            // this write is the redundant second one.
+            //
+            // That is a claim about `proxy.ts`'s `config.matcher`, and it was **false** until
+            // 2026-08-31, when the matcher was `['/map/:path*']` and six Server Component pages
+            // rendered outside it: on those, the refreshed token was silently discarded here and
+            // the next request re-presented a spent one. The matcher now covers every path except
+            // Route Handlers and static assets, which is what makes the sentence above true. If it
+            // is ever narrowed, this comment is wrong again and so is the `catch`.
           }
         },
       },

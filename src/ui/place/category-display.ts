@@ -13,15 +13,35 @@
 
 import { PRODUCT_CATEGORY_LABEL } from '@/domain/places/product-category';
 import type { ProductCategory } from '@/domain/places/product-category';
+import {
+  CATEGORY_COLOR,
+  CATEGORY_COLOR_VAR,
+  UNCATEGORISED_COLOR,
+  UNCATEGORISED_COLOR_VAR,
+} from '@/ui/place/palette';
 
 export interface CategoryDisplay {
   /** Sentence case, the way it is written in a sentence — or `null` for a place we have no
    *  category for, which prints nothing rather than a word meaning "we would rather not say". */
   readonly label: string | null;
   /**
-   * The pin colour. Dark enough to carry a white glyph, and far enough apart in hue from its
-   * neighbours to stay distinguishable at pin size on a near-white map. Never null: every pin has
-   * to be drawn in something.
+   * The pin colour, **as a literal, in the light theme**. Dark enough to carry a white glyph, and
+   * far enough apart in hue from its neighbours to stay distinguishable at pin size on a near-white
+   * map. Never null: every pin has to be drawn in something.
+   *
+   * **A DOM surface should use `colorVar` instead.** This one stays because MapLibre and the
+   * OpenGraph image genuinely cannot resolve a custom property, and because
+   * `palette-tokens.test.ts` pins it as the light literal — that assertion is the contract between
+   * this module and the map's own copy of the palette.
+   */
+  /**
+   * The pin colour, **as a literal, in the light theme**. Never null: every pin has to be drawn in
+   * something.
+   *
+   * **A DOM surface should call `categoryColorVar()` instead.** This stays a literal because
+   * MapLibre and the OpenGraph image genuinely cannot resolve a custom property, and because
+   * `palette-tokens.test.ts` pins it as the light literal — that assertion is the contract between
+   * this module and the map's own copy of the palette.
    */
   readonly color: string;
 }
@@ -29,26 +49,22 @@ export interface CategoryDisplay {
 /**
  * Three colours and a fallback, matching the three categories the taxonomy defines.
  *
+ * **The values moved to `./palette.ts`** (W0-2), which is the one module the MapLibre style
+ * expressions import from and the one place the `--category-*` tokens in `globals.css` are checked
+ * against. Nothing about the palette's shape changed; only where the literals live. What stays
+ * here is what this file was always for: which *word* goes with which colour.
+ *
  * The palette used to carry eight. Five of them are gone with the values they coloured — and the
  * one worth recording is `dessert`'s pink, added so that "a gelateria used to render as a shop"
  * could never mean two confusable colours as well as two confusable words. A gelateria is a `cafe`
  * now, so the confusion it guarded against cannot arise: there is no `shop`.
- */
-const CATEGORY_COLOR: Record<ProductCategory, string> = {
-  restaurant: '#C2452F',
-  cafe: '#8A5A3B',
-  bar: '#6D4FA8',
-};
-
-/**
- * What an uncategorised place is drawn in — the house mint, deliberately, and this reasoning
- * survives the narrowing unchanged: a place whose category we could not read is still one of the
- * user's places, and painting it grey would make "we do not know" look like "this one is lesser".
  *
- * It is a colour and **not** a category. It has no label and the filter bar offers no chip for it,
- * because "we have no fact here" is not a thing to filter a library by.
+ * The narrowing's other surviving decision — that an uncategorised place is drawn in the house mint
+ * and never in grey, because "we do not know" must not read as "this one is lesser" — moved with
+ * the value and is written out in full on `UNCATEGORISED_COLOR` there. It is re-exported rather
+ * than relocated so that a caller reading *display* still finds it where it has always been.
  */
-export const UNCATEGORISED_COLOR = '#2E7A70';
+export { UNCATEGORISED_COLOR } from '@/ui/place/palette';
 
 const UNCATEGORISED_DISPLAY: CategoryDisplay = { label: null, color: UNCATEGORISED_COLOR };
 
@@ -83,4 +99,44 @@ export function categoryLocalityLine(
     (part): part is string => Boolean(part)
   );
   return parts.join(' · ');
+}
+
+/**
+ * The category's colour **as a token reference**, for anything painting into the DOM.
+ *
+ * W7-1's finding is why this exists: **no component read a `--category-*` token.** Every disc and
+ * dot was a light-theme literal in an inline `style`, so a rebuilt dark palette themed nothing at
+ * all. A `var()` follows the theme with no hook, no context, no prop and no re-render — which is
+ * why the DOM wants this and the map wants `placePalette(theme)` from `palette.ts` instead.
+ *
+ * **A function rather than a field on `CategoryDisplay`**, and that is a concurrency decision as
+ * much as a design one: `components/map/marker-style.ts` builds a `CategoryStyle` that extends that
+ * interface, so a new required member is a compile error in a file another lane is holding. A
+ * sibling function adds the capability with no blast radius.
+ *
+ * Total, like `categoryDisplay`: anything outside the taxonomy resolves to the uncategorised token
+ * rather than to nothing, so a caller can always paint.
+ */
+export function categoryColorVar(category: string | null | undefined): string {
+  return isKnownCategory(category) ? CATEGORY_COLOR_VAR[category] : UNCATEGORISED_COLOR_VAR;
+}
+
+/**
+ * **The category's colour as a tinted ground** — the row's disc, and anything else that wants the
+ * colour as a surface rather than as ink.
+ *
+ * The strength is `--tint-strength` and not a number, and that is the whole point of the function
+ * existing. A percentage inside a `color-mix()` is not a constant: it is an alpha, and an alpha
+ * composites against whatever is behind it. 12% was picked against a near-white card, where it
+ * reads as a wash; the same 12% of a lifted night colour over `#201F1C` is a dark olive that
+ * carries no category at all (`iteration-2-plan.md` §1.3, measured). One number cannot be right in
+ * both themes, so the number is a token and `globals.css` sets it per theme.
+ *
+ * `in oklab` rather than `in srgb`: mixing toward transparent in a perceptual space keeps the hue
+ * where it was at low strengths instead of drifting it, which is exactly the range this is used in.
+ *
+ * Total, like its two neighbours: anything outside the taxonomy tints in the uncategorised token.
+ */
+export function categoryTintVar(category: string | null | undefined): string {
+  return `color-mix(in oklab, ${categoryColorVar(category)} var(--tint-strength), transparent)`;
 }

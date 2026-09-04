@@ -1,0 +1,1472 @@
+{
+  "takenAt": "2026-08-31T07:27:49.208Z",
+  "commit": "3954793af2a662619435b84ac4d6f869626fde64",
+  "baseUrl": "http://127.0.0.1:62034",
+  "dataSource": "stub",
+  "places": 30,
+  "windowMs": 6000,
+  "browser": "bundled Playwright Chromium",
+  "thresholds": {
+    "changeFraction": 0.0008,
+    "pixelTolerance": 12
+  },
+  "measurements": [
+    {
+      "viewport": "390x844",
+      "camera": {
+        "zoom": 11.605,
+        "band": "pin",
+        "symbolsRendered": 58,
+        "pinSymbolsRendered": 30,
+        "pinLabelsRendered": 0,
+        "pinsMissingLabelZoom": 0,
+        "labelZoomValues": [
+          13,
+          14
+        ],
+        "byLayer": {
+          "places-pins-_r_1_": 30,
+          "roadname_major": 7,
+          "place_city_r5": 1,
+          "place_town": 3,
+          "place_villages": 1,
+          "place_suburbs": 16
+        },
+        "reason": null
+      },
+      "sequence": {
+        "paints": 224,
+        "mapPaintedAtMs": 2185,
+        "mapPaintChange": 0.55992,
+        "paintsAfterMapPaint": 37,
+        "changeEventsAfterMapPaint": 26,
+        "spanAfterMapPaintMs": 1591,
+        "afterMapPaint": [
+          {
+            "atMs": 2445,
+            "change": 0.11347
+          },
+          {
+            "atMs": 2495,
+            "change": 0.20422
+          },
+          {
+            "atMs": 2537,
+            "change": 0.16303
+          },
+          {
+            "atMs": 2586,
+            "change": 0.15047
+          },
+          {
+            "atMs": 2627,
+            "change": 0.13963
+          },
+          {
+            "atMs": 2672,
+            "change": 0.11669
+          },
+          {
+            "atMs": 2712,
+            "change": 0.10787
+          },
+          {
+            "atMs": 2744,
+            "change": 0.08077
+          },
+          {
+            "atMs": 2778,
+            "change": 0.05167
+          },
+          {
+            "atMs": 2812,
+            "change": 0.02253
+          },
+          {
+            "atMs": 2911,
+            "change": 0.05826
+          },
+          {
+            "atMs": 2961,
+            "change": 0.00087
+          },
+          {
+            "atMs": 3011,
+            "change": 0.00092
+          },
+          {
+            "atMs": 3065,
+            "change": 0.001
+          },
+          {
+            "atMs": 3167,
+            "change": 0.01245
+          },
+          {
+            "atMs": 3247,
+            "change": 0.01263
+          },
+          {
+            "atMs": 3303,
+            "change": 0.03058
+          },
+          {
+            "atMs": 3360,
+            "change": 0.02552
+          },
+          {
+            "atMs": 3411,
+            "change": 0.04179
+          },
+          {
+            "atMs": 3463,
+            "change": 0.0669
+          },
+          {
+            "atMs": 3511,
+            "change": 0.02903
+          },
+          {
+            "atMs": 3569,
+            "change": 0.01947
+          },
+          {
+            "atMs": 3620,
+            "change": 0.01247
+          },
+          {
+            "atMs": 3668,
+            "change": 0.00386
+          },
+          {
+            "atMs": 3727,
+            "change": 0.00206
+          },
+          {
+            "atMs": 3776,
+            "change": 0.00122
+          }
+        ]
+      },
+      "budget": {
+        "frames": 347,
+        "medianMs": 8.4,
+        "p95Ms": 51.4,
+        "maxMs": 632.7,
+        "over16_7ms": 49,
+        "over33_3ms": 47,
+        "medianCaveat": "Headless rAF is not vsync-locked; an idle page reports ~8ms. Compare maxMs and the over-budget counts between runs, not the median against 16.7."
+      },
+      "changeSeries": [
+        {
+          "atMs": 0,
+          "change": null
+        },
+        {
+          "atMs": 226,
+          "change": 0.02645
+        },
+        {
+          "atMs": 235,
+          "change": 0
+        },
+        {
+          "atMs": 243,
+          "change": 0
+        },
+        {
+          "atMs": 250,
+          "change": 0
+        },
+        {
+          "atMs": 258,
+          "change": 0
+        },
+        {
+          "atMs": 273,
+          "change": 0
+        },
+        {
+          "atMs": 281,
+          "change": 0
+        },
+        {
+          "atMs": 290,
+          "change": 0
+        },
+        {
+          "atMs": 298,
+          "change": 0
+        },
+        {
+          "atMs": 314,
+          "change": 0
+        },
+        {
+          "atMs": 323,
+          "change": 0
+        },
+        {
+          "atMs": 332,
+          "change": 0
+        },
+        {
+          "atMs": 349,
+          "change": 0
+        },
+        {
+          "atMs": 357,
+          "change": 0
+        },
+        {
+          "atMs": 364,
+          "change": 0
+        },
+        {
+          "atMs": 382,
+          "change": 0
+        },
+        {
+          "atMs": 390,
+          "change": 0
+        },
+        {
+          "atMs": 398,
+          "change": 0
+        },
+        {
+          "atMs": 416,
+          "change": 0
+        },
+        {
+          "atMs": 423,
+          "change": 0
+        },
+        {
+          "atMs": 434,
+          "change": 0.00185
+        },
+        {
+          "atMs": 451,
+          "change": 0
+        },
+        {
+          "atMs": 460,
+          "change": 0
+        },
+        {
+          "atMs": 469,
+          "change": 0
+        },
+        {
+          "atMs": 487,
+          "change": 0
+        },
+        {
+          "atMs": 497,
+          "change": 0
+        },
+        {
+          "atMs": 506,
+          "change": 0
+        },
+        {
+          "atMs": 523,
+          "change": 0
+        },
+        {
+          "atMs": 532,
+          "change": 0
+        },
+        {
+          "atMs": 541,
+          "change": 0
+        },
+        {
+          "atMs": 550,
+          "change": 0
+        },
+        {
+          "atMs": 560,
+          "change": 0
+        },
+        {
+          "atMs": 569,
+          "change": 0
+        },
+        {
+          "atMs": 586,
+          "change": 0
+        },
+        {
+          "atMs": 595,
+          "change": 0
+        },
+        {
+          "atMs": 604,
+          "change": 0
+        },
+        {
+          "atMs": 622,
+          "change": 0
+        },
+        {
+          "atMs": 631,
+          "change": 0
+        },
+        {
+          "atMs": 640,
+          "change": 0
+        },
+        {
+          "atMs": 657,
+          "change": 0
+        },
+        {
+          "atMs": 667,
+          "change": 0
+        },
+        {
+          "atMs": 676,
+          "change": 0
+        },
+        {
+          "atMs": 685,
+          "change": 0
+        },
+        {
+          "atMs": 694,
+          "change": 0
+        },
+        {
+          "atMs": 712,
+          "change": 0
+        },
+        {
+          "atMs": 721,
+          "change": 0
+        },
+        {
+          "atMs": 730,
+          "change": 0
+        },
+        {
+          "atMs": 748,
+          "change": 0
+        },
+        {
+          "atMs": 757,
+          "change": 0
+        },
+        {
+          "atMs": 766,
+          "change": 0
+        },
+        {
+          "atMs": 776,
+          "change": 0
+        },
+        {
+          "atMs": 793,
+          "change": 0
+        },
+        {
+          "atMs": 802,
+          "change": 0
+        },
+        {
+          "atMs": 811,
+          "change": 0
+        },
+        {
+          "atMs": 821,
+          "change": 0
+        },
+        {
+          "atMs": 838,
+          "change": 0
+        },
+        {
+          "atMs": 847,
+          "change": 0
+        },
+        {
+          "atMs": 856,
+          "change": 0
+        },
+        {
+          "atMs": 865,
+          "change": 0
+        },
+        {
+          "atMs": 883,
+          "change": 0
+        },
+        {
+          "atMs": 893,
+          "change": 0
+        },
+        {
+          "atMs": 902,
+          "change": 0
+        },
+        {
+          "atMs": 912,
+          "change": 0.00836
+        },
+        {
+          "atMs": 930,
+          "change": 0
+        },
+        {
+          "atMs": 939,
+          "change": 0
+        },
+        {
+          "atMs": 948,
+          "change": 0
+        },
+        {
+          "atMs": 967,
+          "change": 0
+        },
+        {
+          "atMs": 976,
+          "change": 0
+        },
+        {
+          "atMs": 985,
+          "change": 0
+        },
+        {
+          "atMs": 994,
+          "change": 0
+        },
+        {
+          "atMs": 1003,
+          "change": 0
+        },
+        {
+          "atMs": 1012,
+          "change": 0
+        },
+        {
+          "atMs": 1029,
+          "change": 0
+        },
+        {
+          "atMs": 1038,
+          "change": 0
+        },
+        {
+          "atMs": 1047,
+          "change": 0
+        },
+        {
+          "atMs": 1065,
+          "change": 0
+        },
+        {
+          "atMs": 1075,
+          "change": 0
+        },
+        {
+          "atMs": 1084,
+          "change": 0
+        },
+        {
+          "atMs": 1093,
+          "change": 0
+        },
+        {
+          "atMs": 1102,
+          "change": 0
+        },
+        {
+          "atMs": 1120,
+          "change": 0
+        },
+        {
+          "atMs": 1129,
+          "change": 0
+        },
+        {
+          "atMs": 1138,
+          "change": 0
+        },
+        {
+          "atMs": 1156,
+          "change": 0
+        },
+        {
+          "atMs": 1165,
+          "change": 0
+        },
+        {
+          "atMs": 1174,
+          "change": 0
+        },
+        {
+          "atMs": 1183,
+          "change": 0
+        },
+        {
+          "atMs": 1201,
+          "change": 0
+        },
+        {
+          "atMs": 1209,
+          "change": 0
+        },
+        {
+          "atMs": 1218,
+          "change": 0
+        },
+        {
+          "atMs": 1228,
+          "change": 0
+        },
+        {
+          "atMs": 1237,
+          "change": 0
+        },
+        {
+          "atMs": 1245,
+          "change": 0
+        },
+        {
+          "atMs": 1263,
+          "change": 0
+        },
+        {
+          "atMs": 1272,
+          "change": 0
+        },
+        {
+          "atMs": 1282,
+          "change": 0
+        },
+        {
+          "atMs": 1291,
+          "change": 0
+        },
+        {
+          "atMs": 1300,
+          "change": 0
+        },
+        {
+          "atMs": 1309,
+          "change": 0
+        },
+        {
+          "atMs": 1318,
+          "change": 0
+        },
+        {
+          "atMs": 1327,
+          "change": 0
+        },
+        {
+          "atMs": 1344,
+          "change": 0
+        },
+        {
+          "atMs": 1353,
+          "change": 0
+        },
+        {
+          "atMs": 1362,
+          "change": 0
+        },
+        {
+          "atMs": 1371,
+          "change": 0
+        },
+        {
+          "atMs": 1380,
+          "change": 0
+        },
+        {
+          "atMs": 1389,
+          "change": 0
+        },
+        {
+          "atMs": 1398,
+          "change": 0
+        },
+        {
+          "atMs": 1407,
+          "change": 0
+        },
+        {
+          "atMs": 1425,
+          "change": 0
+        },
+        {
+          "atMs": 1434,
+          "change": 0
+        },
+        {
+          "atMs": 1443,
+          "change": 0
+        },
+        {
+          "atMs": 1452,
+          "change": 0
+        },
+        {
+          "atMs": 1461,
+          "change": 0
+        },
+        {
+          "atMs": 1470,
+          "change": 0
+        },
+        {
+          "atMs": 1479,
+          "change": 0
+        },
+        {
+          "atMs": 1488,
+          "change": 0
+        },
+        {
+          "atMs": 1497,
+          "change": 0
+        },
+        {
+          "atMs": 1515,
+          "change": 0
+        },
+        {
+          "atMs": 1523,
+          "change": 0
+        },
+        {
+          "atMs": 1532,
+          "change": 0
+        },
+        {
+          "atMs": 1541,
+          "change": 0
+        },
+        {
+          "atMs": 1551,
+          "change": 0
+        },
+        {
+          "atMs": 1559,
+          "change": 0
+        },
+        {
+          "atMs": 1568,
+          "change": 0
+        },
+        {
+          "atMs": 1577,
+          "change": 0
+        },
+        {
+          "atMs": 1594,
+          "change": 0
+        },
+        {
+          "atMs": 1603,
+          "change": 0
+        },
+        {
+          "atMs": 1612,
+          "change": 0
+        },
+        {
+          "atMs": 1621,
+          "change": 0
+        },
+        {
+          "atMs": 1630,
+          "change": 0
+        },
+        {
+          "atMs": 1639,
+          "change": 0
+        },
+        {
+          "atMs": 1648,
+          "change": 0
+        },
+        {
+          "atMs": 1657,
+          "change": 0
+        },
+        {
+          "atMs": 1675,
+          "change": 0
+        },
+        {
+          "atMs": 1684,
+          "change": 0
+        },
+        {
+          "atMs": 1693,
+          "change": 0
+        },
+        {
+          "atMs": 1702,
+          "change": 0
+        },
+        {
+          "atMs": 1711,
+          "change": 0
+        },
+        {
+          "atMs": 1720,
+          "change": 0
+        },
+        {
+          "atMs": 1729,
+          "change": 0
+        },
+        {
+          "atMs": 1738,
+          "change": 0
+        },
+        {
+          "atMs": 1755,
+          "change": 0
+        },
+        {
+          "atMs": 1764,
+          "change": 0
+        },
+        {
+          "atMs": 1773,
+          "change": 0
+        },
+        {
+          "atMs": 1782,
+          "change": 0
+        },
+        {
+          "atMs": 1791,
+          "change": 0
+        },
+        {
+          "atMs": 1800,
+          "change": 0
+        },
+        {
+          "atMs": 1809,
+          "change": 0
+        },
+        {
+          "atMs": 1818,
+          "change": 0
+        },
+        {
+          "atMs": 1827,
+          "change": 0
+        },
+        {
+          "atMs": 1845,
+          "change": 0
+        },
+        {
+          "atMs": 1854,
+          "change": 0
+        },
+        {
+          "atMs": 1863,
+          "change": 0
+        },
+        {
+          "atMs": 1872,
+          "change": 0
+        },
+        {
+          "atMs": 1881,
+          "change": 0
+        },
+        {
+          "atMs": 1890,
+          "change": 0
+        },
+        {
+          "atMs": 1899,
+          "change": 0
+        },
+        {
+          "atMs": 1908,
+          "change": 0
+        },
+        {
+          "atMs": 1926,
+          "change": 0
+        },
+        {
+          "atMs": 1936,
+          "change": 0
+        },
+        {
+          "atMs": 1944,
+          "change": 0
+        },
+        {
+          "atMs": 1953,
+          "change": 0
+        },
+        {
+          "atMs": 1963,
+          "change": 0
+        },
+        {
+          "atMs": 1972,
+          "change": 0
+        },
+        {
+          "atMs": 1981,
+          "change": 0.39713
+        },
+        {
+          "atMs": 1990,
+          "change": 0
+        },
+        {
+          "atMs": 2008,
+          "change": 0
+        },
+        {
+          "atMs": 2017,
+          "change": 0
+        },
+        {
+          "atMs": 2026,
+          "change": 0
+        },
+        {
+          "atMs": 2036,
+          "change": 0
+        },
+        {
+          "atMs": 2045,
+          "change": 0
+        },
+        {
+          "atMs": 2054,
+          "change": 0
+        },
+        {
+          "atMs": 2063,
+          "change": 0
+        },
+        {
+          "atMs": 2073,
+          "change": 0
+        },
+        {
+          "atMs": 2083,
+          "change": 0
+        },
+        {
+          "atMs": 2101,
+          "change": 0.10438
+        },
+        {
+          "atMs": 2109,
+          "change": 0
+        },
+        {
+          "atMs": 2119,
+          "change": 0
+        },
+        {
+          "atMs": 2128,
+          "change": 0
+        },
+        {
+          "atMs": 2137,
+          "change": 0
+        },
+        {
+          "atMs": 2146,
+          "change": 0
+        },
+        {
+          "atMs": 2155,
+          "change": 0
+        },
+        {
+          "atMs": 2164,
+          "change": 0
+        },
+        {
+          "atMs": 2181,
+          "change": 0
+        },
+        {
+          "atMs": 2185,
+          "change": 0.55992
+        },
+        {
+          "atMs": 2231,
+          "change": 0
+        },
+        {
+          "atMs": 2445,
+          "change": 0.11347
+        },
+        {
+          "atMs": 2495,
+          "change": 0.20422
+        },
+        {
+          "atMs": 2537,
+          "change": 0.16303
+        },
+        {
+          "atMs": 2586,
+          "change": 0.15047
+        },
+        {
+          "atMs": 2627,
+          "change": 0.13963
+        },
+        {
+          "atMs": 2672,
+          "change": 0.11669
+        },
+        {
+          "atMs": 2712,
+          "change": 0.10787
+        },
+        {
+          "atMs": 2744,
+          "change": 0.08077
+        },
+        {
+          "atMs": 2778,
+          "change": 0.05167
+        },
+        {
+          "atMs": 2812,
+          "change": 0.02253
+        },
+        {
+          "atMs": 2852,
+          "change": 0.00041
+        },
+        {
+          "atMs": 2911,
+          "change": 0.05826
+        },
+        {
+          "atMs": 2961,
+          "change": 0.00087
+        },
+        {
+          "atMs": 3011,
+          "change": 0.00092
+        },
+        {
+          "atMs": 3065,
+          "change": 0.001
+        },
+        {
+          "atMs": 3113,
+          "change": 0
+        },
+        {
+          "atMs": 3167,
+          "change": 0.01245
+        },
+        {
+          "atMs": 3247,
+          "change": 0.01263
+        },
+        {
+          "atMs": 3303,
+          "change": 0.03058
+        },
+        {
+          "atMs": 3360,
+          "change": 0.02552
+        },
+        {
+          "atMs": 3411,
+          "change": 0.04179
+        },
+        {
+          "atMs": 3463,
+          "change": 0.0669
+        },
+        {
+          "atMs": 3511,
+          "change": 0.02903
+        },
+        {
+          "atMs": 3569,
+          "change": 0.01947
+        },
+        {
+          "atMs": 3620,
+          "change": 0.01247
+        },
+        {
+          "atMs": 3668,
+          "change": 0.00386
+        },
+        {
+          "atMs": 3727,
+          "change": 0.00206
+        },
+        {
+          "atMs": 3776,
+          "change": 0.00122
+        },
+        {
+          "atMs": 3827,
+          "change": 0.00041
+        },
+        {
+          "atMs": 3877,
+          "change": 0
+        },
+        {
+          "atMs": 3925,
+          "change": 0
+        },
+        {
+          "atMs": 3968,
+          "change": 0
+        },
+        {
+          "atMs": 4007,
+          "change": 0
+        },
+        {
+          "atMs": 4049,
+          "change": 0
+        },
+        {
+          "atMs": 4090,
+          "change": 0
+        },
+        {
+          "atMs": 4368,
+          "change": 0
+        }
+      ]
+    },
+    {
+      "viewport": "1440x900",
+      "camera": {
+        "zoom": 13.005,
+        "band": "pin",
+        "symbolsRendered": 139,
+        "pinSymbolsRendered": 30,
+        "pinLabelsRendered": 5,
+        "pinsMissingLabelZoom": 0,
+        "labelZoomValues": [
+          13,
+          14
+        ],
+        "byLayer": {
+          "places-pins-_r_1_": 30,
+          "roadname_major": 5,
+          "roadname_pri": 4,
+          "roadname_sec": 61,
+          "poi_label_landmark": 10,
+          "place_town": 1,
+          "place_suburbs": 26,
+          "waterway_label": 2
+        },
+        "reason": null
+      },
+      "sequence": {
+        "paints": 78,
+        "mapPaintedAtMs": 1791,
+        "mapPaintChange": 0.6049,
+        "paintsAfterMapPaint": 20,
+        "changeEventsAfterMapPaint": 12,
+        "spanAfterMapPaintMs": 2344,
+        "afterMapPaint": [
+          {
+            "atMs": 1968,
+            "change": 0.09777
+          },
+          {
+            "atMs": 2058,
+            "change": 0.17442
+          },
+          {
+            "atMs": 2123,
+            "change": 0.11518
+          },
+          {
+            "atMs": 2203,
+            "change": 0.09691
+          },
+          {
+            "atMs": 2271,
+            "change": 0.07579
+          },
+          {
+            "atMs": 2355,
+            "change": 0.04008
+          },
+          {
+            "atMs": 3032,
+            "change": 0.45173
+          },
+          {
+            "atMs": 3172,
+            "change": 0.07927
+          },
+          {
+            "atMs": 3316,
+            "change": 0.00568
+          },
+          {
+            "atMs": 3848,
+            "change": 0.00285
+          },
+          {
+            "atMs": 3989,
+            "change": 0.03022
+          },
+          {
+            "atMs": 4135,
+            "change": 0.0081
+          }
+        ]
+      },
+      "budget": {
+        "frames": 241,
+        "medianMs": 8.4,
+        "p95Ms": 133.3,
+        "maxMs": 609.7,
+        "over16_7ms": 32,
+        "over33_3ms": 29,
+        "medianCaveat": "Headless rAF is not vsync-locked; an idle page reports ~8ms. Compare maxMs and the over-budget counts between runs, not the median against 16.7."
+      },
+      "changeSeries": [
+        {
+          "atMs": 0,
+          "change": null
+        },
+        {
+          "atMs": 76,
+          "change": 0.00273
+        },
+        {
+          "atMs": 106,
+          "change": 0
+        },
+        {
+          "atMs": 135,
+          "change": 0
+        },
+        {
+          "atMs": 163,
+          "change": 0
+        },
+        {
+          "atMs": 191,
+          "change": 0
+        },
+        {
+          "atMs": 220,
+          "change": 0
+        },
+        {
+          "atMs": 248,
+          "change": 0
+        },
+        {
+          "atMs": 276,
+          "change": 0
+        },
+        {
+          "atMs": 309,
+          "change": 0.0005
+        },
+        {
+          "atMs": 340,
+          "change": 0
+        },
+        {
+          "atMs": 372,
+          "change": 0
+        },
+        {
+          "atMs": 406,
+          "change": 0
+        },
+        {
+          "atMs": 438,
+          "change": 0
+        },
+        {
+          "atMs": 470,
+          "change": 0
+        },
+        {
+          "atMs": 501,
+          "change": 0
+        },
+        {
+          "atMs": 532,
+          "change": 0
+        },
+        {
+          "atMs": 564,
+          "change": 0
+        },
+        {
+          "atMs": 598,
+          "change": 0
+        },
+        {
+          "atMs": 630,
+          "change": 0
+        },
+        {
+          "atMs": 661,
+          "change": 0
+        },
+        {
+          "atMs": 694,
+          "change": 0.00187
+        },
+        {
+          "atMs": 726,
+          "change": 0
+        },
+        {
+          "atMs": 758,
+          "change": 0
+        },
+        {
+          "atMs": 789,
+          "change": 0
+        },
+        {
+          "atMs": 821,
+          "change": 0
+        },
+        {
+          "atMs": 853,
+          "change": 0
+        },
+        {
+          "atMs": 885,
+          "change": 0
+        },
+        {
+          "atMs": 916,
+          "change": 0
+        },
+        {
+          "atMs": 948,
+          "change": 0
+        },
+        {
+          "atMs": 979,
+          "change": 0
+        },
+        {
+          "atMs": 1009,
+          "change": 0
+        },
+        {
+          "atMs": 1040,
+          "change": 0
+        },
+        {
+          "atMs": 1072,
+          "change": 0
+        },
+        {
+          "atMs": 1103,
+          "change": 0
+        },
+        {
+          "atMs": 1134,
+          "change": 0
+        },
+        {
+          "atMs": 1165,
+          "change": 0
+        },
+        {
+          "atMs": 1195,
+          "change": 0
+        },
+        {
+          "atMs": 1226,
+          "change": 0
+        },
+        {
+          "atMs": 1256,
+          "change": 0
+        },
+        {
+          "atMs": 1287,
+          "change": 0
+        },
+        {
+          "atMs": 1319,
+          "change": 0
+        },
+        {
+          "atMs": 1349,
+          "change": 0
+        },
+        {
+          "atMs": 1380,
+          "change": 0
+        },
+        {
+          "atMs": 1410,
+          "change": 0
+        },
+        {
+          "atMs": 1440,
+          "change": 0
+        },
+        {
+          "atMs": 1470,
+          "change": 0
+        },
+        {
+          "atMs": 1501,
+          "change": 0
+        },
+        {
+          "atMs": 1531,
+          "change": 0
+        },
+        {
+          "atMs": 1561,
+          "change": 0
+        },
+        {
+          "atMs": 1591,
+          "change": 0.54843
+        },
+        {
+          "atMs": 1624,
+          "change": 0
+        },
+        {
+          "atMs": 1656,
+          "change": 0
+        },
+        {
+          "atMs": 1687,
+          "change": 0.01051
+        },
+        {
+          "atMs": 1720,
+          "change": 0
+        },
+        {
+          "atMs": 1752,
+          "change": 0
+        },
+        {
+          "atMs": 1783,
+          "change": 0
+        },
+        {
+          "atMs": 1791,
+          "change": 0.6049
+        },
+        {
+          "atMs": 1968,
+          "change": 0.09777
+        },
+        {
+          "atMs": 2058,
+          "change": 0.17442
+        },
+        {
+          "atMs": 2123,
+          "change": 0.11518
+        },
+        {
+          "atMs": 2203,
+          "change": 0.09691
+        },
+        {
+          "atMs": 2271,
+          "change": 0.07579
+        },
+        {
+          "atMs": 2355,
+          "change": 0.04008
+        },
+        {
+          "atMs": 2436,
+          "change": 0
+        },
+        {
+          "atMs": 2671,
+          "change": 0
+        },
+        {
+          "atMs": 2726,
+          "change": 0
+        },
+        {
+          "atMs": 2783,
+          "change": 0
+        },
+        {
+          "atMs": 2875,
+          "change": 0
+        },
+        {
+          "atMs": 3032,
+          "change": 0.45173
+        },
+        {
+          "atMs": 3172,
+          "change": 0.07927
+        },
+        {
+          "atMs": 3316,
+          "change": 0.00568
+        },
+        {
+          "atMs": 3848,
+          "change": 0.00285
+        },
+        {
+          "atMs": 3989,
+          "change": 0.03022
+        },
+        {
+          "atMs": 4135,
+          "change": 0.0081
+        },
+        {
+          "atMs": 4204,
+          "change": 0
+        },
+        {
+          "atMs": 4298,
+          "change": 0
+        },
+        {
+          "atMs": 4433,
+          "change": 0
+        }
+      ]
+    }
+  ],
+  "caveats": [
+    "Pins are fixture rows from tests/harness/fixtures.mjs. This measures the rendering of N pins, not the real data path.",
+    "It shows whether pins appear over time or at once. It cannot say whether the animation looks good; Q4 still needs a person.",
+    "Software GL in headless Chromium. Comparable to another run of this tool, not to facelift-plan.md §2, which was a different measurement."
+  ]
+}

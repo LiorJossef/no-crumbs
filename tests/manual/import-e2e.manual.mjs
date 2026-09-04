@@ -42,7 +42,7 @@ page.on('response', (r) => {
   if (r.url().includes('/api/')) console.log(`  [api] ${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
 });
 
-/** The "Add a TikTok" button exists in both the desktop panel and the mobile sheet; only one is
+/** The "Add a TikTok link" button exists in both the desktop panel and the mobile sheet; only one is
  *  visible at a given width, and neither is present until the map page has painted. */
 async function clickAddTikTok() {
   const buttons = page.getByRole('button', { name: /add a tiktok/i });
@@ -54,13 +54,13 @@ async function clickAddTikTok() {
       return;
     }
   }
-  throw new Error('no visible "Add a TikTok" button');
+  throw new Error('no visible "Add a TikTok link" button');
 }
 
 console.log('→ sign in');
 await page.goto(`${BASE}/sign-in`);
 await page.getByPlaceholder('you@example.com').fill(EMAIL);
-await page.getByPlaceholder('At least 6 characters').fill(PASSWORD);
+await page.locator('#password').fill(PASSWORD);
 await page.getByRole('button', { name: /sign in/i }).click();
 await page.waitForURL('**/map', { timeout: 30_000 });
 await page.waitForTimeout(4000);

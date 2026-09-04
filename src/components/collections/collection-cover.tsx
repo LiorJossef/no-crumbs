@@ -1,6 +1,6 @@
 'use client';
 
-import { categoryDisplay } from '@/ui/place/category-display';
+import { categoryColorVar } from '@/ui/place/category-display';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { cn } from '@/lib/utils';
 
@@ -33,7 +33,11 @@ export function CollectionCover({
         <span
           key={category}
           className="h-full w-5 rounded-full"
-          style={{ backgroundColor: categoryDisplay(category).color }}
+          // `categoryColorVar`, not `.color`: that field is the *light* literal and exists for
+          // MapLibre and the OpenGraph image, neither of which can resolve a custom property. This
+          // is a `<span>`. The `--category-*` tokens already switch under `.dark`, so a `var()`
+          // follows the theme with nothing else attached.
+          style={{ backgroundColor: categoryColorVar(category) }}
         />
       ))}
     </div>

@@ -43,6 +43,8 @@ vi.mock('@/app/actions/collections', () => ({
 const { PlaceDesktopPanel } = await import('@/components/sheet/place-desktop-panel');
 
 import { areaHeading, type AreaHeading } from '@/ui/place/active-area';
+import { TagFilterContext } from '@/ui/place/tag-filter';
+import type { EnrichedSpot } from '@/ui/place/enrichment';
 import type { MapPlace } from '@/components/map/types';
 
 function place(id: string, name: string, locality: string): MapPlace {
@@ -84,6 +86,7 @@ function render(options: {
   places?: readonly MapPlace[];
   otherPlaces?: readonly MapPlace[];
   heading?: AreaHeading;
+  query?: string;
 }): string {
   return renderToStaticMarkup(
     createElement(PlaceDesktopPanel, {
@@ -101,12 +104,14 @@ function render(options: {
       activeAreaId: 'tlv-1',
       libraryIsEmpty: false,
       libraryHasVisited: false,
-      query: '',
+      query: options.query ?? '',
       onQueryChange: () => {},
-      activeTag: null,
+      activeTags: [],
       onClearTag: () => {},
-      notBeenOnly: false,
-      onToggleNotBeen: () => {},
+      onToggleTag: () => {},
+      onClearTags: () => {},
+      visitFilter: 'all' as const,
+      onChangeVisitFilter: () => {},
       categoryFacets: [],
       activeCategory: null,
       onToggleCategory: () => {},
@@ -218,5 +223,115 @@ describe('an empty scope escapes through the rows below it', () => {
 
     expect(withRows).toContain('border-t border-border/70');
     expect(withoutRows).not.toContain('border-t border-border/70');
+  });
+});
+
+describe('the desktop heading enters the way the design system says it enters', () => {
+  it('fades for everyone and rises only for a pointer user', () => {
+    // W3-3, and the panel is the reason it matters twice: this heading and the sheet's are one
+    // change of scope on two surfaces, so a reduced-motion arm that differs between them is the
+    // phone and the desktop disagreeing about what the product does.
+    const markup = render({});
+    expect(markup).toContain('animate-in');
+    expect(markup).toContain('fade-in-0');
+    expect(markup).toContain('motion-safe:slide-in-from-bottom-1');
+    expect(markup).toContain('duration-enter');
+    expect(markup).not.toContain('duration-140');
+    expect(markup).not.toContain('motion-reduce:');
+  });
+});
+
+/**
+ * Desktop parity for the tag facet (W5-3). 1440x900 is one of the two quality-gate viewports, and
+ * a retrieval control that exists on the phone and not on the desktop is a half-finished surface —
+ * the same argument that makes `PlaceRow` shared between the two.
+ */
+describe('the tag facet reaches the desktop panel too', () => {
+  /** `tags` lives on `EnrichedSpot`, not on `Spot` — `enrichmentOf`'s own docblock says the cast
+   *  is the single place that assumes `getSpots` populated columns `Spot` does not yet declare, so
+   *  a fixture standing in for a read row has to say the same thing. */
+  function tagged(place: MapPlace, tags: readonly string[]): MapPlace {
+    const detail: EnrichedSpot = { ...place.detail!, tags: [...tags], whyGo: null, dishes: [] };
+    return { ...place, detail };
+  }
+
+  /** The panel inside a live filter context, which is the only state the facet row draws in. */
+  function renderWithTags(tagLists: readonly string[][]): string {
+    const places = tagLists.map((tags, index) =>
+      tagged(place(`p-${index}`, `Place ${index}`, 'תל אביב-יפו'), tags),
+    );
+    return renderToStaticMarkup(
+      createElement(
+        TagFilterContext,
+        { value: { activeTags: [], onToggleTag: () => {} } },
+        createElement(PlaceDesktopPanel, {
+          places,
+          otherPlaces: [],
+          heading: areaHeading({
+            countInArea: places.length,
+            area: 'תל אביב-יפו',
+            searchQuery: '',
+            tagLabel: null,
+            matchesAnywhere: places.length,
+          }),
+          activeAreaId: 'tlv-1',
+          libraryIsEmpty: false,
+          libraryHasVisited: false,
+          query: '',
+          onQueryChange: () => {},
+          activeTags: [],
+          onClearTag: () => {},
+          onToggleTag: () => {},
+          onClearTags: () => {},
+          visitFilter: 'all' as const,
+          onChangeVisitFilter: () => {},
+          categoryFacets: [],
+          activeCategory: null,
+          onToggleCategory: () => {},
+          onAddTikTok: () => {},
+          onSelect: () => {},
+        }),
+      ),
+    );
+  }
+
+  it('offers the tags behind the same one trigger the sheet uses', () => {
+    // **Changed by the header collapse of 2026-09-02.** The tag chips are no longer a row at rest
+    // on either surface: they live inside `LibraryFilterBar`'s panel, which is closed until the
+    // user opens it. What desktop parity means now is that the panel is *reachable* here — the
+    // chips themselves are asserted against the panel directly in `library-filter-bar.test.ts`,
+    // because this repo's `react-dom/server` setup cannot press anything.
+    //
+    // **The trigger is `Tags`, not `Filter`.** This assertion was written against the single
+    // collapsed `Filter` trigger, which the owner reversed the same day: "maybe we should have a
+    // dropdown for each of the filters instead of having it in one place / cause they are not
+    // related" (`feedback-round-3-work-plan.md` §5.1). The claim is unchanged — the tags are
+    // behind one closed disclosure on the desktop panel, exactly as on the phone — and the name
+    // is the one the ruling produced.
+    const markup = renderWithTags([['late night'], ['late night', 'wine'], ['wine'], ['wine']]);
+    expect(markup).toContain('aria-label="Tags, showing all"');
+    expect(markup).toContain('aria-expanded="false"');
+    // And the row it replaces is genuinely gone rather than merely restyled.
+    expect(markup).not.toContain('aria-label="Filter by tag"');
+    expect(markup).not.toContain('aria-label="⁨Wine⁩, 3 places"');
+  });
+
+  it('draws no facet row for a library with no tags', () => {
+    // The default fixture carries none, which is also the majority of real libraries.
+    expect(renderWithTags([[], []])).not.toContain('Filter by tag');
+    expect(render({})).not.toContain('Filter by tag');
+  });
+});
+
+/**
+ * **The visible result count was deleted on 2026-09-02**, on both surfaces at once
+ * (`ux-overwhelm-audit-2026-09-02.md` §7). It was `aria-hidden`, so it spoke to sighted users
+ * only, and it restated the heading and the list in the one band the owner asked us to empty.
+ * Desktop parity is now parity in its absence.
+ */
+describe('the result count is gone from the desktop panel too', () => {
+  it('draws no `N of M` anywhere', () => {
+    expect(render({ query: 'momos' })).not.toMatch(/\d+ of \d+/);
+    expect(render({})).not.toMatch(/\d+ of \d+/);
   });
 });

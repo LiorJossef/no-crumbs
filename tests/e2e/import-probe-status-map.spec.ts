@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 /**
  * FIX-ERR-QA — the honest-status claim, measured on the wire.
  *
@@ -15,19 +17,7 @@ const EMAIL = process.env.E2E_EMAIL ?? 'demo@example.com';
 const PASSWORD = process.env.E2E_PASSWORD;
 
 async function signIn(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try {
-      await page.waitForURL('**/map', { timeout: 20_000 });
-      return;
-    } catch { /* dev-mode hydration race */ }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 interface Case {
@@ -54,7 +44,23 @@ const CASES: readonly Case[] = [
   { name: 'suffix look-alike host', body: '{"url":"https://tiktok.com.evil.io/@a/video/7259010845558983978"}', status: 422, code: 'UNSUPPORTED_HOST', retryable: false },
   { name: 'instagram', body: '{"url":"https://www.instagram.com/reel/Cabcdefghij/"}', status: 422, code: 'UNSUPPORTED_HOST', retryable: false },
   { name: 'tiktok profile', body: '{"url":"https://www.tiktok.com/@joelleuzyel"}', status: 422, code: 'UNSUPPORTED_URL', retryable: false },
-  { name: 'tiktok photo post', body: '{"url":"https://www.tiktok.com/@a/photo/7259010845558983978"}', status: 422, code: 'PHOTO_POST', retryable: false },
+  /**
+   * **A photo post is a post, not a rejection.** This case used to assert `422 PHOTO_POST`, and
+   * that code no longer exists: it was deleted from the taxonomy on 2026-08-28 after a real
+   * carousel was measured (`domain/source/canonicalise-tiktok-url.ts`'s header — oEmbed 400s the
+   * `/photo/<id>` form and 200s the identical id under `/video/<id>`, caption and all). The
+   * canonicaliser rewrites the URL form, so the `/photo/` link now gets exactly the answer the
+   * `/video/` link gets, and asserting the old refusal would hold a deliberate product decision
+   * shut.
+   *
+   * **The id is the known-missing one, and that is load-bearing.** A *resolvable* photo post runs
+   * the whole pipeline and reaches the model, which this file's header forbids by name. That is
+   * precisely what broke on CI run 33661142026: the old case pointed at a real video id, the route
+   * got as far as `extract`, and with no extractor key on a runner `createPlaceExtractor` threw a
+   * plain `Error` that floored to `INTERNAL` / 500. Failing at the source stage keeps "no case here
+   * can spend a Gemini call" true, and still proves the `/photo/` form was accepted and fetched.
+   */
+  { name: 'tiktok photo post is read as a post', body: '{"url":"https://www.tiktok.com/@a/photo/7259010845558983971"}', status: 422, code: 'POST_UNAVAILABLE', retryable: true },
   { name: 'nonexistent video id', body: '{"url":"https://www.tiktok.com/@a/video/7259010845558983971"}', status: 422, code: 'POST_UNAVAILABLE', retryable: true },
 ];
 

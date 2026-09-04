@@ -37,20 +37,30 @@
  *
  * ## Two preconditions this module cannot enforce, and the caller must
  *
- *  1. **`userInitiated` has to become true for a user's own zoom.** `ViewportChangeMeta` currently
- *     documents it as false for "a zoom of any kind", which was correct when a zoom could only ever
- *     hand the list to another city by accident. Under the band rule a zoom is the *only* gesture
- *     that can cross a band, so with the flag as it stands today every transition below is dead
- *     code. It must stay false for every programmatic move — that is the whole guard, and it is
- *     what stops a re-fit or a post-import flight rewriting the list.
+ *  1. **`userInitiated` has to become true for a user's own zoom** — done, and **measured** rather
+ *     than assumed (2026-09-04, at `72346dc`, `1280x900`, instrumented `reportViewport`): a
+ *     trackpad pinch/scroll, a drag and the `+`/`−` controls all report `true`, and the country
+ *     tap's own flight reports `false`. It must stay false for every programmatic move — that is
+ *     the whole guard, and it is what stops a re-fit or a post-import flight rewriting the list.
+ *
+ *     **One gesture still reports `false` and it is the commonest one on a desktop mouse.**
+ *     MapLibre 6.4.1's `ScrollZoomHandler._onTimeout` — the path a *discrete* wheel notch takes
+ *     when it arrives more than 400 ms after the last one — sets `_type = 'wheel'` and starts the
+ *     zoom without ever assigning `_lastWheelEvent`, so `renderFrame()` returns
+ *     `originalEvent: undefined` and every `zoomend`/`moveend` it produces is bare. Measured: 26
+ *     consecutive wheel notches at 650 ms spacing, all `userInitiated: false`. The surface closes
+ *     that by listening to the `wheel` map event itself; see `map-surface.mapcn.tsx`.
  *  2. **The zoom has to be reported.** It now is (`ViewportChangeMeta.zoom`/`.band`).
+ *  3. **The band the camera came *from* has to be reported** — `previousBand` below. Without it a
+ *     transition can only ask which band the camera is *in*, and "in the pin band" is true of a
+ *     40 px drag as much as of a zoom that just crossed into it.
  *
  * Pure: no React, no DOM, no MapLibre. The one import from `components/` is `zoom-bands.ts`, which
  * is itself pure and is the single definition of where a band starts — its own docblock forbids
  * re-deriving those numbers, and a second copy of them here is exactly the drift it warns about.
  */
 
-import { bandForZoom } from '@/components/map/zoom-bands';
+import { bandForZoom, type ZoomBand } from '@/components/map/zoom-bands';
 import { toCountryName } from '@/domain/places/country-code';
 import {
   areaHeading,
@@ -205,6 +215,47 @@ export function resolveScope<T>(
 }
 
 /**
+ * **The scope a page opens on, before the user has chosen anything.**
+ *
+ * A library with exactly one area is that area, and everything else is global.
+ *
+ * ## Why this is a derivation and not the constant it replaces
+ *
+ * The default was `GLOBAL_SCOPE` flat, on the reasoning that the camera opens on the whole library
+ * and a header naming one city over a view of countries is the broken control the owner already
+ * rejected once. That reasoning is sound and it has a premise: that the opening view *is* a view of
+ * countries. It is, for a library that spans them. It is not for the normal one — the camera fits
+ * the library's own box, and a library in one city fits deep in the **pin** band (measured z14.69
+ * at 1440x900 with three Tel Aviv places), where the map is drawing streets and the header said
+ * `3 places in Israel`.
+ *
+ * So the constant was the same defect in the other direction, and the machinery to see it already
+ * existed: `scopeAfterCameraSettled` corrects it on the *first user gesture of any size*, because a
+ * global scope in the pin band resolves through `restoredScope` to the area under the camera.
+ * Measured at `83b7489`: at rest the header read `3 places in Israel`, and a 40 px drag — no data
+ * change, barely a camera change — made it `3 places in Tel Aviv-Yafo`. A header that depends on
+ * whether you have touched the map is not a header.
+ *
+ * **This asserts nothing new**, which is the property that makes it safe rather than a nicer
+ * sentence. With one area, the global scope and that area's scope hold *identically the same
+ * places*, so every consumer — the member ids, the count, the `Elsewhere` rows, the filtered list —
+ * is unchanged by construction, and only the label moves, to the more specific of two true names.
+ * It is the same argument `scopeLabel` already makes for the countryless bucket: the shortcut is
+ * sound whenever the label speaks for everything under it.
+ *
+ * Two or more areas keep the global default. There the camera really does open on a box spanning
+ * them, `restoredScope` would promote a country rather than an area anyway, and `in Israel` or
+ * `in 3 countries` is what the map is showing.
+ *
+ * `null` is still the caller's "nothing chosen yet" — this is what that resolves to, so it stays a
+ * derivation during render rather than an effect that paints one frame of the wrong list first.
+ */
+export function defaultScope<T>(areas: readonly Area<T>[]): ListScope {
+  const only = areas.length === 1 ? areas[0] : undefined;
+  return only === undefined ? GLOBAL_SCOPE : scopeForAreaTap(only.id);
+}
+
+/**
  * Where the list goes when the stored scope named something deleted: the caller's preferred area if
  * it still exists, else global.
  *
@@ -260,13 +311,39 @@ function resolveGlobal<T>(
  * | `country` | `global` | unchanged (identity) |
  * | `country` | `country` / `area` | `global` — the map is drawing countries, so the list is too |
  * | `area` / `pin` | `global` | the area under the camera, or its country if two of that country's areas are on screen |
- * | `area` / `pin` | `country` | unchanged — a pan is not a country change |
+ * | `area` | `country` | unchanged — a pan is not a country change, and a country tap lands here |
+ * | `pin`, entered from a wider band | `country` | **one of that country's own areas**, if the camera is over one |
+ * | `pin`, already in it | `country` | unchanged |
  * | `area` / `pin` | `area` | `dominantArea`, i.e. unchanged unless the pan crossed a 50 km cluster boundary |
  *
  * `userInitiated === false` changing nothing at all is the guard that carries over verbatim from
  * `areaAfterCameraSettled`, and it is doing more work here than it was: a country tap now flies the
  * camera *and* writes a country scope, so the flight that follows must not immediately overwrite
  * what the tap just wrote. It cannot, because that flight is programmatic.
+ *
+ * ## Why a country scope is left on a zoom into the pin band, and on nothing else
+ *
+ * Reported by the owner on 2026-09-04 and reproduced at 1280x900 against `72346dc`: tapping
+ * `Israel 36` and then zooming by hand into Tel Aviv left the header reading `36 places in Israel`
+ * over a screen of Herzliya and Ra'anana pins. Ten settled user zooms, `z8.26` to `z10.58`,
+ * crossing `AREA_BAND_MAX` on the second — every one of them `userInitiated: true`, and every one
+ * of them swallowed by the `country` arm, which returned `scope` whatever the camera did.
+ *
+ * That arm was written when a *pan* was the only gesture that could reach it, and for a pan it is
+ * still right: a country is a thing you chose and not a thing you drifted into. A zoom that crosses
+ * out of the area band is a different act — it is the user asking to look at one place rather than
+ * at a country — and it is the same act the `global` arm already answers by adopting what is on
+ * screen. So the two arms now agree, and the difference between them is only where they start.
+ *
+ * **`previousBand` is what makes it a crossing rather than a membership test**, and that distinction
+ * is the whole safety of it. A sentence apply writes a country scope and lands *on pins*
+ * (`SENTENCE_LANDING_ZOOM`), so a rule reading "the camera is in the pin band" would let the first
+ * 40 px drag afterwards replace the country the sentence just chose with one of its cities. Asking
+ * whether the camera *arrived* in the pin band leaves that landing, and every pan and nudge after
+ * it, alone.
+ *
+ * A `null` `previousBand` — a surface that cannot report one, or the very first report of a page —
+ * decides nothing, exactly like a missing rect.
  *
  * Returns `scope` **by identity** in every case that is not a transition, so a settled pan inside
  * one area costs a `setState` that bails out rather than a re-render of every surface.
@@ -276,25 +353,41 @@ export function scopeAfterCameraSettled<T>(input: {
   /** The zoom the camera came to rest at. `null` from a surface that cannot report one, which is
    *  treated exactly like a missing rect: decide nothing. */
   readonly zoom: number | null;
+  /**
+   * The band the camera was in at the **previous** settled report, or `null` when there was none.
+   *
+   * Optional, and absent means "no information", which decides nothing — so a caller that has not
+   * been taught to pass it keeps today's behaviour exactly rather than getting a new one by
+   * default. The page holds it already: `lastZoomRef` is written from every report, including the
+   * programmatic ones, which is the sequence this needs.
+   */
+  readonly previousBand?: ZoomBand | null;
   readonly userInitiated: boolean;
   readonly areas: readonly Area<T>[];
   readonly countries: readonly CountrySummary<T>[];
   readonly rect: ViewportBounds | null;
 }): ListScope {
   const { scope, zoom, userInitiated, areas, countries, rect } = input;
+  const previousBand = input.previousBand ?? null;
   if (!userInitiated || rect === null || zoom === null) return scope;
 
-  if (bandForZoom(zoom) === 'country') {
+  const band = bandForZoom(zoom);
+  if (band === 'country') {
     return scope.kind === 'global' ? scope : GLOBAL_SCOPE;
   }
 
-  if (scope.kind === 'global') return restoredScope(areas, countries, rect) ?? scope;
+  if (scope.kind === 'global') return restoredScope(areas, countries, rect, band) ?? scope;
 
-  // A country scope is only ever entered by an explicit tap, and only an explicit tap leaves it.
-  // Panning across the Channel at area-band zoom is possible and does not re-country the list:
-  // "only update when clusters change or when clicking a specific cluster" (owner, requirement 3),
-  // and a country is a thing you chose rather than a thing you drifted into.
-  if (scope.kind === 'country') return scope;
+  // A country scope is left by an explicit tap, by zooming out to the country band (above), and by
+  // **crossing into the pin band** — and by nothing else. Panning across the Channel at area-band
+  // zoom is possible and does not re-country the list: "only update when clusters change or when
+  // clicking a specific cluster" (owner, requirement 3), and a country is a thing you chose rather
+  // than a thing you drifted into. A pan cannot reach the arm below, because a pan does not change
+  // the band it started in.
+  if (scope.kind === 'country') {
+    if (band !== 'pin' || previousBand === null || previousBand === 'pin') return scope;
+    return narrowedWithinCountry(areas, countries, rect, band, scope) ?? scope;
+  }
 
   const currentId = resolveArea(areas, scope.anchor)?.id ?? scope.anchor;
   const next = dominantArea(areas, rect, currentId) ?? currentId;
@@ -302,16 +395,67 @@ export function scopeAfterCameraSettled<T>(input: {
 }
 
 /**
- * Leaving the country band: what the list becomes.
+ * A country scope narrowing to **one of its own areas**, or `null` for every other answer.
  *
- * The area under the camera, except when the camera is showing **two or more areas of one
- * country** — then the country is what is on screen and the country is what the list says. That is
- * not an extra rule so much as the one that makes the two routes to the same view agree: a country
- * tap lands inside the area band by construction (`COUNTRY_LANDING_ZOOM`), and zooming manually to
- * the same camera has to produce the same heading, or the list's state would depend on how you got
- * there.
+ * The narrowing reuses `restoredScope`, so the two routes into the pin band agree: zooming there
+ * from a global scope and zooming there from the country's own scope produce the same heading.
  *
- * The countryless bucket is excluded from that promotion. Its areas are the ones we could not place,
+ * What it adds is the containment check, and that is the "chosen, not drifted into" rule surviving
+ * the change rather than being traded away for it. `dominantArea` answers with the nearest area by
+ * centroid when the rect holds no pins at all, which is right for a global scope — some area is
+ * always the closest thing to you — and wrong here: zooming into a street with nothing saved on it
+ * would hand a list headed `18 places in the United Kingdom` to whichever cluster happened to be
+ * nearest, which for a rect over open water is a jump to another continent. A country you chose
+ * gives way to its own cities and to nothing else.
+ */
+function narrowedWithinCountry<T>(
+  areas: readonly Area<T>[],
+  countries: readonly CountrySummary<T>[],
+  rect: ViewportBounds,
+  band: ZoomBand,
+  scope: { readonly kind: 'country'; readonly key: string },
+): ListScope | null {
+  const next = restoredScope(areas, countries, rect, band);
+  if (next === null || sameScope(next, scope)) return null;
+  if (next.kind !== 'area') return null;
+  const country = countries.find((candidate) => candidate.key === scope.key);
+  const holds = country?.areas.some((area) => area.id === next.anchor) ?? false;
+  return holds ? next : null;
+}
+
+/**
+ * **What the camera is showing, as a scope** — the area under it, or its country.
+ *
+ * The area under the camera, except when the camera is **in the area band** showing two or more
+ * areas of one country — then the country is what is on screen and the country is what the list
+ * says. That is not an extra rule so much as the one that makes the two routes to the same view
+ * agree: a country tap lands inside the area band by construction (`COUNTRY_LANDING_ZOOM`), and
+ * zooming manually to the same camera has to produce the same heading, or the list's state would
+ * depend on how you got there.
+ *
+ * ## Why the promotion stops at the area band (2026-09-04)
+ *
+ * It used to apply at every zoom, and **that is what kept the owner's `36 places in Israel` on
+ * screen over a street-level view of Tel Aviv.** Measured at `0a6eaba`, instrumented at the page:
+ * the crossing into the pin band arrives exactly as designed — `userInitiated: true`, `band: 'pin'`,
+ * `previousBand: 'area'` — and then this function answered `Israel` anyway, because the rect held
+ * pins from ten Israeli areas at z8.52 and still eight of them at z10.58. Israel's clusters are
+ * small (`2 km`, or `50 km` sharing a normalised locality), so *every* view of the Tel Aviv metro
+ * holds several of them and the promotion could never be escaped by zooming.
+ *
+ * The promotion's own justification is the reason it stops here rather than a new rule bolted on:
+ * it exists so that a country tap's landing and a manual zoom to the same camera agree, and a
+ * country tap **cannot land in the pin band** — `COUNTRY_LANDING_ZOOM.max` is half a band below it.
+ * There is no second route to reconcile. What the pin band draws is individual places, not area
+ * capsules, so "you are looking at two of my areas" is a statement about a layer that is not on
+ * screen, and the most specific true label is the dominant area.
+ *
+ * Nothing is hidden by the narrowing, which is what makes it safe rather than merely wanted: the
+ * map draws `matches` and not the scope (`map-page-client.tsx`), and every out-of-scope match is
+ * still listed in the continuation below the heading. The scope moves the heading and the grouping,
+ * never the pins.
+ *
+ * The countryless bucket is excluded from the promotion. Its areas are the ones we could not place,
  * grouped by an admission rather than by a country, so "you are looking at two of them" is not a
  * fact about anywhere. It stays tappable — an explicit tap on that group is still a country scope.
  *
@@ -321,9 +465,11 @@ function restoredScope<T>(
   areas: readonly Area<T>[],
   countries: readonly CountrySummary<T>[],
   rect: ViewportBounds,
+  band: ZoomBand,
 ): ListScope | null {
   const areaId = dominantArea(areas, rect, null);
   if (areaId === null) return null;
+  if (band !== 'area') return scopeForAreaTap(areaId);
 
   const country = countries.find(
     (candidate) =>
@@ -345,10 +491,129 @@ function areasOnScreen<T>(areas: readonly Area<T>[], rect: ViewportBounds): numb
   return count;
 }
 
+/**
+ * **The scope after a place is opened**, and the repair for a heading that described somewhere the
+ * user had already left.
+ *
+ * Reported by the owner on 2026-09-03 and reproduced at 1280x900: with the list scoped to Budapest
+ * — one place — opening `בית גולדברג` from the continuation below it flew the camera to Tel Aviv,
+ * put a Tel Aviv card on the screen and left the header reading `1 place in Budapest` over rows the
+ * sentence does not contain. The same gesture on a pin does the same thing. It is the same shape as
+ * the production report of `1 in הרצליה` over a Jerusalem save.
+ *
+ * **This asserts nothing the machine was not about to assert anyway**, which is what makes it a
+ * repair rather than a new rule. Selecting a place is one of the camera movers: the map flies to
+ * it, and the *next* user gesture of any size hands the scope to whatever is under the camera
+ * through `dominantArea`. Measured on the repro: one 36 px drag after the selection turned
+ * `1 place in Budapest` into `20 places in תל אביב-יפו`. So the scope was already destined for the
+ * opened place's area; all that was wrong was the window in between, during which the header said
+ * something false. This closes the window at the gesture that opens it.
+ *
+ * **A place already in scope changes nothing, by identity.** That is every ordinary selection —
+ * global scope (which holds everything), or another place in the area you are already reading — so
+ * the deliberate rule that *narrowing never navigates* and that opening a card does not re-scope
+ * the list is untouched for every case where the header was telling the truth.
+ *
+ * **The kind of scope survives; only its value moves.** From a country you get the opened place's
+ * country, not its city: the user chose that granularity and a place elsewhere in the United
+ * Kingdom is not a reason to narrow the list to London. From an area you get the place's area,
+ * which is the most specific true thing and the one the camera is now showing.
+ *
+ * Returns `scope.scope` **by identity** whenever there is nothing to correct, so the caller's
+ * `setState` bails out rather than re-rendering every surface on the page.
+ */
+export function scopeAfterSelection<T>(input: {
+  /** The scope as the list is currently rendering it. */
+  readonly scope: ResolvedScope<T>;
+  /** The place just opened. */
+  readonly placeId: string;
+  readonly areas: readonly Area<T>[];
+  readonly countries: readonly CountrySummary<T>[];
+}): ListScope {
+  const { scope, placeId, areas, countries } = input;
+  if (scope.memberIds.has(placeId)) return scope.scope;
+  const area = areas.find((candidate) => candidate.memberIds.has(placeId));
+  // A place in no area at all is a place the library has not caught up with — a just-saved row
+  // arriving before its refresh. The header is no less honest for holding still, and inventing a
+  // scope from an id nothing contains is how a save turns into a teleport (`resolveScope`).
+  if (area === undefined) return scope.scope;
+  if (scope.kind === 'country') {
+    const country = countries.find((candidate) =>
+      candidate.areas.some((candidateArea) => candidateArea.id === area.id),
+    );
+    if (country !== undefined) return scopeForCountryTap(country.key);
+  }
+  return scopeForAreaTap(area.id);
+}
+
 function unionMemberIds<T>(areas: readonly Area<T>[]): ReadonlySet<string> {
   const ids = new Set<string>();
   for (const area of areas) for (const id of area.memberIds) ids.add(id);
   return ids;
+}
+
+/**
+ * A country of the global scope, **as the filters left it**: the country itself, and the areas of
+ * it that still hold a match.
+ *
+ * `matchIds` is the whole filter chain collapsed into the one thing a label needs — the set of
+ * places the list is about to render — so this stays correct when a fifth or a sixth filter axis
+ * is added. It never learns what a tag, a search, a visit state or an area filter is.
+ */
+interface MatchingCountry<T> {
+  readonly country: CountrySummary<T>;
+  readonly countryCode: string | null;
+  /** The country's areas that hold at least one match. Narrowed, so the single-country shortcut
+   *  below still asks "does this label speak for everything under it" about the *matches*. */
+  readonly areas: readonly Area<T>[];
+}
+
+/**
+ * The countries the heading may count: every one of them when nothing is filtered, and only the
+ * ones holding a match when something is.
+ *
+ * ## The defect
+ *
+ * Reported by the owner on 2026-09-04 and reproduced against the local library: under the `brunch`
+ * chip the sidebar read `15 matches in 4 countries` while the 15 matches lie in two — Israel and
+ * Hungary — and the map, since `bc7d1ea`, correctly drew two country pills. The heading was
+ * counting `resolved.countries`, which is built from the whole library, while its *number* came
+ * from the filtered list. One sentence, two questions, and the four is contradicted by the pills
+ * directly beside it.
+ *
+ * ## Why it narrows here and not in `resolveScope`
+ *
+ * The same boundary `summary-matches.ts` draws for the bands, for the same reason. `ResolvedScope`
+ * resolves the list scope, `preferredAreaId`, `defaultScope` and `initialBounds`; a filter that
+ * could empty its `countries` would let a keystroke invalidate the scope and move the camera —
+ * **narrowing must never navigate**. Nothing here reaches those. It changes one noun phrase in one
+ * sentence.
+ *
+ * `matchIds` absent or `null` means "no narrowing" and reproduces the previous behaviour exactly,
+ * which is what keeps every other caller — and the unfiltered library — unchanged by construction
+ * rather than by a flag.
+ */
+function countriesWithMatches<T>(
+  countries: readonly CountrySummary<T>[],
+  matchIds: ReadonlySet<string> | null | undefined,
+): readonly MatchingCountry<T>[] {
+  if (!matchIds) {
+    return countries.map((country) => ({
+      country,
+      countryCode: country.countryCode,
+      areas: country.areas,
+    }));
+  }
+  const narrowed: MatchingCountry<T>[] = [];
+  for (const country of countries) {
+    const areas = country.areas.filter((area) =>
+      [...area.memberIds].some((id) => matchIds.has(id)),
+    );
+    if (areas.length > 0) {
+      narrowed.push({ country, countryCode: country.countryCode, areas });
+    }
+  }
+  return narrowed;
 }
 
 /**
@@ -368,6 +633,11 @@ function unionMemberIds<T>(areas: readonly Area<T>[]): ReadonlySet<string> {
  * | global, 1 countryless bucket over 2+ areas | `your library` — see below |
  * | global, empty library | `your library` |
  *
+ * **`matchIds` narrows every one of those global rows to the countries that still hold a match**
+ * (2026-09-04), so a filtered library reads `15 matches in 2 countries` rather than naming the
+ * four its unfiltered self spans. It is optional and defaults to no narrowing; see
+ * `countriesWithMatches` for the defect and for why the narrowing stops at the label.
+ *
  * **The single-country shortcut cannot be taken for the countryless bucket with more than one area
  * in it**, and that was a real sentence until it was tested. The bucket's label is
  * `library-summary.ts`'s "name it after the place it actually contains" rule, which reads the
@@ -377,22 +647,46 @@ function unionMemberIds<T>(areas: readonly Area<T>[]): ReadonlySet<string> {
  * areas by construction, and a one-area bucket is that one area. Neither holds here, and
  * `1 countries` is not the repair, so the honest answer is the one the empty library already gives.
  */
-export function scopeLabel<T>(resolved: ResolvedScope<T>): string | null {
+export function scopeLabel<T>(
+  resolved: ResolvedScope<T>,
+  matchIds?: ReadonlySet<string> | null,
+): string | null {
   switch (resolved.kind) {
     case 'area':
       return resolved.area.label;
     case 'country':
       return countryLabel(resolved.country);
     case 'global': {
-      const countries = resolved.countries;
+      const countries = countriesWithMatches(resolved.countries, matchIds);
       if (countries.length === 0) return 'your library';
       const only = countries[0];
       if (countries.length === 1 && only !== undefined) {
         return only.countryCode !== null || only.areas.length === 1
-          ? countryLabel(only)
+          ? countryLabel(only.country)
           : 'your library';
       }
-      return `${countries.length} countries`;
+      // Buckets are not countries. `library-summary.ts` puts every place whose country we could
+      // not resolve into one bucket labelled `Another area`, and counting that bucket here is what
+      // made the map header say `58 places in 4 countries` over a list of Israel, the United
+      // Kingdom, Czechia and one countryless row — while `/profile`, three lines away, said
+      // `3 Countries`. Both numbers were computed honestly from the same data and disagreed,
+      // which is the defect round-3 feedback §3.1 reported from the other end.
+      //
+      // **Not counting it was only half the repair, and the other half is this** (2026-09-02).
+      // `3 countries` stopped counting the bucket and went on being read against a map drawing
+      // four capsules and a `/profile` listing four rows, so the header still said a number the
+      // screen contradicted — and it did it over `58 places`, which is *all* of them, including
+      // the one place no country on that list contains. The sentence claims every place is in one
+      // of N countries. With a countryless bucket on screen that claim is false however N is
+      // computed, so the count is the wrong shape of answer rather than a wrong number.
+      //
+      // So the shortcut needs the same precondition it already needed one line above: the label
+      // has to speak for everything under it. It does when every group is a named country, and it
+      // does not the moment one is not. `your library` is the honest global scope in that case —
+      // vaguer, true of all 58, and it un-vagues itself the instant the country is resolved.
+      const named = countries.filter((country) => country.countryCode !== null);
+      if (named.length !== countries.length) return 'your library';
+      return named.length >= 2 ? `${named.length} countries` : 'your library';
     }
   }
 }
@@ -463,10 +757,23 @@ export function scopeHeading<T>(input: {
   /** Matches anywhere in the library, not just in scope. Distinguishes "not here" from "nowhere",
    *  which are different sentences with different ways out. */
   readonly matchesAnywhere: number;
+  /**
+   * The places the filters left, library-wide — **the whole filter chain, collapsed to a set of
+   * ids** (2026-09-04).
+   *
+   * Only the global scope's label reads it, and only to stop `15 matches in 4 countries` being
+   * said over matches that lie in two (`countriesWithMatches`). Deliberately a set of ids rather
+   * than a filter description, so a fifth axis — the area filter now being wired into the page —
+   * needs no change here and cannot be forgotten here.
+   *
+   * Omit it and the heading counts the library's countries, which is what it did before and is
+   * still right when nothing is filtered.
+   */
+  readonly matchIds?: ReadonlySet<string> | null;
 }): AreaHeading {
   return areaHeading({
     countInArea: input.countInScope,
-    area: scopeLabel(input.scope),
+    area: scopeLabel(input.scope, input.matchIds),
     searchQuery: input.searchQuery,
     tagLabel: input.tagLabel,
     ...(input.notBeenOnly === undefined ? {} : { notBeenOnly: input.notBeenOnly }),

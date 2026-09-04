@@ -1,26 +1,34 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, LogOut, UserRound } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 
 import { createClient } from '@/app/_lib/supabase/server';
-import { signOut } from '@/app/actions/sign-out';
 import { Button } from '@/components/ui/button';
 import { BottomNav } from '@/components/nav/bottom-nav';
 // From the metrics module, never from `bottom-nav` itself: this is a Server Component, and a
 // non-component export of a `'use client'` module arrives here as a client reference rather than
 // the number 68. See `bottom-nav-metrics.ts` — it silently produced `padding-bottom: 0`.
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav-metrics';
+import { HEADER_BACK_CONTROL, PageHeader } from '@/components/nav/page-header';
 import { flagEmoji, normaliseCountryCode } from '@/components/map/country-flag-image';
-import { categoryDisplay } from '@/ui/place/category-display';
+import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
+import { SECTION_LABEL } from '@/ui/place/section-label';
+// From `@/ui/menu-material`, never from `components/ui/inline-menu` — same trap as
+// `BOTTOM_NAV_HEIGHT_PX` above: that file is `'use client'`, so these strings would arrive
+// here as client references and `cn()` would drop them without a word.
+import { MENU_ROW, MENU_ROW_PAINT } from '@/ui/menu-material';
+import { PRESS_ROW } from '@/lib/interaction';
+import { cn } from '@/lib/utils';
 import { getProfilePlaces } from './_lib/get-profile-places';
 import { accountIdentity, deriveProfileBreakdown, joinedLabel } from './_lib/profile-stats';
 
 export const metadata = { title: 'Profile' };
 
 /**
- * The account page: who you are signed in as, what your library adds up to, and the way out.
+ * The profile page: who you are signed in as, what your library adds up to, and the way through to
+ * everything you can change.
  *
  * **Its job is "what have I built here".** The map answers *where is that place*; nothing in the
  * product could answer *how much have I collected* — and a library that can say `32 places · 2
@@ -36,12 +44,19 @@ export const metadata = { title: 'Profile' };
  * The `Who you save from` section was removed on 2026-08-30 (owner). `creatorBreakdown` still
  * exists and is still tested; nothing renders it.
  *
- * **Still not a settings screen.** There are no settings to keep — no theme, no units, no
- * notifications, no export yet — so this must not grow into the front door of a settings section
- * before there is something to settle.
+ * **It reads; it does not change.** Owner, 2026-09-03: the line between this page and `/account`
+ * is read versus change. Your names, the theme, sign out and delete-my-data are all things you
+ * *do*, and they live on `Account settings`. What is left here is what your library adds up to,
+ * which is the rewarding thing to land on from a bottom-bar tab.
  *
- * A server component all the way down: nothing is interactive except a form posting to the existing
- * `signOut` server action, so there is no state and no client island.
+ * So the only control is the row that goes to `/account`, and it has to stay: the account menu is a
+ * popover and cannot open with scripting off, which makes this row the only door to that page
+ * without JavaScript.
+ *
+ * **A server component with no client islands at all.** The page reads four queries and renders
+ * text; `ThemeChoice`, `AccountActions` and the two name forms were the only things on it a server
+ * could not answer, and all four are on `/account`. The theme itself still applies here — the head
+ * script writes the class before first paint; it is the *control* that moved.
  */
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -60,13 +75,28 @@ export default async function ProfilePage() {
   // same library array `/map` draws, so a match in that menu is a pin on the map. Without it the
   // menu answers "nothing you've saved matches that" for places the user has, and offers to write
   // a duplicate.
-  const [{ data: profile }, places, library] = await Promise.all([
+  // `profile_names` is its own query rather than an embedded join, and that is not a style choice:
+  // it has no foreign key *from* `profiles`, so PostgREST has no relationship to embed through —
+  // the key points the other way, `profile_names.profile_id → profiles.id`.
+  //
+  // **It fails soft, on purpose.** `0035` is the migration that creates this table and it is not
+  // applied everywhere yet; where it is missing the query returns `42P01` rather than throwing, and
+  // `names?.first_name` is then `undefined`, which `accountIdentity` reads as "no name" — the same
+  // state the eight pre-`0035` accounts are in permanently. A missing name costs a line on this
+  // page, never the page, which is the rule the `profiles` read above already follows.
+  //
+  // No row filter beyond `profile_id`: `profile_names_select_own` is the authority and it is keyed
+  // on `auth.uid()`, so this can only ever return the caller's own name. The `eq` is there so the
+  // planner has an index condition, not as the access control.
+  const [{ data: profile }, { data: names }, places, library] = await Promise.all([
     supabase.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle(),
+    supabase.from('profile_names').select('first_name').eq('profile_id', user.id).maybeSingle(),
     getProfilePlaces(),
     getSpots().then((spots) => spots.map(toMapPlace)),
   ]);
 
   const identity = accountIdentity({
+    firstName: (names as { first_name: string | null } | null)?.first_name ?? null,
     displayName: profile?.display_name ?? null,
     email: user.email ?? null,
   });
@@ -74,38 +104,49 @@ export default async function ProfilePage() {
   const { stats, countries, categories } = deriveProfileBreakdown(places);
 
   return (
-    <main className="min-h-dvh w-full bg-background">
+    // `flex flex-col` so the block below can take `my-auto`. At zero places this page is a third
+    // of a phone screen with two thirds of nothing under it — the pattern the Q1 sweep found on six
+    // mobile screens and ruled on. A column that genuinely *ends* is centred in what is left rather
+    // than anchored to the top with a long tail; when the library fills the lists back in, the
+    // content exceeds the space and `my-auto` collapses to nothing, so nothing moves at scale.
+    <main className="flex min-h-dvh w-full flex-col bg-background">
       <BottomNav places={library} />
 
-      {/* The same header as `/collections`: the back arrow exists only at `lg`, where the bar does
-          not render and there is otherwise no way back to the map. */}
-      <header className="flex items-center gap-1 px-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
-        <Button
-          render={<Link href="/map" />}
-          nativeButton={false}
-          variant="ghost"
-          size="icon-lg"
-          aria-label="Back to the map"
-          className="hidden size-11 rounded-full text-muted-foreground lg:flex"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-        </Button>
-        <h1 className="px-2 font-heading text-lg font-bold tracking-tight lg:px-0">Profile</h1>
-      </header>
+      {/* The shared header — `PageHeader` carries the column geometry and the argument for it.
+          What is local here is the control. It is `lg`-only, unlike `/account`'s: this page is a
+          bottom-bar tab, so below `lg` the bar is already the way back and a second one would be
+          noise. It points at the map, which genuinely is the level above a tab.
+
+          It uses the shared `HEADER_BACK_CONTROL` geometry — it was hand-rolled here and drifted,
+          landing on its own row *above* the title and indented to the right of the column the title
+          starts on, which read as a mistake rather than a choice. */}
+      <PageHeader
+        title="Profile"
+        back={
+          <Button
+            render={<Link href="/map" />}
+            nativeButton={false}
+            variant="ghost"
+            size="icon-lg"
+            aria-label="Back to the map"
+            className={cn(HEADER_BACK_CONTROL, 'hidden lg:inline-flex')}
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+          </Button>
+        }
+      />
 
       <div
-        className="mx-auto w-full max-w-[560px] px-4"
+        className="mx-auto my-auto w-full max-w-140 px-4"
         style={{
           paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1.5rem)`,
         }}
       >
+        {/* **No avatar disc.** A generic `UserRound` in a grey circle carried no information, and it
+            was the largest element in this block and in the account menu's top row. This product's
+            mark is the crumb mascot; a stock person glyph is not it, and there is no upload path
+            behind the circle to make it anybody's. */}
         <section className="flex items-center gap-3 py-2">
-          <span
-            aria-hidden
-            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-          >
-            <UserRound className="size-5" />
-          </span>
           <div className="min-w-0">
             {/* `dir="auto"` on the text and never on the block, which is the pattern the rest of
                 the app already follows (`place-enrichment.tsx`, `add-to-collection.tsx`): the
@@ -113,11 +154,31 @@ export default async function ProfilePage() {
                 `מאיה` — shapes right-to-left, while the column it sits in stays left-aligned like
                 the email under it. On the `<p>` it also flipped the paragraph's alignment, which
                 left the name floating away from the avatar. */}
-            <p className="truncate font-heading text-lg font-bold tracking-tight">
-              <span dir="auto">{identity.title}</span>
-            </p>
-            {identity.subtitle ? (
-              <p className="truncate text-sm text-muted-foreground">{identity.subtitle}</p>
+            {/* **The name line renders only when there is a name**, and this is the fix to the
+                owner's long-standing "the profile screen shows a demo email" report. It used to
+                render `identity.title`, which fell through to the email address when
+                `display_name` was null — which it is for every account that predates `0035`. The
+                email is still here, one line down, styled as what it is. `accountIdentity`'s
+                header carries the whole root cause. */}
+            {identity.name !== null ? (
+              <p className="truncate font-heading text-lg font-bold tracking-tight">
+                <span dir="auto">{identity.name}</span>
+              </p>
+            ) : null}
+            {identity.account !== null ? (
+              /* Two weights for one slot: muted underneath a name, ink when it is carrying the
+                 block alone. An account with no name is not a broken row — it is the honest
+                 answer to *which account is this*, at the size an address deserves rather than at
+                 the size a name does. */
+              <p
+                className={
+                  identity.name !== null
+                    ? 'truncate text-sm text-muted-foreground'
+                    : 'truncate text-sm font-medium text-foreground'
+                }
+              >
+                {identity.account}
+              </p>
             ) : null}
             {joined ? <p className="text-xs text-muted-foreground">{joined}</p> : null}
           </div>
@@ -127,7 +188,9 @@ export default async function ProfilePage() {
             §1.1's objection to a card each is the same objection here, and three figures divided by
             hairlines read as one summary instead of a dashboard. */}
         <section aria-labelledby="library-total" className="mt-4">
-          <SectionHeading id="library-total">Your library</SectionHeading>
+          <h2 id="library-total" className={SECTION_LABEL}>
+            Your library
+          </h2>
           <div className="mt-2 rounded-xl border border-border bg-card">
             <dl className="grid grid-cols-3 divide-x divide-border">
               <Figure label={stats.saved === 1 ? 'Place' : 'Places'} value={stats.saved} />
@@ -160,7 +223,9 @@ export default async function ProfilePage() {
             data cannot keep, which is the same rule the category filter bar follows. */}
         {countries.length > 0 ? (
           <section aria-labelledby="countries" className="mt-6">
-            <SectionHeading id="countries">Where you save</SectionHeading>
+            <h2 id="countries" className={SECTION_LABEL}>
+              Where you save
+            </h2>
             <ul className="mt-1">
               {countries.map((country) => {
                 const code = normaliseCountryCode(country.countryCode);
@@ -183,7 +248,9 @@ export default async function ProfilePage() {
 
         {categories.length > 0 ? (
           <section aria-labelledby="categories" className="mt-6">
-            <SectionHeading id="categories">What you save</SectionHeading>
+            <h2 id="categories" className={SECTION_LABEL}>
+              What you save
+            </h2>
             <ul className="mt-1">
               {categories.map((facet) => {
                 const display = categoryDisplay(facet.category);
@@ -194,11 +261,19 @@ export default async function ProfilePage() {
                     count={facet.count}
                   >
                     {/* The same dot the list and the detail print, from the same table the map
-                        draws its pins from, so a café is one brown word-and-colour everywhere. */}
+                        draws its pins from, so a café is one brown word-and-colour everywhere.
+
+                        `categoryColorVar`, not `display.color`: the literal is the *light* value
+                        and `category-display.ts` says so at the field — it stays a literal because
+                        MapLibre and the OpenGraph image genuinely cannot resolve a custom property,
+                        and this is neither. The `--category-*` tokens already carried both themes
+                        and already switched under `.dark`; they were read by nothing here, so this
+                        swatch would have stayed a light-theme brown on the night map's own page.
+                        A `var()` follows the theme with no hook, no context and no re-render. */}
                     <span
                       aria-hidden
                       className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: display.color }}
+                      style={{ backgroundColor: categoryColorVar(facet.category) }}
                     />
                   </Row>
                 );
@@ -207,24 +282,35 @@ export default async function ProfilePage() {
           </section>
         ) : null}
 
-        {/* The only account action there is. Not `destructive` — signing out destroys nothing, and
-            the palette's destructive role is reserved for the things that do. */}
-        <form action={signOut} className="mt-8">
-          <Button type="submit" variant="outline" size="lg" className="h-12 w-full text-base">
-            <LogOut className="size-4" aria-hidden />
-            Sign out
-          </Button>
-        </form>
+        {/* The way through to everything you can change, and the only one that works without
+            JavaScript: the account menu is a popover, so with scripting off this row is the sole
+            door to `/account`. It stays a real `<Link>` for exactly that reason.
+
+            **The same object as the account menu's row, drawn from the same two strings.** It was a
+            bordered `min-h-14` card with a leading `Settings` glyph, so one destination was two
+            different things depending on which surface you reached it from; `profile-menu.tsx`'s
+            `MenuLink` carries the argument for the borderless shape and for dropping the leading
+            glyph. The trailing chevron stays — it is the glyph that means *this goes somewhere*.
+
+            The hairline above it is the page's only one, and it is what stands in for the card's
+            border: this is the one control on a page of read-only figures, so it is separated from
+            them rather than boxed.
+
+            Landing this needed `MENU_ROW` to stop being an export of a client module — it arrived
+            here as a client reference and `cn()` dropped it, leaving the label and the chevron on
+            two lines with no styling at all. `@/ui/menu-material`'s header is the record. */}
+        <section className="mt-8 border-t border-border/60 pt-2">
+          <Link href="/account" className={cn(MENU_ROW, PRESS_ROW)}>
+            <span className={cn(MENU_ROW_PAINT, 'text-sm')}>
+              <span className="min-w-0 flex-1 truncate font-bold text-foreground">
+                Account settings
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            </span>
+          </Link>
+        </section>
       </div>
     </main>
-  );
-}
-
-function SectionHeading({ id, children }: { id: string; children: string }) {
-  return (
-    <h2 id={id} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-      {children}
-    </h2>
   );
 }
 
@@ -246,9 +332,14 @@ function Figure({ label, value }: { label: string; value: number }) {
 }
 
 /**
- * One breakdown row: an optional mark, what it is, and how many. Hairline dividers rather than a
- * card each — `ux-collections.md` §1.1 rules a bordered box per row out as card soup, and this page
- * has three such lists.
+ * One breakdown row: an optional mark, what it is, and how many.
+ *
+ * **No rule under it.** A card each was ruled out as card soup (`ux-collections.md` §1.1) and a
+ * hairline each was the answer; at nine countries and four categories that is eleven rules on one
+ * phone screen, under two lists whose rows already read as rows — a leading mark, a label, a
+ * right-aligned count. The place card's field run and the account menu's rows both draw none. If a
+ * long list ever stops parsing, the fallback is one `divide-y` on the `<ul>`, never a border per
+ * row.
  */
 function Row({
   label,
@@ -260,7 +351,7 @@ function Row({
   children?: React.ReactNode;
 }) {
   return (
-    <li className="flex min-h-11 items-center gap-3 border-b border-border/60 py-2 last:border-b-0">
+    <li className="flex min-h-11 items-center justify-between gap-3 py-1">
       {children}
       <span dir="auto" className="min-w-0 flex-1 truncate text-sm">
         {label}

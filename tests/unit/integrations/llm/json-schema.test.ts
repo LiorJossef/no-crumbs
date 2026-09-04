@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_TAGS_PER_CANDIDATE } from '@/domain/extraction/tags';
+import { POST_INTENTS } from '@/domain/extraction/schema';
 import { PRIMARY_CATEGORIES } from '@/domain/places/taxonomy';
 
 import { ExtractionResultSchema } from '@/domain/extraction/schema';
@@ -53,8 +54,44 @@ describe('EXTRACTION_JSON_SCHEMA vs ExtractionResultSchema', () => {
         },
       ],
       cityHint: 'Tel Aviv',
+      postIntent: 'place_recommendation',
     };
     expect(ExtractionResultSchema.safeParse(sample).success).toBe(true);
+    expect(ExtractionResultSchema.parse(sample).postIntent).toBe('place_recommendation');
+  });
+
+  it('asks for postIntent at the response level, and requires it', () => {
+    // v5 (E2-T3). Response-level rather than per candidate, because the case the field exists for
+    // — a recommendation whose venue is only spoken — has no candidate to hang it on. `required`
+    // matters: an optional key is one a model quietly stops emitting.
+    expect(EXTRACTION_JSON_SCHEMA.required).toContain('postIntent');
+    expect(Object.keys(EXTRACTION_JSON_SCHEMA.properties)).toContain('postIntent');
+    expect(
+      Object.keys(EXTRACTION_JSON_SCHEMA.properties.candidates.items.properties),
+    ).not.toContain('postIntent');
+  });
+
+  it('the postIntent enum is exactly the three values, plus null', () => {
+    const rawEnum: readonly (string | null)[] = EXTRACTION_JSON_SCHEMA.properties.postIntent.enum;
+    const enumValues = rawEnum.filter((v): v is string => v !== null);
+    expect([...enumValues].sort()).toEqual([...POST_INTENTS].sort());
+    // `null` stays a member for the same reason it does on `categoryHint`: the model must be able
+    // to decline, and an enum that cannot say so makes it pick one anyway.
+    expect(rawEnum).toContain(null);
+  });
+
+  it('accepts every enum member the model is offered, including null', () => {
+    // The drift this catches is the one that costs a whole extraction: a value the JSON Schema
+    // permits and the Zod schema refuses is EXTRACTOR_INVALID_OUTPUT on a compliant reply.
+    for (const value of EXTRACTION_JSON_SCHEMA.properties.postIntent.enum) {
+      const parsed = ExtractionResultSchema.safeParse({
+        candidates: [],
+        cityHint: null,
+        postIntent: value,
+      });
+      expect(parsed.success).toBe(true);
+      expect(parsed.success && parsed.data.postIntent).toBe(value);
+    }
   });
 
   it('caps nameVariants at the same 3 the Zod schema does', () => {

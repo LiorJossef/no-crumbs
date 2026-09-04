@@ -21,6 +21,7 @@ import {
   areaRowCountText,
   buildAreas,
   dominantArea,
+  LIBRARY_HEADING,
   mapAccessibleName,
   resolveArea,
   UNNAMED_AREA_LABEL,
@@ -58,6 +59,8 @@ function city(
 
 const LONDON = { lat: 51.5119, lng: -0.1276 };
 const TEL_AVIV = { lat: 32.0704, lng: 34.7796 };
+/** The four local rows whose `locality` is NULL — see `buildAreas`' country fallback below. */
+const PRAGUE = { lat: 50.0755, lng: 14.4378 };
 
 const londonPlaces = city('ldn', 12, LONDON, ['London']);
 const telAvivPlaces = city('tlv', 9, TEL_AVIV, [
@@ -116,6 +119,54 @@ describe('buildAreas', () => {
   it('leaves the label null when the members name nowhere', () => {
     const areas = areasOf(city('x', 3, LONDON, [null]));
     expect(areas[0]?.label).toBeNull();
+  });
+
+  /**
+   * The Prague case, and it is a live row rather than a hypothetical: four of the owner's saved
+   * places carry `places.locality` NULL, because Google returns Prague's city name in a
+   * sublocality component the adapter did not read. The whole area was nameless, so the header
+   * read `4 places in this area` and the map drew a pill with a bare `4` on it.
+   */
+  describe('an area with no locality falls back to its country', () => {
+    const withCountry = (code: string | null) => ({
+      ...projections,
+      toCountryCode: () => code,
+    });
+
+    it('names it after the country its members agree on', () => {
+      const areas = buildAreas(
+        clusterByProximity(city('cz', 4, PRAGUE, [null]), projections.toPoint),
+        withCountry('CZ'),
+      );
+      expect(areas[0]?.label).toBe('Czechia');
+    });
+
+    it('still prefers the locality wherever there is one', () => {
+      const areas = buildAreas(
+        clusterByProximity(londonPlaces, projections.toPoint),
+        withCountry('GB'),
+      );
+      expect(areas[0]?.label).toBe('London');
+    });
+
+    it('stays null when there is no country either, rather than inventing a word', () => {
+      const areas = buildAreas(
+        clusterByProximity(city('x', 3, PRAGUE, [null]), projections.toPoint),
+        withCountry(null),
+      );
+      expect(areas[0]?.label).toBeNull();
+    });
+
+    it('changes no grouping — the fallback is a label and nothing else', () => {
+      const places = city('cz', 4, PRAGUE, [null]);
+      const clusters = clusterByProximity(places, projections.toPoint);
+      const plain = buildAreas(clusters, projections);
+      const named = buildAreas(clusters, withCountry('CZ'));
+      expect(named.map((area) => area.memberIds.size)).toEqual(
+        plain.map((area) => area.memberIds.size),
+      );
+      expect(named.map((area) => area.id)).toEqual(plain.map((area) => area.id));
+    });
   });
 
   it('gives an area a stable id that does not depend on input order', () => {
@@ -330,18 +381,45 @@ describe('areaHeading', () => {
       searchQuery: 'momos',
       matchesAnywhere: 0,
     });
-    expect(heading.text).toBe('Nothing matches "momos"');
+    // The heading names the library and the *list* quotes the query — 2026-09-04, when the
+    // search miss and the filter miss became one empty state. The heading used to carry
+    // `Nothing matches "momos"` and the state under it said the same sentence again. `escape` is
+    // what still distinguishes the two, and it is what the list reads.
+    expect(heading.text).toBe(LIBRARY_HEADING);
     expect(heading.escape).toBe('clear-search');
   });
 
-  it('names the tag when the chip is what matched nothing, and leaves its pill to clear it', () => {
+  /**
+   * Owner ruling, 2026-09-02: the heading names the library, the *list* says the filters matched
+   * nothing. `Nothing tagged "Momos"` said in the header what `NO_FILTER_MATCHES_LINE` now says a
+   * control row lower, beside the button that undoes it — the same fact twice, and the header half
+   * is the one the owner objected to.
+   */
+  it('names the library, not the failure, when a tag matched nothing', () => {
     const heading = areaHeading({
       ...base,
       countInArea: 0,
       tagLabel: 'Momos',
       matchesAnywhere: 0,
     });
-    expect(heading.text).toBe('Nothing tagged "Momos"');
+    expect(heading.text).toBe(LIBRARY_HEADING);
+    expect(heading.text).not.toContain('Momos');
+    expect(heading.empty).toBe(true);
+    expect(heading.escape).toBeNull();
+    // No second sentence up here either: the list carries the explanation and the way out.
+    expect(heading.note).toBeNull();
+  });
+
+  /**
+   * The axes `areaHeading` cannot see. A category chip and `Been there` arrive as no search, no
+   * tag and `notBeenOnly === false` — identical to no filters at all — so before this they fell
+   * through to `No matches in London`, which is a failure sentence in the header for two of the
+   * four filter axes. `matchesAnywhere === 0 && countInArea === 0` catches all four.
+   */
+  it('says the same thing for a filter axis it cannot name', () => {
+    const heading = areaHeading({ ...base, countInArea: 0, matchesAnywhere: 0 });
+    expect(heading.text).toBe(LIBRARY_HEADING);
+    expect(heading.empty).toBe(true);
     expect(heading.escape).toBeNull();
   });
 
@@ -483,7 +561,9 @@ describe('areaHeading with the not-been-yet filter', () => {
       searchQuery: 'momos',
       matchesAnywhere: 0,
     });
-    expect(heading.text).toBe('Nothing matches "momos"');
+    // Same rule with the visit filter also on: the sentence is the list's, the escape is the
+    // heading's, and `Not been yet` does not take the search's control away.
+    expect(heading.text).toBe(LIBRARY_HEADING);
     expect(heading.escape).toBe('clear-search');
   });
 
@@ -517,7 +597,7 @@ describe('the line under an achievement heading', () => {
       matchesAnywhere: 0,
     });
     expect(heading.note).toBe(
-      'Nothing left on your list. Paste a TikTok and it starts filling up again.',
+      'Nothing left on your list. Paste a TikTok link and it starts filling up again.',
     );
   });
 

@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { IMPORT_SEED_LINKS } from '@/ui/import/seed-links';
 
+import { importClientSource } from './import-client-source';
+
 /**
  * The paste screen's cold-start seeds. The list is meant to be edited — the owner swaps URLs as
  * the recognition corpus changes — so the interesting tests are the ones that catch a bad *edit*,
@@ -60,7 +62,7 @@ describe('IMPORT_SEED_LINKS', () => {
   it('is the only place the client names a seed URL', () => {
     // A seed pasted into the component as a literal is a seed that stops being one-line editable,
     // and it is how a "temporary" test link ends up shipped.
-    const client = readFileSync('src/app/import/import-page-client.tsx', 'utf8');
+    const client = importClientSource();
     expect(client).not.toContain('tiktok.com/@');
     for (const seed of IMPORT_SEED_LINKS) {
       expect(client).not.toContain(seed.url);
@@ -72,16 +74,35 @@ describe('IMPORT_SEED_LINKS', () => {
  * The invariant the whole affordance rests on: a seed tap is a paste. Asserted against the
  * component source because the repo's unit runner has no DOM — the e2e suite drives the real
  * click, this pins the shape that makes the e2e result generalise.
+ *
+ * "The component source" is every file under `src/app/import/` (`import-client-source.ts`). The
+ * counts below — one probe fetch, one submitting effect — are counts over *the whole screen*, and
+ * W6-1 splits it into eleven files. A scan of one of them would report "exactly one" while eleven
+ * twelfths of the screen went unread, and the thing being guarded is a hard 500/day model budget.
  */
 describe('a seed takes the same path as a paste', () => {
-  const CLIENT = readFileSync('src/app/import/import-page-client.tsx', 'utf8');
+  const CLIENT = importClientSource();
 
   it('routes the seed through submit(), with no fetch of its own', () => {
     expect(CLIENT).toContain('void submit(seedUrl)');
-    // One import request site in the whole component. A second call to the probe route would be
-    // a seed-only path — which is exactly what this affordance must not have. (The two other
-    // `fetch`es in the file are the confirm/save route, reached only from the review screen.)
-    expect(CLIENT.match(/fetch\('\/api\/imports\/probe'/g) ?? []).toHaveLength(1);
+    /*
+     * One request site per import route in the whole screen. A second call to either would be a
+     * seed-only path, which is exactly what this affordance must not have, and the probe route
+     * spends a Gemini call against a hard 500/day budget.
+     *
+     * This used to count `fetch('/api/imports/probe'` literals and expect one. W6-2 made the
+     * import two round trips — `/api/imports/source-preview` then `/api/imports/probe` — issued
+     * through one small `post(route)` helper that carries the shared `AbortController`, so the
+     * literal it counted no longer exists and the assertion would have counted **zero** and
+     * passed. Restated against what is now true, and deliberately stricter: it pins both routes,
+     * *and* pins that there is exactly one `fetch(` in the whole screen, which is the property the
+     * old count was standing in for.
+     */
+    expect(CLIENT.match(/post\('\/api\/imports\/probe'\)/g) ?? []).toHaveLength(1);
+    expect(CLIENT.match(/post\('\/api\/imports\/source-preview'\)/g) ?? []).toHaveLength(1);
+    // The confirm/save route lives in `_lib/save-extracted-candidates.ts` and has its own `fetch`;
+    // this counts the run module's, which is the one the cost rule is about.
+    expect(CLIENT.match(/\bfetch\(route,/g) ?? []).toHaveLength(1);
   });
 
   /**
@@ -89,7 +110,7 @@ describe('a seed takes the same path as a paste', () => {
    * prefetch, no warm-up, nothing that fires without a user having pressed something.
    *
    * This used to be "no effect may call `submit`", which was the right rule expressed as the
-   * shape it happened to take. On 2026-08-30 the `＋` sheet's `Add this TikTok` stopped needing a
+   * shape it happened to take. On 2026-08-30 the `＋` sheet's `Add this TikTok link` stopped needing a
    * second `Add` in the overlay, and the only way to run a link the user submitted in another
    * component is a mount effect. **The rule did not change; the shape did.** So the assertion is
    * restated to pin what actually matters, and it is deliberately stricter than the one it
@@ -113,7 +134,7 @@ describe('a seed takes the same path as a paste', () => {
     // The prop spends a model call on mount, so "who may pass it" is now part of the cost rule.
     // A second caller — or one that prefills rather than submits — is the regression to catch.
     const callers = execSync(
-      "grep -rn 'initialUrl' src --include='*.tsx' | grep -v 'src/app/import/import-page-client.tsx'",
+      "grep -rn 'initialUrl' src --include='*.tsx' | grep -v 'src/app/import/'",
       { encoding: 'utf8' },
     )
       .trim()

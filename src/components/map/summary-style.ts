@@ -24,97 +24,71 @@
  * lets `תל אביב-יפו` shape through the RTL plugin.
  */
 
-import { SUMMARY_PILL, summaryPillWidth, type DiscTokens } from './country-flag-image';
+import {
+  SUMMARY_PILL,
+  summaryPillFitAllowance,
+  type DiscTokens,
+  type SummaryPillLabel,
+} from './country-flag-image';
+import { MAX_MARKER_ALLOWANCE_SHARE } from './query-rect';
 import { AREA_BAND_MAX, AREA_BAND_MIN, COUNTRY_BAND_MAX } from './zoom-bands';
 
-/** The label's size, shared by both bands so one number is not two. */
-export const SUMMARY_TEXT_PX = 14;
-
 /**
- * Between the label and the count.
+ * The label's size, shared by both bands so one number is not two.
  *
- * Two spaces rather than a middot or a bullet: the basemap's glyph endpoint is asked for whatever
- * code points we send, and a separator that the CARTO stack has no glyph for renders as nothing at
- * all — silently, and only in production. A space is in every stack there is.
- *
- * An area with no agreed name carries `''`, so this leads the string; `tagged_string.ts`'s
- * `trim()` strips it before shaping, which is §2.3's "the marker shows the count alone" with no
- * branch to get wrong.
+ * No layer reads it any more — both bands bake their text into a bitmap, so the number that is
+ * actually drawn at is `country-flag-image.ts`'s `SUMMARY_LABEL_FONT_PX`, which that file already
+ * documents as being this one restated rather than imported. Kept as the band's published size:
+ * the two are coupled by name and must move together.
  */
-const LABEL_COUNT_GAP = '  ';
+export const SUMMARY_TEXT_PX = 14;
 
 export const COUNTRY_LAYER_ID = 'country-pills';
 export const AREA_LAYER_ID = 'area-pills';
 
 /**
- * **The flag cap sits entirely on the leading edge, so a capped pill is not centred on its own
- * coordinate** — and `icon-text-fit` is what makes that a bug rather than a detail.
+ * The parts that are identical in both bands, which is now **all** of them but the icon.
  *
- * With `icon-text-fit: 'width'` MapLibre fits the icon to the **text box**, not the other way
- * round (`shaping.ts` `fitIconToText`: "the icon will be centered on the text, then stretched"),
- * and lays the image's fixed regions outside that box as pixel offsets (`quads.ts` `getPxOffset`).
- * `text-anchor: 'center'` therefore puts the *text* on the country's coordinate, and the pill grows
- * asymmetrically around it: 45 CSS px of leading inset where the cap is, 25 px trailing. The drawn
- * marker's centre lands 10 px to the **left** of the mean of the user's own saved places, which at
- * world zoom is hundreds of kilometres and reads exactly as the owner reported it — the badge is
- * not over the places it counts. The capless pill (every area marker, and the countryless country
- * bucket) is symmetric and already correct.
- *
- * The offset below moves the text, and the pill follows it because the pill is fitted to the text.
- * It is **not** `icon-offset`: that shifts the icon alone and would slide the pill off its label.
- *
- * Derived from `summaryPillWidth` rather than re-adding the cap geometry here — the difference
- * between the two pill widths *is* the overhang, all of it leading, so there is no second copy of
- * `country-flag-image.ts`'s insets to drift from the first.
+ * Written once because "an area marker and a country marker are the same object one zoom apart" is
+ * a claim the code should make rather than a comment repeated twice — and since 2026-09-02 it is
+ * literally true: both bands draw one bitmap per marker and neither carries a `text-field`.
  */
-const CAP_OVERHANG_PX = summaryPillWidth(true) - summaryPillWidth(false);
-
-/** The same correction in ems, which is the unit `text-offset` is measured in — so it stays right
- *  if `SUMMARY_TEXT_PX` is ever tuned. */
-export const CAPPED_PILL_CENTRING_EM = CAP_OVERHANG_PX / 2 / SUMMARY_TEXT_PX;
-
-/**
- * The capless pill: no flag in it. It is the area band's marker **and** the country band's marker
- * for the countryless bucket (§2.5), which is not a coincidence — they are the same object, and
- * `country-flag-image.ts` builds one image for both.
- *
- * Its id is resolved once by the layer component, which is the only place that knows the theme.
- * The name is kept because `map-surface.mapcn.tsx` imports it.
- */
-export const AREA_DISC_SPEC = { countryCode: null } as const;
-
-/**
- * Never wrap.
- *
- * `icon-text-fit` fits the pill to the text's **width**, so a second line would overflow the pill
- * vertically rather than growing it. 24 ems at 14 px is 336 CSS px — wider than a phone — so no
- * country name and no area label reaches it. `text-max-width: 0` is not the way to say this:
- * `tagged_string.ts`'s `determineAverageLineWidth` divides by it and breaks after every glyph.
- */
-const NO_WRAP_EMS = 24;
-
-/**
- * The parts that are identical in both bands, which is most of them. Written once because "an area
- * marker and a country marker are the same object one zoom apart" is a claim the code should make
- * rather than a comment repeated twice.
- */
-function pillLayout(textFont: readonly string[]): Record<string, unknown> {
+function pillLayout(iconImage: unknown): Record<string, unknown> {
   return {
-    // Fits the pill's stretchable middle to the label. With this set MapLibre ignores `icon-anchor`
-    // outright (`maplibre-gl/src/symbol/shaping.ts:635-637`) and centres the icon on the text, so
-    // there is no anchor here to be quietly disregarded.
-    'icon-text-fit': 'width',
-    // The country band's default: never dropped, for anything. A country that vanishes at world
-    // zoom is a country's worth of saved places the user cannot see. The area band overrides all
-    // four of these — see `areaLayerLayout`.
+    // **The whole pill is one bitmap** — flag, name and count drawn into it by
+    // `country-flag-image.ts` — so there is no `text-field`, no `icon-text-fit` and no
+    // `text-offset` anywhere in either band.
+    //
+    // Two independent reasons, one per band. MapLibre paints a symbol layer's icons in one pass
+    // and its glyphs in another, so while a label was live text a *lower* pill's name floated
+    // above an *upper* pill's background and two markers sharing an anchor smeared together
+    // instead of stacking. And a `text-field` cannot put a Latin count on the same side of a
+    // Hebrew name as it puts it on a Latin one: the field shapes as one bidi paragraph, whose
+    // direction comes from its first strong character, so `תל אביב-יפו  33` placed its digits at
+    // the paragraph's end — on the left — while `London  18` placed them on the right. Neither
+    // `U+2068`/`U+2069` nor a leading `U+200E` moves them, measured on the running map on
+    // 2026-09-02: the shaping goes through `@mapbox/mapbox-gl-rtl-text@0.4.0` in MapLibre's
+    // worker, which resolves direction from the label's own script and ignores the controls
+    // around it. `drawPillText` draws the name and the count as two runs at coordinates we choose,
+    // which is the only place that question can be answered.
+    'icon-image': iconImage,
+    'icon-anchor': 'center',
+    // **Never dropped, for anything.** A country that vanishes at world zoom is a country's worth
+    // of saved places the user cannot see, and since 2026-09-02 the same is true of an area — see
+    // `areaLayerLayout` and `area-band-layout.ts`.
+    //
+    // `allow-overlap` alone is what carries that guarantee, and `ignore-placement` is **not** part
+    // of it. Read in the installed 6.4.1 rather than assumed
+    // (`maplibre-gl/dist/maplibre-gl-dev.mjs`): `placeCollisionBox` at :6976 skips the hit test
+    // entirely when `overlapMode === 'always'`, so an allow-overlap symbol is `placeable` whatever
+    // else is on screen; `insertCollisionBox` at :7131-7132 then files its box in `ignoredGrid`
+    // instead of `grid` **iff `ignore-placement` is true**, and `ignoredGrid` is only ever read by
+    // `queryRenderedSymbols` (:7111), never by `hitTest` during placement.
+    //
+    // So `ignore-placement: true` bought these layers nothing and cost every *other* label — the
+    // basemap's own city names included — the ability to see our pill and step aside from it.
     'icon-allow-overlap': true,
-    'icon-ignore-placement': true,
-    'text-font': [...textFont],
-    'text-size': SUMMARY_TEXT_PX,
-    'text-anchor': 'center',
-    'text-max-width': NO_WRAP_EMS,
-    'text-allow-overlap': true,
-    'text-ignore-placement': true,
+    'icon-ignore-placement': false,
     // Where two markers overlap, the one holding more places is drawn on top. `symbol_bucket.ts`
     // sorts **ascending** and buffers in that order, so a *higher* key is drawn later and therefore
     // above — the count goes in as-is. (This is the opposite of what reads naturally, which is why
@@ -126,48 +100,50 @@ function pillLayout(textFont: readonly string[]): Record<string, unknown> {
 }
 
 /**
- * The label and the count, as **one text section**.
+ * **Whether the country band can afford to print country names in a container this wide.**
  *
- * `['concat', …]`, deliberately, and not `['format', …]` with a `font-scale` on the count. A
- * `format` with more than one section leaves `logicalInput.sections.length > 1`, and
- * `shaping.ts:135-146` then only applies bidi when the loaded RTL plugin exports
- * `processStyledBidirectionalText`; without it the text is shaped with **no bidi at all**. The area
- * band's labels are the Hebrew ones, so a multi-section field is exactly where that would bite.
- * One section takes `processBidirectionalText`, which is the path that is actually installed.
+ * The same test the camera applies to the same pill, deliberately: `affordableMarkerAllowance`
+ * refuses to pad a `fitBounds` for a marker costing more than `MAX_MARKER_ALLOWANCE_SHARE` of an
+ * axis, and this refuses to *draw* one. So the two flip together — **when the camera stops paying
+ * for the pill, the pill stops charging** — and a pill can never be both unpadded and too wide to
+ * survive the padding that is left. Before `fa96c1a` the camera paid whatever was asked and the map
+ * opened on a globe; after it the camera paid nothing and the pill hung off both edges. This is the
+ * third state, and it is the one where the numbers agree.
+ *
+ * Measured over the **capped** pills only, which are the ones this can shrink. The unflagged
+ * bucket's width is not this predicate's business: nothing here can make it narrower, so letting it
+ * force every flagged pill to drop its name would spend the names and buy nothing.
  */
-function labelAndCount(): unknown[] {
-  return ['concat', ['get', 'label'], LABEL_COUNT_GAP, ['to-string', ['get', 'count']]];
+export function countryPillsAffordLabels(
+  labels: readonly SummaryPillLabel[],
+  containerWidth: number,
+): boolean {
+  const capped = labels.filter((label) => label.capped);
+  if (capped.length === 0) return true;
+  if (!Number.isFinite(containerWidth) || containerWidth <= 0) return true;
+  const widest = 2 * summaryPillFitAllowance(capped).x;
+  return widest <= containerWidth * MAX_MARKER_ALLOWANCE_SHARE;
 }
 
 /**
  * The country band: `z < COUNTRY_BAND_MAX`.
  *
- * One symbol layer, not two, and that is the decision worth stating. §2.2 requires the count to be
- * a text layer rather than baked into the bitmap — so it can be a number rather than a picture of
- * one — but *separating the layers* would let MapLibre place them independently, and a count that
- * drifts from its own pill is worse than no count. One symbol carrying both an `icon-image` and a
- * `text-field` is laid out as a unit, which satisfies the rule and cannot come apart.
+ * One symbol layer, not two, and that is the decision worth stating. Separating the count into its
+ * own layer would let MapLibre place the two independently, and a count that drifts off its own
+ * pill is worse than no count. One symbol carrying the whole marker cannot come apart.
  *
- * The country's **name** is in the field beside the count because a flag on its own asks the reader
- * to recognise one of 250 — and where the platform ships no flag glyph the cap draws a two-letter
- * code, which asks something harder.
+ * The country's **name** is drawn beside its flag because a flag on its own asks the reader to
+ * recognise one of 250 — and where the platform ships no flag glyph the cap draws a two-letter
+ * code, which asks something harder. `labelled: false` is the phone's pill: flag and count alone
+ * (`countryPillsAffordLabels`).
+ *
+ * The countryless bucket sits at the mean of places we could not name a country for, which are
+ * inside the countries you already have — measured 2026-09-02, `Other  1` and `Israel  35` are
+ * 1.5 px apart in x and 7.2 px in y, and they do not separate at any zoom this band draws. One
+ * icon per pill occludes as one opaque card, which is what the owner asked for.
  */
-export function countryLayerLayout(textFont: readonly string[]): Record<string, unknown> {
-  return {
-    ...pillLayout(textFont),
-    // Per-feature, because the flag, the theme and the mint ring are all baked into the image.
-    'icon-image': ['get', 'icon'],
-    'text-field': labelAndCount(),
-    // Per-feature too, and for the same reason: only a *capped* pill is off-centre. The countryless
-    // bucket carries `countryCode: ''` and draws the capless pill, which is already symmetric — see
-    // `CAPPED_PILL_CENTRING_EM`.
-    'text-offset': [
-      'case',
-      ['==', ['get', 'countryCode'], ''],
-      ['literal', [0, 0]],
-      ['literal', [CAPPED_PILL_CENTRING_EM, 0]],
-    ],
-  };
+export function countryLayerLayout(labelled = true): Record<string, unknown> {
+  return pillLayout(labelled ? ['get', 'icon'] : ['get', 'iconShort']);
 }
 
 /**
@@ -191,40 +167,30 @@ export function countryLayerLayout(textFont: readonly string[]): Record<string, 
  *     its own. Verified against the installed 6.4.1 in `docs/evidence/map-zoom-bands-2026-08-29.md`.
  *  3. **Its tap target was 32 px**, under §6's 44 px floor, because the hit test is the radius plus
  *     the stroke and nothing else. The pill is 50 px tall, and `collision_feature.ts:76-81` expands
- *     the fitted icon's box back out to the whole image, so that is the target.
+ *     the icon's box back out to the whole image, so that is the target.
  *
- * **One layer, not two.** The area's name used to be its own symbol layer, drawn under the disc,
- * which put it straight on top of the basemap's label for the same city — `London` under a disc
- * sitting on `London`. Inside the pill it is the same text field the country band uses, and the two
- * bands are finally the same object rather than two things that were meant to match.
+ * **One layer, not two, and now one bitmap.** The area's name used to be its own symbol layer,
+ * drawn under the disc, where it landed on the basemap's own label for the same city; then it was
+ * a `text-field` inside a stretchable pill. It is baked into the pill's image from 2026-09-02,
+ * because that is the only way a Hebrew city's count sits where a Latin one's does — see
+ * `pillLayout` and `country-flag-image.ts`'s `drawPillText`. `summary-features.ts`'s `areaPillSpec`
+ * builds the spec and `summary-marker-layer.tsx` resolves the id into each feature's `icon`, from
+ * the **laid-out** count rather than the area's own.
+ *
+ * **Neither band collides any more, and for the area band that is a reversal.** It ran with
+ * MapLibre's placement on from 2026-08-30, because neighbouring cities are a few pixels apart
+ * across this whole band — Ra'anana and Herzliya are 4.9 px apart at z7 under a pill ~125 px wide
+ * — and overlap-always drew them as one unreadable stack. The comment here said the loser was
+ * "hidden until zooming in makes room, which it always does, because z8.5 ends the band". Measured
+ * on 2026-09-02 against the owner's own library: it does not. Tel Aviv and Herzliya first have
+ * room at z8.4, inside the window `settleZoom` keeps a camera out of, so seven of twelve areas
+ * were drawn at **no** zoom in the band and 18 saved places were neither visible nor counted.
+ * `area-band-layout.ts` answers it instead, by absorbing an area that does not fit into the
+ * neighbour that displaced it — so the pills handed to this layer do not overlap by construction
+ * and there is nothing left for the collision index to drop.
  */
-export function areaLayerLayout(
-  textFont: readonly string[],
-  pillImageId: string
-): Record<string, unknown> {
-  return {
-    ...pillLayout(textFont),
-    // Constant: every area draws the capless pill. Resolved by the caller, which is the only place
-    // that knows the theme.
-    'icon-image': pillImageId,
-    'text-field': labelAndCount(),
-    // **The area band collides; the country band does not.** Neighbouring cities are a few pixels
-    // apart across this whole band — Ra'anana and Herzliya are 4.9 px apart at z7, under a pill
-    // ~125 px wide — so overlap-always drew them as one unreadable stack of text. Turning MapLibre's
-    // own placement back on is the whole fix: the loser is hidden until zooming in makes room, which
-    // it always does, because z8.5 ends the band. A country has no such recovery, which is why the
-    // two bands differ here.
-    'icon-allow-overlap': false,
-    'icon-ignore-placement': false,
-    'text-allow-overlap': false,
-    'text-ignore-placement': false,
-    // Placement is first-come-first-served in **ascending** sort-key order
-    // (`pauseable_placement.ts:45`), the opposite of the draw order `pillLayout` documents, so the
-    // key is negated: the area holding the most places is placed first and is the one that survives.
-    'symbol-sort-key': ['-', 0, ['get', 'count']],
-    // No `text-offset`: a capless pill's leading and trailing insets are equal, so it is already
-    // centred on the area's own coordinate. See `CAPPED_PILL_CENTRING_EM`.
-  };
+export function areaLayerLayout(): Record<string, unknown> {
+  return pillLayout(['get', 'icon']);
 }
 
 /**
@@ -247,6 +213,18 @@ export function summaryLayerPaint(tokens: DiscTokens): Record<string, unknown> {
  */
 export const COUNTRY_BAND_ZOOM = { maxzoom: COUNTRY_BAND_MAX } as const;
 export const AREA_BAND_ZOOM = { minzoom: AREA_BAND_MIN, maxzoom: AREA_BAND_MAX } as const;
+
+/**
+ * Which of `area-band-layout.ts`'s pre-computed layouts a layer draws.
+ *
+ * A **static** filter on a feature property, not a `['zoom']` comparison: the zoom stays where §2.1
+ * put it, in `minzoom`/`maxzoom`, where MapLibre owns the swap and no React state changes on a
+ * pinch. The area band is now four layers over one source instead of one, which is the same
+ * mechanism the three bands already use, one level down.
+ */
+export function areaStepFilter(step: number): unknown[] {
+  return ['==', ['get', 'step'], step];
+}
 
 /** The marker's tap target, in CSS pixels — the whole pill, height included. §6 floors it at 44. */
 export const SUMMARY_TAP_TARGET_PX = SUMMARY_PILL.height + 2 * SUMMARY_PILL.shadowPad;

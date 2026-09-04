@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 /**
  * `docs/ux-collections-as-scope.md` §5 items 1, 2 and 4: **the collections index is S4 with
  * collections in it, not a second page.**
@@ -15,19 +17,7 @@ const EMAIL = process.env.E2E_EMAIL ?? 'demo@example.com';
 const PASSWORD = process.env.E2E_PASSWORD;
 
 async function signIn(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(700);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try {
-      await page.waitForURL('**/map', { timeout: 20_000 });
-      return;
-    } catch { /* dev-mode hydration race; every other spec retries the same way */ }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 test.describe('the collections index', () => {
@@ -35,7 +25,9 @@ test.describe('the collections index', () => {
 
   test.beforeEach(async ({ page }) => {
     await signIn(page);
-    await page.goto('/collections');
+    // The canonical URL. `/collections` still resolves and is covered by the redirect assertion
+    // below, but driving the shim on every test would measure the redirect rather than the screen.
+    await page.goto('/map?view=collections');
     await page.waitForLoadState('networkidle');
     // The list is in the document twice — the sheet (`lg:hidden`) and the panel
     // (`hidden lg:block`) — so `.first()` is whichever the breakpoint happens to hide.
@@ -62,4 +54,15 @@ test.describe('the collections index', () => {
     await expect(page.locator('nav[aria-label="Main"]')).toHaveCount(1);
   });
 
+  /**
+   * **The old URL still works**, which is the half of the 2026-08-31 route merge that is easy to
+   * forget and impossible to recover: `/collections` is in browser history, in bookmarks, in the
+   * bar people learned and in anything anyone has shared. A restructure that quietly 404s
+   * previously-working links is a worse defect than the flicker it removed.
+   */
+  test('keeps the URL it used to live at, as a redirect', async ({ page }) => {
+    await page.goto('/collections');
+    await page.waitForURL('**/map?view=collections', { timeout: 15_000 });
+    await expect(page.getByText(/yours/i).locator('visible=true').first()).toBeVisible();
+  });
 });

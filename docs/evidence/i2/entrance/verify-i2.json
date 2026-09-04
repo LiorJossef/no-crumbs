@@ -1,0 +1,1193 @@
+{
+  "takenAt": "2026-08-31T08:57:00.757Z",
+  "commit": "649977739b522d60c3a406be375160d084151e44",
+  "commitish": "6499777",
+  "places": 12,
+  "dataSource": "stub (tests/harness/stub-supabase.mjs) — layout and colour are real, rows are not",
+  "buildMode": "git archive <sha> -> next build -> next start",
+  "instrument": {
+    "contrastSelfTest": null
+  },
+  "browser": "bundled Playwright Chromium",
+  "contrast": [],
+  "brand": [],
+  "arrival": [],
+  "entrance": [
+    {
+      "viewport": "390x844",
+      "route": "sign-in",
+      "run": 1,
+      "entranceElements": 11,
+      "framesSampled": 584,
+      "perElement": [
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 79.5,
+          "lastMs": 5015.3,
+          "changes": 385,
+          "neverSettles": true
+        },
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 79.5,
+          "lastMs": 5015.3,
+          "changes": 385,
+          "neverSettles": true
+        },
+        {
+          "key": "div.relative.w-full",
+          "firstMs": 135.6,
+          "lastMs": 577.7,
+          "changes": 36,
+          "neverSettles": false
+        },
+        {
+          "key": "div.relative.flex",
+          "firstMs": 266.7,
+          "lastMs": 613.4,
+          "changes": 29,
+          "neverSettles": false
+        },
+        {
+          "key": "span.relative.flex",
+          "firstMs": 266.7,
+          "lastMs": 809.7,
+          "changes": 52,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 311.5,
+          "lastMs": 657.5,
+          "changes": 31,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 344.7,
+          "lastMs": 701.1,
+          "changes": 33,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 399.5,
+          "lastMs": 742.6,
+          "changes": 35,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 445,
+          "lastMs": 790.5,
+          "changes": 37,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 479.3,
+          "lastMs": 835.1,
+          "changes": 40,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 534,
+          "lastMs": 877,
+          "changes": 40,
+          "neverSettles": false
+        }
+      ],
+      "ambientElements": 2,
+      "entranceStartMs": 135.6,
+      "entranceEndMs": 877,
+      "spanMs": 741.4,
+      "fromNavigationMs": 877,
+      "focus": {
+        "firstSeenMs": 48.300000071525574,
+        "firstFocusableMs": 49.200000047683716,
+        "everRefused": false,
+        "attempts": 150,
+        "hitTest": {
+          "focused": true,
+          "topmostIsField": true,
+          "top": "input"
+        }
+      },
+      "restingOpacityMin": 1,
+      "restingTransformsNotNone": 2,
+      "afterClientNav": null
+    },
+    {
+      "viewport": "390x844",
+      "route": "sign-in",
+      "run": 2,
+      "entranceElements": 11,
+      "framesSampled": 585,
+      "perElement": [
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 74.6,
+          "lastMs": 5018.4,
+          "changes": 387,
+          "neverSettles": true
+        },
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 74.6,
+          "lastMs": 5018.4,
+          "changes": 387,
+          "neverSettles": true
+        },
+        {
+          "key": "div.relative.w-full",
+          "firstMs": 129.5,
+          "lastMs": 561.9,
+          "changes": 37,
+          "neverSettles": false
+        },
+        {
+          "key": "div.relative.flex",
+          "firstMs": 260.9,
+          "lastMs": 608.7,
+          "changes": 31,
+          "neverSettles": false
+        },
+        {
+          "key": "span.relative.flex",
+          "firstMs": 260.9,
+          "lastMs": 805.3,
+          "changes": 53,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 305.3,
+          "lastMs": 644,
+          "changes": 31,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 349.3,
+          "lastMs": 705.3,
+          "changes": 33,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 382.9,
+          "lastMs": 738.5,
+          "changes": 35,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 437.9,
+          "lastMs": 780.1,
+          "changes": 35,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 482.3,
+          "lastMs": 830.1,
+          "changes": 37,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 527.4,
+          "lastMs": 871.9,
+          "changes": 38,
+          "neverSettles": false
+        }
+      ],
+      "ambientElements": 2,
+      "entranceStartMs": 129.5,
+      "entranceEndMs": 871.9,
+      "spanMs": 742.4,
+      "fromNavigationMs": 871.9,
+      "focus": {
+        "firstSeenMs": 47.5,
+        "firstFocusableMs": 48.299999952316284,
+        "everRefused": false,
+        "attempts": 149,
+        "hitTest": {
+          "focused": true,
+          "topmostIsField": true,
+          "top": "input"
+        }
+      },
+      "restingOpacityMin": 1,
+      "restingTransformsNotNone": 2,
+      "afterClientNav": {
+        "entranceElements": 10,
+        "framesSampled": 295,
+        "perElement": [
+          {
+            "key": "div.absolute.rounded-full",
+            "firstMs": 28.7,
+            "lastMs": 2514.4,
+            "changes": 201,
+            "neverSettles": true
+          },
+          {
+            "key": "div.absolute.rounded-full",
+            "firstMs": 28.7,
+            "lastMs": 2514.4,
+            "changes": 202,
+            "neverSettles": true
+          },
+          {
+            "key": "div.relative.w-full",
+            "firstMs": 78.3,
+            "lastMs": 515.9,
+            "changes": 45,
+            "neverSettles": false
+          },
+          {
+            "key": "div.relative.flex",
+            "firstMs": 206.4,
+            "lastMs": 555,
+            "changes": 37,
+            "neverSettles": false
+          },
+          {
+            "key": "span.relative.flex",
+            "firstMs": 206.4,
+            "lastMs": 753.4,
+            "changes": 60,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 245.3,
+            "lastMs": 594.8,
+            "changes": 37,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 294.8,
+            "lastMs": 645.3,
+            "changes": 38,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 344.1,
+            "lastMs": 686.3,
+            "changes": 38,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 383,
+            "lastMs": 736.6,
+            "changes": 40,
+            "neverSettles": false
+          },
+          {
+            "key": "div.flex.flex-col",
+            "firstMs": 433.2,
+            "lastMs": 778.4,
+            "changes": 41,
+            "neverSettles": false
+          }
+        ],
+        "ambientElements": 2,
+        "entranceStartMs": 78.3,
+        "entranceEndMs": 778.4,
+        "spanMs": 700.1,
+        "fromNavigationMs": 778.4,
+        "focus": {
+          "firstSeenMs": null,
+          "firstFocusableMs": null,
+          "everRefused": false,
+          "attempts": 0,
+          "hitTest": null
+        },
+        "restingOpacityMin": 1,
+        "restingTransformsNotNone": 2
+      }
+    },
+    {
+      "viewport": "390x844",
+      "route": "landing",
+      "run": 1,
+      "entranceElements": 10,
+      "framesSampled": 593,
+      "perElement": [
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 67,
+          "lastMs": 5025.5,
+          "changes": 394,
+          "neverSettles": true
+        },
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 67,
+          "lastMs": 5025.5,
+          "changes": 395,
+          "neverSettles": true
+        },
+        {
+          "key": "div.relative.w-full",
+          "firstMs": 117.8,
+          "lastMs": 552.6,
+          "changes": 43,
+          "neverSettles": false
+        },
+        {
+          "key": "div.relative.flex",
+          "firstMs": 249.8,
+          "lastMs": 594.9,
+          "changes": 34,
+          "neverSettles": false
+        },
+        {
+          "key": "span.relative.flex",
+          "firstMs": 239.9,
+          "lastMs": 792.9,
+          "changes": 59,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 290.4,
+          "lastMs": 635.8,
+          "changes": 35,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 341.1,
+          "lastMs": 684.6,
+          "changes": 36,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 382.2,
+          "lastMs": 726.1,
+          "changes": 37,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 423.6,
+          "lastMs": 775.7,
+          "changes": 39,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 476.5,
+          "lastMs": 816.8,
+          "changes": 39,
+          "neverSettles": false
+        }
+      ],
+      "ambientElements": 2,
+      "entranceStartMs": 117.8,
+      "entranceEndMs": 816.8,
+      "spanMs": 699,
+      "fromNavigationMs": 816.8,
+      "focus": {
+        "firstSeenMs": null,
+        "firstFocusableMs": null,
+        "everRefused": false,
+        "attempts": 0,
+        "hitTest": null
+      },
+      "restingOpacityMin": 1,
+      "restingTransformsNotNone": 2,
+      "afterClientNav": null
+    },
+    {
+      "viewport": "390x844",
+      "route": "landing",
+      "run": 2,
+      "entranceElements": 10,
+      "framesSampled": 593,
+      "perElement": [
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 64,
+          "lastMs": 5020.9,
+          "changes": 394,
+          "neverSettles": true
+        },
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 64,
+          "lastMs": 5020.9,
+          "changes": 394,
+          "neverSettles": true
+        },
+        {
+          "key": "div.relative.w-full",
+          "firstMs": 113.6,
+          "lastMs": 553.5,
+          "changes": 44,
+          "neverSettles": false
+        },
+        {
+          "key": "div.relative.flex",
+          "firstMs": 251.8,
+          "lastMs": 595.3,
+          "changes": 34,
+          "neverSettles": false
+        },
+        {
+          "key": "span.relative.flex",
+          "firstMs": 251.8,
+          "lastMs": 795.8,
+          "changes": 59,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 301.4,
+          "lastMs": 636.4,
+          "changes": 34,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 331.7,
+          "lastMs": 684.9,
+          "changes": 37,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 381.9,
+          "lastMs": 730.3,
+          "changes": 38,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 421.9,
+          "lastMs": 770.4,
+          "changes": 39,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 472.6,
+          "lastMs": 813.4,
+          "changes": 39,
+          "neverSettles": false
+        }
+      ],
+      "ambientElements": 2,
+      "entranceStartMs": 113.6,
+      "entranceEndMs": 813.4,
+      "spanMs": 699.8,
+      "fromNavigationMs": 813.4,
+      "focus": {
+        "firstSeenMs": null,
+        "firstFocusableMs": null,
+        "everRefused": false,
+        "attempts": 0,
+        "hitTest": null
+      },
+      "restingOpacityMin": 1,
+      "restingTransformsNotNone": 2,
+      "afterClientNav": {
+        "entranceElements": 11,
+        "framesSampled": 285,
+        "perElement": [
+          {
+            "key": "div.absolute.rounded-full",
+            "firstMs": 36.5,
+            "lastMs": 2509.5,
+            "changes": 190,
+            "neverSettles": true
+          },
+          {
+            "key": "div.absolute.rounded-full",
+            "firstMs": 36.5,
+            "lastMs": 2509.5,
+            "changes": 190,
+            "neverSettles": true
+          },
+          {
+            "key": "div.relative.w-full",
+            "firstMs": 92.4,
+            "lastMs": 529.3,
+            "changes": 35,
+            "neverSettles": false
+          },
+          {
+            "key": "div.relative.flex",
+            "firstMs": 224,
+            "lastMs": 565,
+            "changes": 28,
+            "neverSettles": false
+          },
+          {
+            "key": "span.relative.flex",
+            "firstMs": 224,
+            "lastMs": 768.6,
+            "changes": 52,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 269.3,
+            "lastMs": 610.1,
+            "changes": 29,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 302.7,
+            "lastMs": 656,
+            "changes": 31,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 358.8,
+            "lastMs": 698.3,
+            "changes": 33,
+            "neverSettles": false
+          },
+          {
+            "key": "div.flex.flex-col",
+            "firstMs": 392.8,
+            "lastMs": 745.6,
+            "changes": 35,
+            "neverSettles": false
+          },
+          {
+            "key": "div.flex.flex-col",
+            "firstMs": 448.7,
+            "lastMs": 793.5,
+            "changes": 37,
+            "neverSettles": false
+          },
+          {
+            "key": "div.flex.flex-col",
+            "firstMs": 494.7,
+            "lastMs": 834.1,
+            "changes": 39,
+            "neverSettles": false
+          }
+        ],
+        "ambientElements": 2,
+        "entranceStartMs": 92.4,
+        "entranceEndMs": 834.1,
+        "spanMs": 741.7,
+        "fromNavigationMs": 834.1,
+        "focus": {
+          "firstSeenMs": 31.40000009536743,
+          "firstFocusableMs": 32.300000071525574,
+          "everRefused": false,
+          "attempts": 93,
+          "hitTest": {
+            "focused": true,
+            "topmostIsField": true,
+            "top": "input"
+          }
+        },
+        "restingOpacityMin": 1,
+        "restingTransformsNotNone": 2
+      }
+    },
+    {
+      "viewport": "1440x900",
+      "route": "sign-in",
+      "run": 1,
+      "entranceElements": 11,
+      "framesSampled": 523,
+      "perElement": [
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 74.8,
+          "lastMs": 5013.2,
+          "changes": 329,
+          "neverSettles": true
+        },
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 74.8,
+          "lastMs": 5013.2,
+          "changes": 326,
+          "neverSettles": true
+        },
+        {
+          "key": "div.relative.w-full",
+          "firstMs": 128.8,
+          "lastMs": 639.6,
+          "changes": 18,
+          "neverSettles": false
+        },
+        {
+          "key": "div.relative.flex",
+          "firstMs": 242.7,
+          "lastMs": 640.6,
+          "changes": 13,
+          "neverSettles": false
+        },
+        {
+          "key": "span.relative.flex",
+          "firstMs": 242.7,
+          "lastMs": 807.7,
+          "changes": 20,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 322.5,
+          "lastMs": 640.6,
+          "changes": 11,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 322.5,
+          "lastMs": 684.8,
+          "changes": 13,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 402.6,
+          "lastMs": 770.7,
+          "changes": 13,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 454.3,
+          "lastMs": 807.7,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 508.5,
+          "lastMs": 834.2,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 535.7,
+          "lastMs": 884.1,
+          "changes": 15,
+          "neverSettles": false
+        }
+      ],
+      "ambientElements": 2,
+      "entranceStartMs": 128.8,
+      "entranceEndMs": 884.1,
+      "spanMs": 755.3,
+      "fromNavigationMs": 884.1,
+      "focus": {
+        "firstSeenMs": 48.800000071525574,
+        "firstFocusableMs": 49.60000002384186,
+        "everRefused": false,
+        "attempts": 148,
+        "hitTest": {
+          "focused": true,
+          "topmostIsField": true,
+          "top": "input"
+        }
+      },
+      "restingOpacityMin": 1,
+      "restingTransformsNotNone": 2,
+      "afterClientNav": null
+    },
+    {
+      "viewport": "1440x900",
+      "route": "sign-in",
+      "run": 2,
+      "entranceElements": 11,
+      "framesSampled": 527,
+      "perElement": [
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 71.2,
+          "lastMs": 5008.4,
+          "changes": 336,
+          "neverSettles": true
+        },
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 71.2,
+          "lastMs": 5008.4,
+          "changes": 333,
+          "neverSettles": true
+        },
+        {
+          "key": "div.relative.w-full",
+          "firstMs": 124.4,
+          "lastMs": 569.4,
+          "changes": 16,
+          "neverSettles": false
+        },
+        {
+          "key": "div.relative.flex",
+          "firstMs": 240,
+          "lastMs": 637.4,
+          "changes": 13,
+          "neverSettles": false
+        },
+        {
+          "key": "span.relative.flex",
+          "firstMs": 240,
+          "lastMs": 831.2,
+          "changes": 22,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 295.2,
+          "lastMs": 638.4,
+          "changes": 13,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 353,
+          "lastMs": 726.1,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 380.6,
+          "lastMs": 768.3,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 432.2,
+          "lastMs": 769.4,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 486.3,
+          "lastMs": 831.2,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 539.9,
+          "lastMs": 870.5,
+          "changes": 16,
+          "neverSettles": false
+        }
+      ],
+      "ambientElements": 2,
+      "entranceStartMs": 124.4,
+      "entranceEndMs": 870.5,
+      "spanMs": 746.1,
+      "fromNavigationMs": 870.5,
+      "focus": {
+        "firstSeenMs": 46.299999952316284,
+        "firstFocusableMs": 46.89999997615814,
+        "everRefused": false,
+        "attempts": 147,
+        "hitTest": {
+          "focused": true,
+          "topmostIsField": true,
+          "top": "input"
+        }
+      },
+      "restingOpacityMin": 1,
+      "restingTransformsNotNone": 2,
+      "afterClientNav": {
+        "entranceElements": 10,
+        "framesSampled": 251,
+        "perElement": [
+          {
+            "key": "div.absolute.rounded-full",
+            "firstMs": 26.5,
+            "lastMs": 2500.8,
+            "changes": 162,
+            "neverSettles": true
+          },
+          {
+            "key": "div.absolute.rounded-full",
+            "firstMs": 26.5,
+            "lastMs": 2500.8,
+            "changes": 160,
+            "neverSettles": true
+          },
+          {
+            "key": "div.relative.w-full",
+            "firstMs": 75.5,
+            "lastMs": 550.9,
+            "changes": 21,
+            "neverSettles": false
+          },
+          {
+            "key": "div.relative.flex",
+            "firstMs": 244.8,
+            "lastMs": 552.2,
+            "changes": 14,
+            "neverSettles": false
+          },
+          {
+            "key": "span.relative.flex",
+            "firstMs": 198.2,
+            "lastMs": 774.6,
+            "changes": 25,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 245.6,
+            "lastMs": 612.8,
+            "changes": 16,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 270.6,
+            "lastMs": 671.4,
+            "changes": 17,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 340.8,
+            "lastMs": 726.4,
+            "changes": 18,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 389.3,
+            "lastMs": 742.8,
+            "changes": 17,
+            "neverSettles": false
+          },
+          {
+            "key": "div.flex.flex-col",
+            "firstMs": 437.3,
+            "lastMs": 786.8,
+            "changes": 16,
+            "neverSettles": false
+          }
+        ],
+        "ambientElements": 2,
+        "entranceStartMs": 75.5,
+        "entranceEndMs": 786.8,
+        "spanMs": 711.3,
+        "fromNavigationMs": 786.8,
+        "focus": {
+          "firstSeenMs": null,
+          "firstFocusableMs": null,
+          "everRefused": false,
+          "attempts": 0,
+          "hitTest": null
+        },
+        "restingOpacityMin": 1,
+        "restingTransformsNotNone": 2
+      }
+    },
+    {
+      "viewport": "1440x900",
+      "route": "landing",
+      "run": 1,
+      "entranceElements": 10,
+      "framesSampled": 545,
+      "perElement": [
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 62.9,
+          "lastMs": 5014.9,
+          "changes": 333,
+          "neverSettles": true
+        },
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 62.9,
+          "lastMs": 5014.9,
+          "changes": 331,
+          "neverSettles": true
+        },
+        {
+          "key": "div.relative.w-full",
+          "firstMs": 118.4,
+          "lastMs": 592.2,
+          "changes": 19,
+          "neverSettles": false
+        },
+        {
+          "key": "div.relative.flex",
+          "firstMs": 221.2,
+          "lastMs": 633.1,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "span.relative.flex",
+          "firstMs": 221.2,
+          "lastMs": 829.3,
+          "changes": 25,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 290,
+          "lastMs": 653.8,
+          "changes": 13,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 337.8,
+          "lastMs": 714.2,
+          "changes": 15,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 361.9,
+          "lastMs": 715.4,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 431.4,
+          "lastMs": 767.1,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 476.8,
+          "lastMs": 829.3,
+          "changes": 16,
+          "neverSettles": false
+        }
+      ],
+      "ambientElements": 2,
+      "entranceStartMs": 118.4,
+      "entranceEndMs": 829.3,
+      "spanMs": 710.9,
+      "fromNavigationMs": 829.3,
+      "focus": {
+        "firstSeenMs": null,
+        "firstFocusableMs": null,
+        "everRefused": false,
+        "attempts": 0,
+        "hitTest": null
+      },
+      "restingOpacityMin": 1,
+      "restingTransformsNotNone": 2,
+      "afterClientNav": null
+    },
+    {
+      "viewport": "1440x900",
+      "route": "landing",
+      "run": 2,
+      "entranceElements": 10,
+      "framesSampled": 547,
+      "perElement": [
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 65,
+          "lastMs": 5019.8,
+          "changes": 344,
+          "neverSettles": true
+        },
+        {
+          "key": "div.absolute.rounded-full",
+          "firstMs": 65,
+          "lastMs": 5019.8,
+          "changes": 342,
+          "neverSettles": true
+        },
+        {
+          "key": "div.relative.w-full",
+          "firstMs": 114.7,
+          "lastMs": 566,
+          "changes": 19,
+          "neverSettles": false
+        },
+        {
+          "key": "div.relative.flex",
+          "firstMs": 260.5,
+          "lastMs": 610,
+          "changes": 13,
+          "neverSettles": false
+        },
+        {
+          "key": "span.relative.flex",
+          "firstMs": 237.5,
+          "lastMs": 817.2,
+          "changes": 24,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 305.5,
+          "lastMs": 668.6,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 328.6,
+          "lastMs": 669.7,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 398.3,
+          "lastMs": 727.5,
+          "changes": 14,
+          "neverSettles": false
+        },
+        {
+          "key": "div.",
+          "firstMs": 422,
+          "lastMs": 775.8,
+          "changes": 16,
+          "neverSettles": false
+        },
+        {
+          "key": "div.flex.flex-col",
+          "firstMs": 469.4,
+          "lastMs": 828,
+          "changes": 18,
+          "neverSettles": false
+        }
+      ],
+      "ambientElements": 2,
+      "entranceStartMs": 114.7,
+      "entranceEndMs": 828,
+      "spanMs": 713.3,
+      "fromNavigationMs": 828,
+      "focus": {
+        "firstSeenMs": null,
+        "firstFocusableMs": null,
+        "everRefused": false,
+        "attempts": 0,
+        "hitTest": null
+      },
+      "restingOpacityMin": 1,
+      "restingTransformsNotNone": 2,
+      "afterClientNav": {
+        "entranceElements": 11,
+        "framesSampled": 242,
+        "perElement": [
+          {
+            "key": "div.absolute.rounded-full",
+            "firstMs": 34.8,
+            "lastMs": 2501.1,
+            "changes": 148,
+            "neverSettles": true
+          },
+          {
+            "key": "div.absolute.rounded-full",
+            "firstMs": 34.8,
+            "lastMs": 2501.1,
+            "changes": 145,
+            "neverSettles": true
+          },
+          {
+            "key": "div.relative.w-full",
+            "firstMs": 84.2,
+            "lastMs": 566.1,
+            "changes": 18,
+            "neverSettles": false
+          },
+          {
+            "key": "div.relative.flex",
+            "firstMs": 195.7,
+            "lastMs": 592.1,
+            "changes": 13,
+            "neverSettles": false
+          },
+          {
+            "key": "span.relative.flex",
+            "firstMs": 195.7,
+            "lastMs": 777.5,
+            "changes": 21,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 276,
+            "lastMs": 656.1,
+            "changes": 12,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 276,
+            "lastMs": 657,
+            "changes": 13,
+            "neverSettles": false
+          },
+          {
+            "key": "div.",
+            "firstMs": 356.3,
+            "lastMs": 741,
+            "changes": 14,
+            "neverSettles": false
+          },
+          {
+            "key": "div.flex.flex-col",
+            "firstMs": 409,
+            "lastMs": 776.4,
+            "changes": 14,
+            "neverSettles": false
+          },
+          {
+            "key": "div.flex.flex-col",
+            "firstMs": 435.6,
+            "lastMs": 777.5,
+            "changes": 13,
+            "neverSettles": false
+          },
+          {
+            "key": "div.flex.flex-col",
+            "firstMs": 487.6,
+            "lastMs": 829,
+            "changes": 16,
+            "neverSettles": false
+          }
+        ],
+        "ambientElements": 2,
+        "entranceStartMs": 84.2,
+        "entranceEndMs": 829,
+        "spanMs": 744.8,
+        "fromNavigationMs": 829,
+        "focus": {
+          "firstSeenMs": 29.5,
+          "firstFocusableMs": 30.200000047683716,
+          "everRefused": false,
+          "attempts": 92,
+          "hitTest": {
+            "focused": true,
+            "topmostIsField": true,
+            "top": "input"
+          }
+        },
+        "restingOpacityMin": 1,
+        "restingTransformsNotNone": 2
+      }
+    }
+  ],
+  "reduced": [],
+  "notes": []
+}

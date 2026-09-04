@@ -1,0 +1,95 @@
+# TikTok Brand and Use Guidelines — the "Logo" page (colourways, placement, clear space,
+# minimum size, do's and don'ts). ARCHIVED PRIOR VERSION.
+# Snapshot 2025-02-09; retrieved 2026-08-31. Numeric clear-space and minimum-size values live
+# in page images, not in text, and are therefore still UNAVAILABLE.
+Wayback: https://web.archive.org/web/20250209181627id_/https://tiktokbrandbook.com/api/document/page/3/29
+sha256 of archived response body (gzip): 4a253b56d0006040e3779e8035a0ade2d3c02bd82dddd14e86a4a0cee3ba98fe
+==============================================================================
+
+## Logo
+
+## Overview
+
+We have three types of logos we can implement across different forms of communication.
+
+## Primary logo
+
+Horizontal lockup for use when there is no other TikTok presence.
+
+## Secondary logo
+
+Being brave with the icon and showing only the note. Use when TikTok is mentioned in the copy.
+
+## Tertiary logo
+
+The stacked logo should be used when few other elements are present as it takes up lots of space.
+
+Our horizontal lockup is our primary logo and should be used when there is no other TikTok presences. e.g. external communications.
+
+Use black version on white backgrounds.
+
+## Primary logo (simplified)
+
+Use white version on darker color backgrounds or imagery.
+
+Use black version on lighter color backgrounds or imagery.
+
+Our icon's simplicity and connection to product allows us to be brave and build equity into the icon itself. We should use it in TikTok environments familiar or already established to the audience. e.g. in app, TikTok events etc.
+
+## Secondary logo (simplified)
+
+Our stacked lockup should only be used if our primary and secondary logos are inappropriate for specific applications due to size, format or design restrictions. If using the stacked logo, ensure the design contains minimal elements as the logo takes up more space.
+
+Black for use on white backgrounds
+
+White for use on dark color and imagery
+
+## Tertiary logo (simplified)
+
+Black for use on light color and imagery
+
+## Margin
+
+A consistent margin ensures content and positioning is consistent across all formats and applications. Ensure no type or logos are placed within the margins.
+
+## Placement
+
+Logo placement and size consistency is important for brand recognition and legibility across all platforms.
+
+## Primary logo position
+
+Preferred placement is centred on the bottom margin.
+
+## Secondary logo position
+
+If centering the logo isn’t possible or would unbalance the composition (e.g. another design element) lock it up to the nearest corner margin.
+
+## Tertiary logo position
+
+In exceptional circumstances, when there is no room along the bottom, you can lock up to the top middle.
+
+## Clear Space
+
+To maximize visibility and impact, ensure our logo has clear space for it to breathe.
+
+## Minimum size
+
+Our minimum size ensures our logo is always legible.
+
+## Favicons
+
+Ensure our icon is visible but has space to breath at small sizes.
+
+## Do's and Don'ts
+
+## "Tik" and "Tok"
+
+Do not separate “Tik” and “Tok” Please do not modify, break up or misuse the TikTok name nor wordmark in any way. Do not use "Tik" or "Tok" by itself or in combination with another word ("xyzTok" or "Tikxyz"). We disfavor this type of use because of the dilutive effect on the TikTok brand, and we do not wish to encourage third parties to use elements of our trademarks in unauthorized ways. TikTok employees may also not authorize any third parties to do so, such as advertising partners or clients, and third parties may not register "xyzTok" as their own trademarks.
+
+Note on "xyzTok" terminology used in on-platform communities: We also advise against the use of "xyzTok" terminology found organically on the TikTok platform (e.g., community names like "cleantok" or "plantok"). This is only reserved for organic usage in content on the TikTok platform and select TikTok owned-and-operated initiatives. Employees may not permit partners/clients to name their programs, promotions, etc. using these community terms/phrases.
+
+Our logo is based on a simple 'note' icon and TikTok wordmark. It has been carefully constructed to maintain ownable characteristics – making it instantly recognizable at all sizes and in all contexts. The following section sets out when, how and where our logo appears in the world. Download logo pack
+
+## Bringing our brand to life
+
+## Co-branding

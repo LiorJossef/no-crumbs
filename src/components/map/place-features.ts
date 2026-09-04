@@ -10,12 +10,18 @@
  */
 
 import { isKnownCategory } from '@/ui/place/category-display';
+import { pinLabelText } from './label-lines';
 import { UNCATEGORISED_PIN, type PinKey } from './marker-style';
 import type { MapPlace } from './types';
 
 export interface PlaceFeatureProperties {
   readonly id: string;
   readonly name: string;
+  /** The name as the **map** draws it: identical to `name` for a single-script name, and carrying a
+   *  hard line break at each direction boundary for a mixed Hebrew/Latin one. Separate from `name`
+   *  because only a `text-field` wants the breaks — see `label-lines.ts` for why the renderer
+   *  cannot be left to choose them. */
+  readonly label: string;
   /** Always a key the palette has a pin for — the three categories or `uncategorised`; see
    *  `normaliseCategory`. */
   readonly category: PinKey;
@@ -48,6 +54,7 @@ export function toPlaceFeatures(places: readonly MapPlace[]): PlaceFeatureCollec
       properties: {
         id: place.id,
         name: place.name,
+        label: pinLabelText(place.name),
         category: normaliseCategory(place.category),
         visited: place.visited,
       },

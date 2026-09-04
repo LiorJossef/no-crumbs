@@ -59,6 +59,8 @@ import { X } from 'lucide-react';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { splitRowTags } from '@/ui/place/enrichment';
 import { isTagActive, useTagFilter } from '@/ui/place/tag-filter';
+import { SECTION_LABEL } from '@/ui/place/section-label';
+import { PRESS_CHIP } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
 /**
@@ -72,9 +74,9 @@ import { cn } from '@/lib/utils';
  * by `CHIP_PRESSABLE`, which only a chip inside a `TagFilterContext` ever gets.
  */
 const CHIP_BASE =
-  'inline-block max-w-full truncate rounded-full bg-[var(--tag)] font-bold text-[var(--tag-foreground)]';
+  'inline-block max-w-full truncate rounded-full bg-tag font-bold text-tag-foreground';
 const CHIP_DETAIL = 'px-2.5 py-1 text-xs leading-4';
-const CHIP_ROW = 'px-2 py-0.5 text-[11px] leading-4';
+const CHIP_ROW = 'px-2 py-0.5 text-micro leading-4';
 
 /**
  * A detail chip that is a control. `min-h-8` (32 px) rather than the label's 24 px: still short of
@@ -92,18 +94,94 @@ const CHIP_ROW = 'px-2 py-0.5 text-[11px] leading-4';
  *
  * The border width never changes between states, so nothing reflows; the whole thing animates on
  * `border-color`/`background-color`, neither of which triggers layout.
+ *
+ * `PRESS_CHIP` is the sixth column the state matrix says every interactive element owes and this
+ * one did not have: on a phone, hover does not exist and focus-visible does not fire, so until now
+ * the only confirmation that a tap had landed was the list underneath changing. The 5% squeeze is
+ * the acknowledgement, and it is `motion-safe:` — under reduced motion the fill change is the whole
+ * of it, which is what the chip already had.
+ *
+ * ## One string, and the pressed state is a variant rather than a second string
+ *
+ * This used to be three constants — the shape, `CHIP_PRESSABLE_REST` and `CHIP_PRESSABLE_ACTIVE` —
+ * chosen between by a ternary at each of the three call sites. The DOM already carried
+ * `aria-pressed` on every one of them, so the state was being computed in JavaScript, written into
+ * an attribute, and then computed *again* to pick a class string. `aria-pressed:` reads the
+ * attribute that is already there (run rule 6a: state comes from variants, never from a class
+ * string assembled in a ternary), which means a chip cannot render pressed-looking while telling a
+ * screen reader it is not.
+ *
+ * **The fill is deliberately a token reference and not a fixed colour.** `bg-tag-selected` compiles
+ * to `background-color: var(--tag-selected)`, so a call site that sets `--tag-selected` on the
+ * button itself changes what "pressed" looks like for that chip alone — which is how the category
+ * filter bar fills a pressed chip with *that category's* colour instead of house mint. Every other
+ * chip inherits the mint from `:root` and nothing about them changes.
+ *
+ * ## The pressed chip had no hover at all, and the reason is an ordering rather than an omission
+ *
+ * Measured in a browser at commit `9a95444` and again at `171a8f2`: the sort control's selected
+ * chip was **inert** — background, colour, border, opacity, shadow, transform and text-decoration
+ * all byte-identical hovered and not. The rest state's hover is `border-tag-foreground/45`, and the
+ * pressed arm sets `aria-pressed:border-transparent`; compiled against the real `globals.css` the
+ * `aria-pressed` rule is emitted **after** the hover rule at equal specificity, so on a pressed chip
+ * the hover border resolved to transparent. An unpressed chip answered a pointer; the pressed one
+ * did not.
+ *
+ * That is the worst chip to lose, not a marginal one: **a sort control always has a current value**,
+ * so the one chip that never responded was the one always on screen.
+ *
+ * **The fix is the rest state's own idea applied to the pressed state** — a rim in the chip's own
+ * ink — rather than a second treatment. Unpressed: 15% of `--tag-foreground` at rest, 45% on hover.
+ * Pressed: transparent at rest, 45% of `--tag-selected-foreground` on hover. Same mechanism, same
+ * number, no reflow because the border width never changes, and `motion-safe:transition-colors`
+ * already carries `border-color`.
+ *
+ * **It is emphatically not `bg-tag-selected-hover`, and that is measured rather than argued.**
+ * `--tag-selected-hover` is declared on `:root` as `color-mix(… var(--tag-selected) …)`, and a
+ * custom property's `var()` is substituted at computed-value time **on the element that declares
+ * it** — so the mix is resolved once, against `:root`'s house mint, and inherits down already
+ * resolved. A category chip that overrides `--tag-selected` on itself does *not* re-resolve it.
+ * Verified in a browser: a chip filled café-brown reads back `oklch(0.805 0.062 184.7)` for that
+ * token, which is the mint. Hovering a pressed Café chip would have turned it **mint**, which is a
+ * worse defect than the missing hover it was meant to fix.
+ *
+ * `border-tag-selected-foreground/45` has no such problem, and for the same reason `bg-tag-selected`
+ * does not: `@theme inline` inlines the token at the utility, so the emitted rule is
+ * `border-color: color-mix(in oklab, var(--tag-selected-foreground) 45%, transparent)` — a `var()`
+ * evaluated on the chip, which is where the category bar's override lives. The bar sets
+ * `--tag-selected-foreground` to `--on-category` alongside the fill, so the rim follows the chip's
+ * own ink in both themes with nothing added here.
+ *
+ * Ordering is not load-bearing this time and that is worth stating, because it was last time: the
+ * new rule is `[aria-pressed="true"]:hover` at (0,3,0) against the pressed border's (0,2,0), so it
+ * wins on specificity and does not depend on which is emitted first.
+ *
+ * ## The weight is 500, and that is the answer to "overwhelming"
+ *
+ * Measured on `Kohi`: band 1 of the place card held five bordered pressables, **four of them tags**,
+ * every one at `font-bold` — so the loudest objects on a place's card were its tags, outweighing
+ * `Been here`, which is the primary. That is a hierarchy inversion, not a spacing problem, and no
+ * amount of gap fixes it. Contrast is weight-independent and the chip measures 6.45:1 in light and
+ * 10.88:1 in dark, so AA holds at 500 and nothing legible is spent.
+ *
+ * The filter row does **not** share this string — it paints its triggers with `TRIGGER_PAINT` in
+ * `library-filter-bar.tsx`, which imports nothing from this file — so an active filter chip is
+ * untouched and still reads as active.
  */
 export const CHIP_PRESSABLE =
-  'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50';
-export const CHIP_PRESSABLE_REST =
-  'border-[var(--tag-foreground)]/15 bg-[var(--tag)] text-[var(--tag-foreground)] hover:border-[var(--tag-foreground)]/45';
-export const CHIP_PRESSABLE_ACTIVE =
-  'border-transparent bg-[var(--tag-selected)] text-[var(--tag-selected-foreground)]';
+  // No `motion-safe:transition-colors`: `PRESS_CHIP` below carries `PRESS_BEAT`'s
+  // `motion-safe:transition`, whose property list already contains colour. Two declarations meant
+  // two durations for one fade — 90ms for pointer users and 150ms wherever the later rule won.
+  'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ' +
+  'border-tag-foreground/15 bg-tag text-tag-foreground hover:border-tag-foreground/45 ' +
+  'aria-pressed:border-transparent aria-pressed:bg-tag-selected aria-pressed:text-tag-selected-foreground ' +
+  'aria-pressed:hover:border-tag-selected-foreground/45 ' +
+  PRESS_CHIP;
 
 /** The kicker above a filter pill — `TAGGED`, `SHOWING`. Exported so a second filter cannot invent
  *  a slightly different micro-label beside the first. */
 export const FILTER_KICKER =
-  'shrink-0 text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase';
+  'shrink-0 text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase';
 
 /**
  * The full tag set, for a detail view. Wraps freely — five tags on a 390 px phone is two lines, and
@@ -120,10 +198,10 @@ export function TagChipList({ tags }: { tags: readonly string[] }) {
     // `Tags` when they are labels, `Filter by tag` when they are controls: the group's accessible
     // name is the only thing that tells a screen-reader user which of the two this list is, and it
     // has to be true in both cases rather than convenient in one.
-    <ul
-      aria-label={filter ? 'Filter by tag' : 'Tags'}
-      className={cn('flex flex-wrap', filter ? 'gap-2' : 'gap-1.5')}
-    >
+    // One gap, whichever the chips are. It used to be 8 px for controls and 6 px for labels: the
+    // same block of tags spaced two ways, and the wider one on the surface the owner called
+    // crowded. Four chips wrap to two lines on a 390 px phone, so the gap is paid twice.
+    <ul aria-label={filter ? 'Filter by tag' : 'Tags'} className="flex flex-wrap gap-1.5">
       {tags.map((tag) => (
         <li key={tag} className="flex min-w-0">
           {filter ? (
@@ -136,14 +214,11 @@ export function TagChipList({ tags }: { tags: readonly string[] }) {
               // `aria-pressed` is the whole state model for this control: the chip is a toggle, so
               // an assistive technology says "pressed"/"not pressed" without any extra live region,
               // and tapping the pressed one clears the filter.
-              aria-pressed={isTagActive(filter.activeTag, tag)}
+              aria-pressed={isTagActive(filter.activeTags, tag)}
               onClick={() => filter.onToggleTag(tag)}
-              className={cn(
-                CHIP_PRESSABLE,
-                isTagActive(filter.activeTag, tag)
-                  ? CHIP_PRESSABLE_ACTIVE
-                  : CHIP_PRESSABLE_REST,
-              )}
+              // No ternary: `aria-pressed` above is the state, and `CHIP_PRESSABLE` carries both
+              // arms of it as variants.
+              className={CHIP_PRESSABLE}
             >
               {/* `dir="auto"` sits on the text rather than the button so the bidi isolate wraps
                   exactly the untrusted string, not the control's own box. */}
@@ -163,45 +238,70 @@ export function TagChipList({ tags }: { tags: readonly string[] }) {
 }
 
 /**
- * The active filter, said out loud above the list: which tag is narrowing the library, and one tap
- * to stop it.
+ * **`TagFacetBar` was deleted on 2026-09-02.** The library's tag control is now a searchable
+ * multi-select list inside the filter panel (`library-filter-bar.tsx`), on the owner's
+ * instruction — *"tags from a multi select list with a serch"*. The row it replaced was the larger
+ * half of the header overwhelm: ten chips in a horizontally scrolling row at 58 places, bounded by
+ * a cap that hid tags the user then had no way to reach.
  *
- * Deliberately **not** a filter bar. It renders only while a filter is on, it holds exactly the one
- * tag the user chose, and it offers no vocabulary to browse — a row of category chips to pick from
- * is L2 scope and was rejected. This is the dismiss affordance for a state the user is already in.
+ * The chips in a **place's detail** are untouched and live in `TagChipList` above: there they are
+ * that place's own vocabulary, five or six of them, not an index of the library.
+ */
+
+/**
+ * The active tag filter, said out loud above the list: which tags are narrowing the library, and
+ * one tap each to stop them.
  *
- * The whole pill is the clear button, so there is no 20 px `×` to hit beside a label that does
- * something else: one target, 36 px tall, and its accessible name says what pressing it does rather
- * than naming the tag a second time.
+ * Deliberately **not** a filter bar. It renders only while a filter is on, it holds exactly the
+ * tags the user chose, and it offers no vocabulary to browse — that is the searchable list inside
+ * the filter panel. This is the dismiss affordance for a state the user is already in, and it
+ * stays *outside* the panel on purpose: the way out of a filter must not be hidden behind a
+ * disclosure the user has to remember to open.
+ *
+ * **One pill per tag since 2026-09-02**, because the filter became multi-select. Each whole pill is
+ * its own clear button, so there is no 20 px `×` to hit beside a label that does something else:
+ * one target per tag, and its accessible name says what pressing it does rather than naming the
+ * tag a second time.
  */
 export function ActiveTagFilter({
-  tag,
+  tags,
   onClear,
   className,
 }: {
-  tag: string;
-  onClear: () => void;
+  tags: readonly string[];
+  onClear: (tag: string) => void;
   className?: string;
 }) {
-  const label = tagDisplayLabel(tag);
+  if (tags.length === 0) return null;
 
   return (
-    <div data-vaul-no-drag className={cn('flex min-w-0 items-center gap-2', className)}>
+    <div data-vaul-no-drag className={cn('flex min-w-0 flex-wrap items-center gap-2', className)}>
       {/* The same uppercase micro-label the rest of the sheet uses for a kicker. Without it a lone
           filled pill under the heading is just a word — the user has to infer that it is the reason
           the list got shorter. */}
       <span className={FILTER_KICKER}>Tagged</span>
-      <button
-        type="button"
-        onClick={onClear}
-        aria-label={`Clear the ${isolate(label)} tag filter`}
-        className="inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-[var(--tag-selected)] px-3 text-xs font-bold text-[var(--tag-selected-foreground)] outline-none transition-colors hover:bg-[color-mix(in_oklch,var(--tag-selected),var(--foreground)_10%)] focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <span dir="auto" className="truncate">
-          {label}
-        </span>
-        <X className="size-3.5 shrink-0" aria-hidden />
-      </button>
+      {tags.map((tag) => {
+        const label = tagDisplayLabel(tag);
+        return (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => onClear(tag)}
+            aria-label={`Clear the ${isolate(label)} tag filter`}
+            className={cn(
+              'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-tag-selected px-3 text-xs font-semibold text-tag-selected-foreground outline-none hover:bg-tag-selected-hover focus-visible:ring-3 focus-visible:ring-ring/50',
+              // It is chip-shaped, so it presses like one — and it is the only way out of a filter
+              // that has emptied the list, the state where a tap that looks ignored is worst.
+              PRESS_CHIP,
+            )}
+          >
+            <span dir="auto" className="truncate">
+              {label}
+            </span>
+            <X className="size-3.5 shrink-0" aria-hidden />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -232,28 +332,11 @@ export function TagChipRow({ tags }: { tags: readonly string[] }) {
       ))}
       {overflow > 0 && (
         // Deliberately not a chip: a filled `+2` would read as a fourth tag called "+2".
-        <span className="shrink-0 text-[11px] font-bold leading-4 text-muted-foreground">
+        <span className="shrink-0 text-micro font-bold leading-4 text-muted-foreground">
           +{overflow}
         </span>
       )}
     </div>
-  );
-}
-
-/**
- * The one small label left on the detail screen.
- *
- * There used to be three of these stacked — FROM THE POST, NAMED IN THE POST, IN SHORT — over a
- * card that often held three lines of content between them, and the labels were the loudest thing
- * on it. The caption quote now says what it is by being a quotation, and the model's sentence says
- * what it is by being quiet and unquoted, which leaves exactly one block that genuinely needs
- * naming.
- */
-function Kicker({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-      {children}
-    </p>
   );
 }
 
@@ -275,11 +358,11 @@ export function DishLine({ dishes }: { dishes: readonly string[] }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <Kicker>Dishes mentioned</Kicker>
+      <p className={SECTION_LABEL}>Dishes mentioned</p>
       <p className="text-sm leading-relaxed text-foreground">
         {dishes.map((dish, index) => (
           <span key={dish}>
-            {index > 0 && <span className="text-muted-foreground/70"> · </span>}
+            {index > 0 && <span className="text-muted-foreground"> · </span>}
             <span dir="auto">{tagDisplayLabel(dish)}</span>
           </span>
         ))}

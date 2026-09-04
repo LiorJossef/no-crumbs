@@ -26,8 +26,17 @@ import type { SourceDataset } from '@/domain/types';
 
 export interface LocationCertainty {
   readonly label: string;
-  /** One sentence on what the label means for the person reading it. Absent when the label is
-   *  already the whole story. */
+  /**
+   * What the label means for the person reading it, said as a consequence rather than as a
+   * process. Absent when the label is already the whole story.
+   *
+   * **It is a qualifier, not a paragraph.** This used to read *"Worked out from the video rather
+   * than matched to a map listing, so it can be a street or two off"* and the detail view printed
+   * it in full, which is two lines of our machinery on the card a person opens to decide whether
+   * to go somewhere. Round 3 of the owner's feedback filed the card as scrolling past its own
+   * primary actions, and this sentence was one of the blocks pushing them down. The mark beside
+   * the address now carries the fact; this carries the cost, on a pointer device, in six words.
+   */
   readonly detail?: string;
   /** Whether this is the uncertain kind, for callers that want to mark it rather than describe
    *  it (a row, an accessible name). */
@@ -46,8 +55,7 @@ export function locationCertainty(
     case 'llm-guess':
       return {
         label: 'Approximate location',
-        detail:
-          'Worked out from the post rather than matched to a map listing, so it can be a street or two off.',
+        detail: 'Could be a street or two off.',
         isApproximate: true,
       };
     case 'google-places':
@@ -73,8 +81,15 @@ export const APPROXIMATE_ROW_ANNOTATION = 'approximate location';
  * "Saved on 24 August", or with the year once it is no longer this one.
  *
  * The library is ordered most-recently-saved-first and said so nowhere, which made the order both
- * invisible and unverifiable. Shown on the detail rather than on every row on purpose: twenty rows
- * saved in one afternoon would carry twenty identical dates, which is noise sold as information.
+ * invisible and unverifiable.
+ *
+ * **This used to say the line was on the detail and never on a row**, because twenty rows saved in
+ * one afternoon would carry twenty identical dates — noise sold as information. That argument was
+ * right about *this* string and it is why the row gets `savedElapsedLine` below instead
+ * (`overnight-copy-deck.md` §4.1, which quotes this paragraph and rules on it). Two things changed:
+ * the row now pairs the line with the post's own thumbnail, so it has a metadata band with a reason
+ * to exist, and elapsed time distinguishes rows where a repeated date does not — `3 days ago` and
+ * `just now` are different words for the two ends of one afternoon.
  */
 export function savedOnLine(savedAt: Date, now: Date): string {
   const sameYear = savedAt.getFullYear() === now.getFullYear();
@@ -83,6 +98,68 @@ export function savedOnLine(savedAt: Date, now: Date): string {
     month: 'long',
     ...(sameYear ? {} : { year: 'numeric' }),
   })}`;
+}
+
+/**
+ * "Saved 3 days ago" — the same fact as `savedOnLine`, said the way a list row needs it.
+ *
+ * The full ladder is ruled in `docs/overnight-copy-deck.md` §4.1 (C130) and is reproduced here
+ * rather than paraphrased, because a rung with no string is a rung a caller invents at 2 am:
+ *
+ * | Condition | String |
+ * |---|---|
+ * | in the future, or under a minute | `Saved just now` |
+ * | under an hour | `Saved 1 minute ago` … `Saved 59 minutes ago` |
+ * | under a day | `Saved 1 hour ago` … `Saved 23 hours ago` |
+ * | under a week | `Saved 1 day ago` … `Saved 6 days ago` |
+ * | under 35 days | `Saved 1 week ago` … `Saved 4 weeks ago` |
+ * | 35 days or more, this year | `Saved 3 Aug` |
+ * | otherwise | `Saved 3 Aug 2025` |
+ *
+ * Four decisions inside that table, all of them the copy deck's and none of them re-litigated here:
+ *
+ *  - **It stops at weeks and hands off to the date.** `Saved 5 months ago` is vaguer than
+ *    `Saved 3 Aug`, no shorter, and `voice-and-vocabulary.md` §5 already fixes the date format.
+ *  - **35 days, not 30**, so `4 weeks ago` is reachable and no rung is unreachable.
+ *  - **Digits throughout, and no `yesterday` or `last week`.** §5: *"Digits, always."* One word form
+ *    inside a numeric ladder is a special case a verifier has to remember and a translator has to
+ *    restructure.
+ *  - **A future timestamp clamps to `Saved just now`** rather than reading `in 2 hours`. Clock skew
+ *    between a browser and Postgres is real — this is computed against the reader's own clock — and
+ *    the product must not narrate it.
+ *
+ * `3 Aug`, short, per §5's `Dates:` rule — deliberately not `savedOnLine`'s `24 August`. The two
+ * strings sit on different surfaces and the detail's long form predates that rule.
+ *
+ * Pure, and a function of `(savedAt, now)` rather than of `Date.now()`, so every rung above is
+ * testable with no DOM and no clock — which is what this repo's `node` test environment allows.
+ */
+export function savedElapsedLine(savedAt: Date, now: Date): string {
+  const seconds = (now.getTime() - savedAt.getTime()) / 1000;
+  if (seconds < 60) return 'Saved just now';
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `Saved ${plural(minutes, 'minute')} ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Saved ${plural(hours, 'hour')} ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `Saved ${plural(days, 'day')} ago`;
+  if (days < 35) return `Saved ${plural(Math.floor(days / 7), 'week')} ago`;
+
+  const sameYear = savedAt.getFullYear() === now.getFullYear();
+  return `Saved ${savedAt.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })}`;
+}
+
+/** `1 minute` / `12 minutes`. Written per string rather than through a `(s)`, which
+ *  `voice-and-vocabulary.md` §5 bans by name. */
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 /**

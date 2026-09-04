@@ -99,6 +99,7 @@
 
 import { z } from 'zod';
 
+import { offerableShortlist } from './offerable-shortlist';
 import { deriveResolution } from './pipeline';
 import type { RankedPlace, ResolveResult } from '../types';
 
@@ -288,7 +289,10 @@ export function chooseResolvedPlace(
     return top === undefined ? { kind: 'none' } : { kind: 'use', ranked: top };
   }
   if (status === 'ambiguous') {
-    return { kind: 'choose', options: shortlist };
+    // The rows the screen actually offered, not the whole stored shortlist (E-T1). An explicit
+    // `optionIndex` above is still checked against the full stored list: a pick that was on screen
+    // when it was made must not become `out_of_range` because the cut moved underneath it.
+    return { kind: 'choose', options: offerableShortlist(shortlist) };
   }
   return { kind: 'none' };
 }

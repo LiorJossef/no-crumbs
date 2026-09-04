@@ -80,8 +80,6 @@ export const HTTP_STATUS_BY_ERROR_CODE = {
    *  **we** are the one being throttled and the caller did nothing wrong. 503 = we cannot serve
    *  this right now, try later. */
   RATE_LIMITED_UPSTREAM: 503,
-  /** Client fault, and the one place 429 is honest: this caller really did send too many. */
-  RATE_LIMITED_LOCAL: 429,
   /** Neither fault, and emphatically not 502 — this is the headline defect of the blanket status.
    *  We read the post successfully; it has no caption to extract from. Understood, unprocessable. */
   NO_CAPTION: 422,
@@ -91,6 +89,14 @@ export const HTTP_STATUS_BY_ERROR_CODE = {
   /** Upstream fault: the model answered with something that fails its own schema after a reprompt.
    *  "Invalid response from the upstream server" is the definition of 502. */
   EXTRACTOR_INVALID_OUTPUT: 502,
+  /** Upstream fault, and `RATE_LIMITED_UPSTREAM`'s reasoning verbatim: **we** are the one who has
+   *  run out and the caller did nothing wrong, so 503 = we cannot serve this right now, try later.
+   *  Not 429 — that would blame this caller for an allowance they may not have spent a single call
+   *  of. Not 502 either: nothing is broken upstream. The provider answered correctly and declined,
+   *  which is the one thing 502 must not be diluted with (`product-ruling-quota-copy-2026-08-31.md`
+   *  §5). The `error` severity that follows from the 5xx is deliberate: a spent day's allowance is
+   *  an operational fact we want in the error-rate graph, unlike a mistyped link. */
+  EXTRACTOR_QUOTA_EXHAUSTED: 503,
   /** Client fault: no session. */
   NOT_AUTHENTICATED: 401,
   /** Ours. The only code that may be a 500, and the only one that means "page a human"
@@ -103,7 +109,7 @@ export const HTTP_STATUS_BY_ERROR_CODE = {
  *
  * `07` §7.1 says "an `error_code = 'INTERNAL'` is the one line that should page a human". That
  * sentence only means anything if a human is not also paged for every mistyped link and every
- * logged-out request. Reporting all fourteen codes at `console.error` would put a user's typo in
+ * logged-out request. Reporting all thirteen codes at `console.error` would put a user's typo in
  * the same Vercel bucket as a service-role misconfiguration — the same dilution as the blanket 502
  * this module exists to remove, one layer up.
  *

@@ -23,11 +23,13 @@ vi.mock('@/app/actions/collections', () => ({
 const {
   JOIN_PATH_PREFIX,
   PRIVACY_BLOCK,
+  SEE_LABEL,
   inviteRoleLabel,
   joinLink,
   memberRoleLabel,
   roleSwitchNotice,
   shareButtonLabel,
+  shareMessage,
 } = await import('@/components/collections/share-panel');
 
 // It lives in the domain rather than beside `NamePrompt`, because every export of a `'use client'`
@@ -67,7 +69,9 @@ describe('joinLink', () => {
 describe('shareButtonLabel', () => {
   it('offers the share sheet where the browser has one, and the clipboard otherwise', () => {
     expect(shareButtonLabel({ canShare: true, copied: false })).toBe('Share link');
-    expect(shareButtonLabel({ canShare: false, copied: false })).toBe('Copy link');
+    // `Copy invite`, not `Copy link`: since §8.3 this button copies the sentence and the link
+    // together. The bare link keeps its own control — the icon button beside the field.
+    expect(shareButtonLabel({ canShare: false, copied: false })).toBe('Copy invite');
   });
 
   it('acknowledges the copy regardless of which path produced it', () => {
@@ -108,6 +112,21 @@ describe('roleSwitchNotice', () => {
     const notice = roleSwitchNotice('viewer', 'editor');
     expect(notice).toBe('Switching makes a new link. The one you shared before stops working.');
     expect(notice).not.toContain('still works');
+  });
+});
+
+describe('the privacy disclosure', () => {
+  it('names what is behind it, and does not say member', () => {
+    // The row is what the reader trades a tap for; `More` or `Details` would make the tap blind.
+    expect(SEE_LABEL).toBe('What people can see');
+    expect(SEE_LABEL.toLowerCase()).not.toContain('member');
+  });
+
+  it('keeps the matched pair on one side of the boundary', () => {
+    // Sentence 1 stays visible; 2 and 3 are the pair and travel together. A split would leave a
+    // claim about what is shared with nothing saying what is withheld.
+    expect(PRIVACY_BLOCK).toHaveLength(3);
+    expect(PRIVACY_BLOCK.slice(1)).toHaveLength(2);
   });
 });
 
@@ -159,5 +178,56 @@ describe('emailLocalPart', () => {
   it('clamps to the field limit so the prefill is never longer than the field allows', () => {
     const long = `${'m'.repeat(60)}@example.com`;
     expect(emailLocalPart(long)).toHaveLength(DISPLAY_NAME_MAX_LENGTH);
+  });
+});
+
+/**
+ * §8.3 — the link now travels with a sentence.
+ *
+ * The two things worth pinning are what it says and, harder, **what it must never say**.
+ * `preview_collection_invite` (migration `0026`) is the disclosure boundary before somebody joins:
+ * collection name, inviter name, role. The message is forwardable to people who will never open
+ * the link, so anything about the collection's *contents* — the place count above all, which is in
+ * the read model and one interpolation away — stays out.
+ */
+describe('shareMessage', () => {
+  it('names the collection and what the link lets you do, in the sender\u2019s own voice', () => {
+    // Feedback 3.2: the caption shape (`\u201cX\u201d \u2014 a collection of places, shared with you.`) had no
+    // sender in it and read as machine-written in a chat thread. First person, two facts, stop.
+    expect(shareMessage({ collectionName: 'Weekend', role: 'viewer' })).toBe(
+      'I\u2019m sharing my collection \u201cWeekend\u201d with you. You can see the places in it.',
+    );
+    expect(shareMessage({ collectionName: 'Weekend', role: 'editor' })).toBe(
+      'I\u2019m sharing my collection \u201cWeekend\u201d with you. You can add places to it.',
+    );
+  });
+
+  it('states facts and stops \u2014 no exclamation mark, no adjective about the collection', () => {
+    for (const role of ['viewer', 'editor'] as const) {
+      expect(shareMessage({ collectionName: 'Weekend', role })).not.toContain('!');
+    }
+  });
+
+  it('carries no fact about the contents — not even the count', () => {
+    const message = shareMessage({ collectionName: 'Weekend', role: 'viewer' });
+    expect(message).not.toMatch(/\d/);
+  });
+
+  it('does not say the product name — §2 bans it in invite copy', () => {
+    expect(shareMessage({ collectionName: 'Weekend', role: 'viewer' }).toLowerCase()).not.toContain(
+      'crumb',
+    );
+  });
+
+  it('says collection and no synonym for it', () => {
+    const message = shareMessage({ collectionName: 'Weekend', role: 'editor' });
+    expect(message).toContain('collection');
+    expect(message.toLowerCase()).not.toMatch(/\b(list|board|folder|album)\b/);
+  });
+
+  it('passes a user-typed name through unchanged, including a Hebrew one', () => {
+    expect(shareMessage({ collectionName: '\u05ea\u05dc \u05d0\u05d1\u05d9\u05d1', role: 'viewer' })).toContain(
+      '\u05ea\u05dc \u05d0\u05d1\u05d9\u05d1',
+    );
   });
 });

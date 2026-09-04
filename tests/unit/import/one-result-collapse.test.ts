@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import type { StoredResolution } from '@/domain/import/resolution-record';
@@ -12,6 +10,13 @@ import {
   usesModelCoordinate,
   type CandidateResolutionView,
 } from '@/ui/import/candidate-resolution-view';
+
+import {
+  assertDevOnlyFilesAreGuarded,
+  DEV_ONLY_FILES,
+  functionSource,
+  importClientSource,
+} from './import-client-source';
 
 /**
  * The review screen's single-confident-result collapse (`docs/ux-import-flatten.md` §3), and the
@@ -27,9 +32,19 @@ import {
  * The screen itself has no DOM in this runner, so the layout assertions are made against the
  * component source — the same technique `import-error-copy.test.ts` uses, and for the same reason:
  * the defect it guards is a control wired to nothing, which is a fact about the source.
+ *
+ * That source is read as a **directory**, not as one path (`import-client-source.ts` says why):
+ * W6-1 moves `NoPlacesScreen` and the review screen into files of their own, and a scan pinned to
+ * `import-page-client.tsx` would keep passing while reading a file that no longer contains either.
  */
 
-const CLIENT_SOURCE = readFileSync('src/app/import/import-page-client.tsx', 'utf8');
+const CLIENT_SOURCE = importClientSource();
+/**
+ * The same files with comments stripped and the dev-only fixture module left out — for the
+ * assertions about what the *shipped code* contains. `import-client-source.ts` says why there is an
+ * exclusion at all and what stops it becoming a loophole; the test below pins it.
+ */
+const CLIENT_CODE = importClientSource({ stripComments: true, exclude: DEV_ONLY_FILES });
 
 function place(over: Partial<ResolvedPlace> = {}): ResolvedPlace {
   return {
@@ -142,23 +157,57 @@ describe('the review screen wires the collapse to that one band', () => {
     expect(CLIENT_SOURCE).toContain('const collapsed = statusByIndex === null && collapsesToOneResult(views)');
     // No band literal in the client: that mapping belongs to `deriveResolution`, and a second
     // copy of it here is how the screen and the server end up disagreeing about what was saved.
-    expect(CLIENT_SOURCE).not.toContain("'preselect'");
+    //
+    // Read with comments stripped, the way `import-error-copy.test.ts` reads the copy strings and
+    // for the same reason: `candidate-card.tsx`'s header *names* the four literals it may not
+    // contain, which is documentation of this rule rather than a breach of it. A guard that fires
+    // on its own explanation teaches people to delete the explanation.
+    expect(CLIENT_CODE).not.toContain("'preselect'");
+  });
+
+  it('excludes exactly one file from that ban, and only because it cannot ship', () => {
+    // The band literal is banned across `src/app/import/` because a second copy of
+    // `deriveResolution`'s mapping in the UI is how the screen and the server end up disagreeing.
+    // `_lib/dev-screen.ts` needs one to build a `ResolveResult` fixture for the screenshot gates,
+    // and is the only file exempt. The exemption is only defensible while that file genuinely
+    // cannot reach production, so that is asserted here rather than assumed — otherwise the list
+    // is a way to opt any file out of any guard in this directory.
+    expect(DEV_ONLY_FILES).toEqual(['src/app/import/_lib/dev-screen.ts']);
+    assertDevOnlyFilesAreGuarded(expect);
+    // And the ban really does still bite on that file's contents.
+    expect(importClientSource({ stripComments: true })).toContain("'preselect'");
   });
 
   it('keeps the save an explicit press', () => {
-    // Charter §3 invariant 2. Nothing in this component may call the save from an effect, and the
-    // reassurance under the button is unconditional — the collapsed state is the one most likely
-    // to read as "already done", so it is the state that needs the sentence most.
-    expect(CLIENT_SOURCE).toContain('Nothing is saved until you tap Save.');
+    // Charter §3 invariant 2, both halves of it.
+    //
+    // **The mechanical half:** nothing in this component may call the save from an effect. That is
+    // the assertion that actually guards the invariant, and it is unchanged.
     expect(/useEffect\([\s\S]{0,400}?onSave\(/.test(CLIENT_SOURCE)).toBe(false);
+
+    // **The visible half:** a person must be able to tell that nothing has been written yet, and
+    // the collapsed state is the one most likely to read as "already done", so the line is
+    // unconditional. The sentence shortened from `Nothing is saved until you tap Save.` to
+    // `Nothing is saved yet.` (`ux-overwhelm-audit-2026-09-02.md` §3c #11, §8.1): the old one
+    // explained the button by naming the button, on the densest screen in the product. The fact it
+    // carries is identical, which is why this assertion moved rather than went away.
+    expect(CLIENT_SOURCE).toContain('Nothing is saved yet.');
+    // Comment-stripped for the negative arm: the docblock beside the line quotes the sentence it
+    // replaced, and a scan that reads prose matches its own explanation.
+    expect(CLIENT_CODE).not.toContain('Nothing is saved until you tap Save.');
   });
 });
 
 describe('NoPlacesScreen — the modal outcome has its recovery back', () => {
-  /** From `function NoPlacesScreen(` to the next top-level `function `. */
-  const NO_PLACES_SOURCE = CLIENT_SOURCE.slice(
-    CLIENT_SOURCE.indexOf('function NoPlacesScreen('),
-  ).split('\nfunction ')[0]!;
+  /**
+   * `function NoPlacesScreen(` to the next top-level `function `, out of the one file that defines
+   * it — `functionSource` throws unless **exactly one** does.
+   *
+   * That is stricter than the slice it replaces, which took `indexOf` of a name and would have
+   * yielded an empty string on a rename. Every `not.toContain` below passes against an empty
+   * string, so the old shape would have gone quiet rather than red.
+   */
+  const NO_PLACES_SOURCE = functionSource('NoPlacesScreen');
 
   it('offers `Add a place you know`', () => {
     expect(NO_PLACES_SOURCE).toContain('Add a place you know');
@@ -178,11 +227,20 @@ describe('NoPlacesScreen — the modal outcome has its recovery back', () => {
   });
 
   it('renders it only where there is a manual-add surface to open', () => {
-    // The rule that removed the dead button in the first place, kept: guarded on the prop, so the
-    // standalone `/import` route (no `＋` sheet) shows `Try another TikTok` as its primary rather
-    // than a button naming a destination it cannot reach.
+    /*
+     * The rule that removed the dead button in the first place, kept: guarded on the prop, so a
+     * surface with no `＋` sheet never shows a button naming a destination it cannot reach.
+     *
+     * What is **gone** is the variant switch this used to assert
+     * (`variant={onAddManually ? 'outline' : 'default'}`). It existed because `Add a place you
+     * know` was the screen's primary recovery, so its absence had to promote `Try another TikTok link`
+     * into the empty slot. W6-5 made the add-by-name field the primary recovery, and the field
+     * depends on no host — so nothing is withheld when this prop is absent, and there is no slot
+     * left to promote anything into. This one is now a ghost secondary either way.
+     */
     expect(NO_PLACES_SOURCE).toContain('{onAddManually && (');
-    expect(NO_PLACES_SOURCE).toContain("variant={onAddManually ? 'outline' : 'default'}");
+    expect(NO_PLACES_SOURCE).not.toContain("variant={onAddManually ?");
+    expect(NO_PLACES_SOURCE).toContain('<AddByName');
   });
 
   it('is threaded from the page component, not left as an unused prop', () => {

@@ -22,7 +22,7 @@
  * card (`locationLine`).
  */
 
-import { isHashtagOnlyEvidence } from '@/domain/extraction/plausibility';
+import { isHashtagOnlyEvidence, isTaggedAccountOnlyEvidence } from '@/domain/extraction/plausibility';
 import type { PlaceCandidate } from '../types';
 import { PRODUCT_CATEGORY_LABEL, isProductCategory } from '../places/product-category';
 
@@ -143,12 +143,69 @@ export function isHashtagOnly(caption: string | null, candidate: PlaceCandidate)
   return caption !== null && isHashtagOnlyEvidence(caption, candidate.rawName, candidate.evidence);
 }
 
-/** The primary action's label, which is also the clearest statement of what pressing it does. */
+/**
+ * The same statement for a **tagged account** (E-T3). `filterPlausible` now admits a tagged
+ * business (`@The Miners Coffee`) and strips the `@`, so by the time this card renders the
+ * candidate is indistinguishable from a name written in the prose. It isn't: the only evidence is
+ * a tag, and the screen says so for the same reason it says it about a hashtag.
+ */
+export function isTaggedAccountOnly(caption: string | null, candidate: PlaceCandidate): boolean {
+  return caption !== null && isTaggedAccountOnlyEvidence(caption, candidate.rawName);
+}
+
+/**
+ * The primary action's label, which is also the clearest statement of what pressing it does.
+ *
+ * **The zero arm carries a precondition, and H2-T1 is what happens when it is broken.**
+ * `Select a place to save` says *you have not chosen yet*. That is true only while there is
+ * something on the screen a person would plausibly choose. On a re-paste of a video whose only
+ * place is already on their map, nothing is ticked because **we** unticked it, and the button was
+ * then telling the user their own inaction was the reason — a dead control and a false
+ * explanation, which is the exact pairing the owner rejected a global duplicate check for on
+ * 2026-08-29.
+ *
+ * So the screen does not render a Save at all in that state (`everyPlaceAlreadyAdded` below); the
+ * primary becomes the way back to the map, because the person's job here is genuinely done. This
+ * label is only ever asked for when a save is still the thing to offer.
+ */
 export function saveButtonLabel(selectedCount: number): string {
   if (selectedCount === 0) return 'Select a place to save';
   if (selectedCount === 1) return 'Save this place →';
   return `Save ${selectedCount} places →`;
 }
+
+/**
+ * Whether every place this screen found is already on the map from this same video — the state
+ * H2-T1 exists for.
+ *
+ * Counted over **all** the candidates rather than the saveable ones on purpose. The claim the
+ * screen makes off the back of this is "everything found here is already on your map", and a card
+ * we could not place is still something we found: excluding it would let the sentence be printed
+ * over a screen holding a place the user has not got.
+ *
+ * @param candidateCount   every candidate on the screen.
+ * @param alreadyAddedCount how many of them are marked as already added from this video.
+ */
+export function everyPlaceAlreadyAdded(candidateCount: number, alreadyAddedCount: number): boolean {
+  return candidateCount > 0 && alreadyAddedCount >= candidateCount;
+}
+
+/**
+ * What the screen says instead of a dead button, in the state above.
+ *
+ * `found` and `your map` are the ratified words (`voice-and-vocabulary.md` §3); `already` is the
+ * whole news. It is not an apology and not a refusal — the checkbox on every card still works and
+ * ticking one puts the Save button straight back, because the 2026-08-29 ruling stands: this is
+ * information, not a block.
+ *
+ * **It says only the part the screen has not already said.** A second sentence naming the way back
+ * in — `Select a place above to add it again.` — was written, put on a 390x844 screen and cut: the
+ * prior-saves notice at the top of that same viewport already ends with *"They're not selected
+ * below. Select one to add it again"*, and the two sentences pointed at each other from opposite
+ * ends of the screen. The notice's version is the better placed of the two, being directly above
+ * the cards it is about.
+ */
+export const ALREADY_ADDED_ALL_LINE = 'Everything found here is already on your map.';
 
 /**
  * The consequence of the unsaveable candidates, stated before the button is pressed rather than

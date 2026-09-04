@@ -5,6 +5,26 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+    /*
+     * Three faces, and the split between them is a ruling rather than a preference
+     * (`brand-and-product-foundation.md` §3.1, second pass, 2026-08-30).
+     *
+     * `--font-display` is **Fraunces** — a variable display serif, run with `SOFT` at 60 and `WONK`
+     * on — and it carries the wordmark and the large editorial headings, and nothing else. It
+     * replaced Archivo, which was retired for being a near-miss: Archivo and Manrope are both
+     * grotesques, too similar to read as a deliberate pairing and too different to read as one
+     * family, which is exactly the "something is off and I cannot say what" the owner reported.
+     *
+     * `--font-heading` stays **Manrope**, deliberately, and must not be repointed at the display
+     * face. Functional labels — `h3`, `h4`, card titles at 15-17px — are the majority of what reads
+     * through it, and a serif at that size turns to mud. So the display face is confined to the
+     * editorial voice and §5's "Manrope only for UI" survives intact.
+     *
+     * Do not add a `font-stretch` axis to any of them. Archivo was variable-width and an expanded
+     * setting visibly distorted the letterforms across every heading in the first draft of the
+     * design-system document.
+     */
+    --font-display: var(--font-display);
     --font-heading: var(--font-heading);
     --font-sans: var(--font-sans);
     --color-sidebar-ring: var(--sidebar-ring);
@@ -38,9 +58,150 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+    --radius-xs: var(--radius-xs);
     --radius-sm: var(--radius-sm);
+    --radius-md: var(--radius-md);
     --radius-lg: var(--radius);
     --radius-xl: var(--radius-xl);
+
+    /*
+     * Everything below is registered so Tailwind generates a utility for it and an author never
+     * has to write a bracket. `facelift-plan.md` §3a: after this block, `shadow-[var(--shadow-elevated)]`
+     * is `shadow-sheet` and `duration-[220ms]` is `duration-base`, and an arbitrary value in
+     * square brackets is a review failure rather than a shortcut.
+     *
+     * Aliases, not values — the same shape the colour block above already uses. The value lives in
+     * `:root` so it stays themeable (and so hand-written CSS, an inline `style` and a Motion
+     * transition can all read the same `var()`); `@theme inline` only teaches Tailwind the name.
+     */
+
+    /* Surfaces and roles that existed in `:root` but had no utility, so every call site reached
+     * for `bg-[var(--tag)]`. Registering them is what makes W0-3's collapse a rename. */
+    --color-primary-hover: var(--primary-hover);
+    --color-secondary-hover: var(--secondary-hover);
+    --color-tag-selected-hover: var(--tag-selected-hover);
+    --color-brand: var(--brand);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-brand-tint: var(--brand-tint);
+    --color-ink-on-mint: var(--ink-on-mint);
+    --color-card-2: var(--card-2);
+    --color-tag: var(--tag);
+    --color-tag-foreground: var(--tag-foreground);
+    --color-tag-selected: var(--tag-selected);
+    --color-tag-selected-foreground: var(--tag-selected-foreground);
+    --color-pin: var(--pin);
+    --color-pin-selected: var(--pin-selected);
+    --color-pin-halo: var(--pin-halo);
+    --color-category-restaurant: var(--category-restaurant);
+    --color-category-cafe: var(--category-cafe);
+    --color-category-bar: var(--category-bar);
+    --color-category-uncategorised: var(--category-uncategorised);
+    --color-on-category: var(--on-category);
+
+    /* State. Not the brand — see `:root`. */
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-info: var(--info);
+    --color-info-foreground: var(--info-foreground);
+
+    /* Composition — the translucent surfaces. `bg-panel`, `bg-scrim`, `backdrop-blur-panel`.
+     * `--blur-*` is the namespace `backdrop-blur` resolves against as well as `blur`; a
+     * `--backdrop-blur-panel` key here would register cleanly and generate nothing, the same
+     * silent failure the motion block above warns about. See `:root` for the values. */
+    --color-panel: var(--panel);
+    --color-scrim: var(--scrim);
+    --blur-panel: var(--panel-blur);
+
+    /* Chrome — the second brand colour and the raised material it grounds. `bg-chrome-accent`,
+     * `text-chrome-accent`, `bg-panel-raised`, `backdrop-blur-panel-raised`. Same `--blur-*`
+     * namespace trap as `--blur-panel` directly above, and for the same reason. The mesh, the
+     * glow, the grain and the lit edge are *images* rather than colours, so they have no Tailwind
+     * namespace to register under and are read through `var()` in an inline `style` — exactly as
+     * `--brand-wash` already is on the two surfaces that paint them. See `:root` for the values
+     * and for where indigo may and may not go. */
+    --color-chrome-accent: var(--chrome-accent);
+    --color-panel-raised: var(--panel-raised);
+    --blur-panel-raised: var(--panel-raised-blur);
+
+    /* Elevation. */
+    --shadow-raised: var(--shadow-raised);
+    --shadow-sheet: var(--shadow-sheet);
+    --shadow-overlay: var(--shadow-overlay);
+    /* `shadow-cta-halo` — the primary CTA's hover on the chrome surfaces. Registered here for the
+     * same reason as the three above: so the one call site that wants it writes a utility name and
+     * not a bracket. Its value, and why it re-states the resting elevation, is on the token. */
+    --shadow-cta-halo: var(--shadow-cta-halo);
+
+    /*
+     * Motion: the nine-animation closed list, by name.
+     *
+     * **The namespace is `--transition-duration-*`, not `--duration-*`.** Tailwind's `duration`
+     * utility resolves against `--transition-duration` (`lib.mjs`: `resolve(value,
+     * ["--transition-duration"])`), and a `--duration-base` key here would register cleanly, error
+     * nowhere, and generate no `duration-base` class at all — the same silent failure mode that
+     * cost `--radius-md` four button sizes. Caught by `tests/unit/ui/design-tokens.test.ts`, which
+     * compiles this file rather than reading it. `--ease-*` *is* the right namespace for easings.
+     *
+     * The `:root` side keeps the shorter `--duration-*` names, because that is what an inline
+     * `style` and a Motion transition read.
+     */
+    --transition-duration-press: var(--duration-press);
+    --transition-duration-enter: var(--duration-enter);
+    --transition-duration-couple: var(--duration-couple);
+    --transition-duration-settle: var(--duration-settle);
+    --transition-duration-stagger-row: var(--duration-stagger-row);
+    --transition-duration-cross: var(--duration-cross);
+    --transition-duration-base: var(--duration-base);
+    --transition-duration-tick: var(--duration-tick);
+    --transition-duration-flight: var(--duration-flight);
+    --transition-duration-stagger-pin: var(--duration-stagger-pin);
+    --transition-duration-surface: var(--duration-surface);
+    --transition-duration-screen: var(--duration-screen);
+    --ease-standard: var(--ease-standard);
+    --ease-emphasised: var(--ease-emphasised);
+    --ease-exit: var(--ease-exit);
+
+    /* Type. Adds to Tailwind's default ramp rather than replacing it: `text-sm`, `text-base` and
+     * `text-2xl` are still the right answer where they already fit, and these five are the sizes
+     * this product actually uses that the default ramp has no name for. */
+    --text-micro: var(--text-micro);
+    --text-micro--line-height: var(--leading-micro);
+    --text-caption: var(--text-caption);
+    --text-caption--line-height: var(--leading-caption);
+    --text-reading: var(--text-reading);
+    --text-display: var(--text-display);
+    --text-display--line-height: var(--leading-display);
+    /*
+     * **Display's upper step, and it is the design system's number rather than one of ours.**
+     *
+     * `no-crumbs-design-system.html` §The system specifies six named steps, and its **Display** is
+     * `clamp(28px, 4vw, 40px)` — demonstrated on the string *"Your places are waiting."*, which is
+     * literally this product's sign-in headline. Its **Title** is a different step entirely, 22px,
+     * for a line like *"12 restaurants here"*.
+     *
+     * This replaced a `--text-title: 2.75rem` I added on 2026-08-31, which collided with that scale
+     * twice at once: it took the name of the 22px step and it was 44px, four *over* Display's cap.
+     * A token whose name means a different step is worse than no token.
+     *
+     * **Why an `lg` step rather than making `--text-display` the clamp.** The clamp is the whole
+     * range and adopting it would move both ends. The bottom end is a regression — at 390px `4vw`
+     * resolves to 15.6px, so every headline in the product would clamp to the 28px floor, six under
+     * the 34px they set today. And the top end silently reverses a decision that is written down:
+     * `error.tsx` and `not-found.tsx` read `--text-display` and their comment records that a 40px
+     * `lg` bump was **deliberately removed** — *"this column is capped at 420px on desktop and 34px
+     * already fills it, so the bump only made the failure louder."* A responsive `--text-display`
+     * would put that bump back on a failure screen without anybody editing the file.
+     *
+     * So: `--text-display` keeps 34px and its call sites keep their decisions, and the two chrome
+     * headlines that want the top of Display's range ask for it by name. Both ends are inside the
+     * specified range; neither is invented.
+     */
+    --text-display-lg: var(--text-display-lg);
+    --text-display-lg--line-height: var(--leading-display-lg);
+    --text-hero: var(--text-hero);
+    --text-hero--line-height: var(--leading-hero);
 }
 
 /*
@@ -60,7 +221,55 @@
     --border: #E7E3DC;
     --input: #E7E3DC;
     --muted: #FAF9F6;
-    --muted-foreground: #75716A;
+    /*
+     * **`#6E6A64`, down from `#75716A`, and it is a live AA failure rather than a tightened margin.**
+     *
+     * This file had already worked around this token twice without moving it. `--panel-raised` went
+     * 0.86 -> 0.92 -> 0.95 because *"the light theme's `--muted-foreground` clears AA by 0.01 on bare
+     * `--background`, so the card is the only thing standing between the subhead and the mesh"*, and
+     * the mesh note records the same ink at **4.51:1** against a 4.5 bar. Both are correct and both
+     * are compensations. The ink itself was the thing at the line.
+     *
+     * Measured on painted pixels, it is not only at the line — it is **under** it on a ground it
+     * demonstrably lands on, which no screen the harness visits happened to show:
+     *
+     * | light ground | `#75716A` | `#6E6A64` |
+     * |---|---|---|
+     * | `--card` `#FFFFFF` | 4.85 | 5.37 |
+     * | `--background` / `--muted` `#FAF9F6` | 4.61 | 5.10 |
+     * | the desktop place panel | 4.57 | 5.06 |
+     * | `--card-2` `#F3F1EB` | **4.30 — fails** | 4.76 |
+     *
+     * **Size cannot fix any of this and somebody will try.** WCAG's large-text exemption is >=24px,
+     * or >=18.66px when bold; the smallest ink here is 11px, so 11 -> 12px buys readability and
+     * *not one point* of contrast ratio. Nor can alpha: `text-muted-foreground/70` was the defect
+     * repaired in `214bb0f`, and dimming ink that is already the ramp's quiet step spends the
+     * contrast budget twice. The ink is the only lever left.
+     *
+     * L* 47.8 -> 45.0, a ΔE00 of 2.8 across 178 call sites: subtle per instance, and checked
+     * cumulatively on the place list and the sheet, where muted ink is densest.
+     *
+     * **`--chrome-shade` references this and therefore moves with it, by design** — *"a reference,
+     * not a copy: if the ink is ever retuned the shadow follows it."* At its five composite alphas
+     * the wash shifts ΔE00 0.5-1.6, and it keeps the property its own note names: R-B of 10 against
+     * the old 11, still a warm grey rather than `--foreground`'s effectively neutral 1.
+     *
+     * **Dark does not move.** `#A8A29A` is 7.35 on `--background`, 6.51 on `--card` and 5.81 on
+     * `--card-2` — clear on every ground, so there is nothing here for a dark fix to buy. This edit
+     * is one line inside `:root`; `.dark` declares its own `--muted-foreground` and is untouched,
+     * and `--chrome-shade` is declared once as a reference, so under `.dark` it re-resolves to the
+     * dark ink on its own.
+     *
+     * **Verified after, on painted pixels rather than on this table** (`contrast-render.mjs`, 12/12
+     * known-answer cases, at `0fa25ab`): **0 AA failures across 464 scored strings**, and the
+     * thinnest margin in the product moved from 4.57 to 4.78. The 4.57 was never one row — eight
+     * strings were tied there, the whole secondary layer of the place panel: `Search your places`,
+     * every `Restaurant · Tel Aviv-Yafo` subtitle, every note, every `Saved N hours ago`. They now
+     * sit at 5.06 together. The hierarchy was checked by eye at 1440×900 light with a 30-place
+     * library, which is where this ink is densest: the name still dominates the subtitle, and the
+     * subtitle still reads as quieter than the name.
+     */
+    --muted-foreground: #6E6A64;
 
     --mint-100: #F1FBF9;
     --mint-200: #DAF5EF;
@@ -78,11 +287,183 @@
     --accent: var(--mint-100);
     --accent-foreground: #1B1B1A;
     --ring: var(--mint-700);
-    --destructive: oklch(0.577 0.245 27.325);
+    /*
+     * **The soft red, and it is more legible than the loud one it replaced.**
+     *
+     * `oklch(0.577 0.245 27.325)` (`#E7000B`) was a maximum-chroma alarm red — the browser-default
+     * register — and its saturation was buying volume, not contrast. Measured on the surfaces it
+     * actually lands on, it FAILED AA for body text in two of them: `--card-2` at 4.22:1, and the
+     * destructive button's own 10% tint at 3.99:1.
+     *
+     * This is 27% less saturated and better on every surface: `--popover` 6.44:1, `--background`
+     * 6.12:1, `--card-2` 5.70:1, inside the tinted button 5.47:1 — all four clear AA where the old
+     * value cleared two. It gets there by going **deeper rather than paler**, which is the whole
+     * trick: the old red was hard to read because it was bright, not because it was saturated, so
+     * dropping lightness buys back more contrast than desaturating does and keeps the red bold.
+     *
+     * The token is never a solid background — 46 of its uses are `text-destructive`, the rest are
+     * borders and 10–30% tints — so text contrast is the whole of its accessibility budget, which
+     * is why the numbers above are the ones that were optimised against.
+     */
+    --destructive: oklch(0.505 0.18 27.325);
+
+    /*
+     * The strong mint, as a role rather than a ramp step.
+     *
+     * `--mint-700` was reached for directly at 58 call sites in `.tsx` — 44 of them as
+     * `text-[var(--mint-700)]` — which is the ramp leaking into components. It is one thing
+     * everywhere it appears: **the mint that is dark enough to be read**, either as ink on paper
+     * (5.1:1 on `--card`) or as a ground carrying white (the same 5.1:1, inverted).
+     *
+     * Not `--primary`, which is the pale `--mint-400` fill and can only ever carry `--ink-on-mint`.
+     * Not `--ink-on-mint`, which is the near-black-green that sits *on* a mint surface. Those three
+     * are genuinely three roles and collapsing any two of them loses a contrast guarantee.
+     *
+     * `--ring`, `--pin` and `--tag-selected` are the same value and stay written as `--mint-700`:
+     * each is an independent decision that happens to have landed on the same step, and aliasing
+     * them to `--brand` would assert a coupling nobody has ruled on.
+     */
+    --brand: var(--mint-700);
+    --brand-foreground: #FFFFFF;
+    /* The soft mint rule: a quote's left border, a tinted band. Between `--accent` (invisible on
+     * white) and `--brand` (ink-strength) — the only step in the ramp that reads as a line rather
+     * than as text or as paper. */
+    --brand-tint: var(--mint-300);
+
+    /*
+     * The second surface: where a row or an icon button goes when you hover it.
+     *
+     * The state matrix (`facelift-plan.md` §3a) names it `card-2` and the palette had no such
+     * value, so hover on a white card had nowhere to go. One warm step down from `--card`, and a
+     * step short of `--border` (#E7E3DC), so a hovered row is still clearly a surface and not a
+     * divider.
+     */
+    --card-2: #F3F1EB;
+
+    /*
+     * State, and the point of it is that **success is not the brand colour**.
+     *
+     * Until now the only affirmative colour in the system was mint, so "this worked" and "this is
+     * No Crumbs" were painted the same, and there was nothing at all for a warning or a neutral
+     * notice. All three are chosen to sit *with* the mint rather than against it — same lightness
+     * register, comparable chroma — while separating from it in hue by enough to mean something:
+     * success 144°, warning 32°, info 210°, against `--mint-700`'s 172°.
+     *
+     * Deliberately not `--mint-400`. Every one carries white at AA for normal text, measured:
+     * success 5.27:1, warning 5.41:1, info 6.93:1, and 5.0:1 / 5.14:1 / 6.58:1 as ink on
+     * `--background`.
+     *
+     * This does **not** move the saved/selected check-circle, which is mint by the explicit product
+     * decision recorded at the top of this block. "Selected" is not "succeeded".
+     */
+    --success: #2B7A4B;
+    --success-foreground: #FFFFFF;
+    --warning: #9A5B14;
+    --warning-foreground: #FFFFFF;
+    --info: #255C93;
+    --info-foreground: #FFFFFF;
 
     --pin: var(--mint-700);
     --pin-selected: var(--mint-900);
     --pin-halo: #FFFFFF;
+
+    /*
+     * The category palette, and **this is one of two copies on purpose.**
+     *
+     * `src/ui/place/palette.ts` holds the same four values as named TypeScript exports, because a
+     * MapLibre style expression is evaluated by the GL renderer rather than by the browser's style
+     * engine and **cannot resolve a CSS custom property** — a pin painted `var(--category-cafe)`
+     * is a pin painted with an unparseable string. The DOM needs the token for the opposite reason:
+     * the list, the detail view and the filter chips paint the same categories and must be
+     * re-themeable from this file without anybody editing a component.
+     *
+     * Neither copy is redundant and **neither may be deleted to "fix the duplication"**.
+     * `tests/unit/ui/palette-tokens.test.ts` asserts the two sides agree; that test is the whole
+     * of what stops them drifting.
+     *
+     * `cafe` was retuned from `#8A5A3B` on 2026-08-31 — `facelift-plan.md` §1 finding 4, brick and
+     * brown not separating at pin size. It moved again on the same date, onto the amber ramp below.
+     * The measurement and the argument live on `CATEGORY_COLOR` in `palette.ts` rather than being
+     * half-told in both places, and that is where to read why café is the only role here that does
+     * not take its family's 700.
+     *
+     * Uncategorised is `--mint-700` written as a reference and not as a literal, because it *is*
+     * the house mint: a place whose category we could not read is still one of the user's places,
+     * and grey would make "we do not know" read as "this one is lesser".
+     *
+     * **The four ramps, from `docs/no-crumbs-design-system.html` §`system`.** The product had four
+     * hard-coded hexes and no scale, so a chip wash borrowed the mint tag colour and said nothing.
+     * 100 is a wash a chip or a row can sit on, 300 a border, 500 a hover or secondary fill, 700
+     * the pin and the ink, 900 text on the 100 wash — 8.5–11.7:1 on it, every family.
+     *
+     * **A different namespace from `--category-*` on purpose, and the reason is a guard rather
+     * than a preference.** `palette-tokens.test.ts` asserts the `--category-*` namespace is
+     * *exactly* the taxonomy's categories and nothing else, so a `--category-restaurant-100` would
+     * be an orphan by that rule — the same reason `--on-category` is not `--category-on`. `--cat-*`
+     * is the raw scale, `--category-*` is the role, and the role is what a component reads.
+     *
+     * **Light only, and that is a trap worth naming before somebody falls into it.** `.dark`
+     * overrides the four *roles* with the measured night values and does not restate the ramps, so
+     * `var(--cat-bar-100)` is the same near-white wash in both themes. Nothing reads a step today.
+     * Anything that starts to — a chip wash, a collection cover — needs a night ramp first, or it
+     * will paint a light wash on a near-black card and nothing will fail.
+     */
+    --cat-restaurant-100: #FDECE7;
+    --cat-restaurant-300: #FBB9A6;
+    --cat-restaurant-500: #F2704A;
+    --cat-restaurant-700: #D9482A;
+    --cat-restaurant-900: #7E2412;
+
+    --cat-cafe-100: #FBF0DE;
+    --cat-cafe-300: #F0CE8C;
+    --cat-cafe-500: #D9992F;
+    --cat-cafe-700: #A66A18;
+    /* The one step the design system does not draw. Lab-interpolated between this ramp's own 700
+       and 900, so it is a darker amber rather than a fourth opinion about what a café is. It is the
+       role's value because `#A66A18` sits 1.3 L* from the persimmon and collapses to CIEDE2000 3.4
+       under simulated deuteranopia; `palette.ts` carries the table. One edit flips the role back. */
+    --cat-cafe-800: #6C430B;
+    --cat-cafe-900: #5E3A08;
+
+    --cat-bar-100: #EFEBFB;
+    --cat-bar-300: #C7B9F2;
+    --cat-bar-500: #8B6CE6;
+    --cat-bar-700: #6A4BD0;
+    --cat-bar-900: #33206E;
+
+    --cat-uncategorised-100: #F1FBF9;
+    --cat-uncategorised-300: #C0EFE5;
+    --cat-uncategorised-500: #A8ECE2;
+    --cat-uncategorised-700: #2E7A70;
+    --cat-uncategorised-900: #123B35;
+
+    --category-restaurant: var(--cat-restaurant-700);
+    --category-cafe: var(--cat-cafe-800);
+    --category-bar: var(--cat-bar-700);
+    --category-uncategorised: var(--mint-700);
+
+    /*
+     * **The ink that sits on a category fill**, and it exists because the pressed filter chip was
+     * getting it by accident.
+     *
+     * That chip sets `--tag-selected` to the category's own colour (W2-4) and inherited
+     * `--tag-selected-foreground` — white — from the mint chip it borrowed the variant from. In
+     * light that is correct and measured: white on the three category fills is 5.0 / 7.8 / 6.3 : 1.
+     * In dark it is silently wrong, because the fills invert to light colours and the inherited
+     * foreground inverts to `--ink-on-mint`, which measures **4.13:1** on the dark restaurant —
+     * under AA, on 12px bold text, in the one chip whose whole job is to be unambiguous.
+     *
+     * Naming it makes the pair a decision rather than an inheritance: the fill and the ink on it
+     * are chosen together, in both themes, and a fifth category cannot arrive with only half of the
+     * answer.
+     *
+     * **`--on-category`, not `--category-on`**, and the name is deliberate rather than awkward:
+     * `tests/unit/ui/palette-tokens.test.ts` asserts that the `--category-*` namespace is *exactly*
+     * the taxonomy's categories and nothing else — "a token for every category the taxonomy
+     * defines, and no orphan". A fifth `--category-…` key, however sensible, is an orphan by that
+     * rule. The guard is right and the token is not a category, so the token moved.
+     */
+    --on-category: #FFFFFF;
 
     /*
      * A tag chip. `mint-200` rather than `mint-100` because a chip sits on `--card` (#FFFFFF) as
@@ -112,6 +493,49 @@
     --tag-selected: var(--mint-700);
     --tag-selected-foreground: #FFFFFF;
 
+    /*
+     * The two hover pairs, added 2026-08-31 so the call sites stop carrying a `color-mix()`
+     * expression in a Tailwind bracket.
+     *
+     * `color-mix` in `oklch` rather than a hand-picked darker value: mixing 5-10% of `--foreground`
+     * into a surface darkens it a step *in the surface's own hue*, so one rule works for the mint
+     * chip and the near-white secondary button without either needing its own picked colour — and
+     * it keeps working if the ramp is retuned, which W0-2 did to a category value the same night.
+     */
+    --secondary-hover: color-mix(in oklch, var(--secondary), var(--foreground) 5%);
+    --tag-selected-hover: color-mix(in oklch, var(--tag-selected), var(--foreground) 10%);
+
+    /*
+     * **The third one, added 2026-09-03, because primary was the one role that never got it** —
+     * `Button`'s `default` variant answered a hover with `bg-primary/80`, which is the same mint at
+     * 80% alpha over a near-white page. Measured in a real browser at `/sign-in`: rest
+     * `rgb(168, 236, 226)`, hover `rgb(184, 239, 230)`. That is about 16/3/4 per channel — under
+     * the perceptual floor — and it moves the wrong way, because dropping alpha over a light ground
+     * makes the control *lighter* when a hover is an intensification. `facelift-plan.md` §3a's
+     * matrix says "mint darkens a step", so this is the matrix's own answer rather than a new one.
+     *
+     * **14%, not the 5% `--secondary-hover` uses, and the number was measured rather than copied.**
+     * Secondary is a pale wash where 5% is already a step; `--primary` is a saturated mid-light
+     * fill where 5% moves ~10 per channel and disappears. 14% lands on `rgb(145, 209, 199)` — a
+     * delta of 23/27/27, plainly visible — while keeping `--primary-foreground` (`--ink-on-mint`)
+     * at **7.13:1** on the hovered fill, still above AAA. Past ~20% the fill leaves the mint-400
+     * neighbourhood and starts reading as `--mint-600`, which is a different colour rather than the
+     * same button lit differently.
+     *
+     * **Toward `--ink-on-mint`, not `--foreground`, and that is the whole dark-theme story.** The
+     * other two hovers are deliberately absent from the `.dark` block because they recompute from
+     * tokens that block redefines, and mixing in `--foreground` darkens on paper and lightens at
+     * night — correct, because those two surfaces invert with the theme. **`--primary` does not.**
+     * It is `--mint-400` in both themes (see the `.dark` block's own note: "the primary button is a
+     * mint fill with dark ink in both"), so a `--foreground` mix would darken it in light and
+     * lighten it in dark — reintroducing exactly the wrong-direction hover this token exists to
+     * remove, on the theme nobody would check. Mixing toward the ink the button already carries is
+     * theme-invariant *because the button is*: one declaration, no `.dark` restatement, and the
+     * same `rgb(145, 209, 199)` in both. No new pigment either — it is `--primary` and its own
+     * label colour, nothing else.
+     */
+    --primary-hover: color-mix(in oklch, var(--primary), var(--ink-on-mint) 14%);
+
     --wash-from: var(--mint-200);
     --wash-to: transparent;
     --row-selected-from: var(--mint-200);
@@ -131,11 +555,543 @@
         radial-gradient(90% 90% at 45% 40%, rgba(241, 251, 249, 0.5) 0%, rgba(241, 251, 249, 0) 70%),
         var(--background);
 
-    --shadow-elevated: 0 14px 28px -18px rgba(0, 0, 0, 0.18);
+    /*
+     * ## Composition — the two translucent surfaces, as tokens rather than as alphas
+     *
+     * **Iteration 1 tokenised colour and never tokenised composition** (`iteration-2-plan.md` §1),
+     * and these two are what that cost. Both were written as Tailwind literals — `bg-white/55` and
+     * `bg-black/40` — which name a *pigment* and an *alpha*, neither of which a theme can move. The
+     * literal survives a theme switch unchanged and composites against whatever ground it lands on,
+     * so the value that was tuned on warm near-white arrives on near-black meaning something else.
+     *
+     * `--panel` is the frosted form surface: `/` and `/sign-in`'s desktop column, a translucent
+     * sheet of the room's own paper over the `--brand-wash` behind it. In light it is
+     * white-at-55%, which is exactly what those two files carried, so the light rendering does not
+     * move. In dark it is `--card`'s warm near-black at the same alpha — measured over `#131312`
+     * the composite lands on `rgb(31,30,27)`, within a point of `--card` (`#201F1C`), which is the
+     * ground every contrast number in the `.dark` header was measured against.
+     *
+     * **The measurement that makes this P0.** `bg-white/55` over `#131312` composites to
+     * `rgb(149,149,148)`. Against it, on the product's front door, in the default theme for a
+     * dark-OS viewer and with no toggle to escape it: the `EMAIL` / `PASSWORD` labels at
+     * **1.18:1**, body ink at **2.68:1**, the mint CTA at **2.25:1**. All three fail AA.
+     *
+     * `--scrim` is the dim behind a modal sheet — the add sheet's overlay and the `＋` menu's
+     * pending state. It is darker at night rather than lighter, which is the opposite of the
+     * instinct: a scrim's job is to separate the sheet from what is behind it, and 40% black over a
+     * near-black map separates almost nothing, while the same 40% over a daylight map is already
+     * enough. Kept as `rgba(0,0,0,…)` in both themes on purpose — a scrim is an absence of light,
+     * not a colour, and tinting it warm would put a cast over the map underneath.
+     *
+     * `--panel-blur` is here rather than in a bracket so the two panels cannot drift apart; they
+     * are one surface appearing on two screens and `page.tsx`'s own comment says so.
+     */
+    --panel: rgba(255, 255, 255, 0.55);
+    --panel-blur: 10px;
+    --scrim: rgba(0, 0, 0, 0.40);
 
+    /*
+     * ## Chrome — electric indigo, and the material it grounds
+     *
+     * **Owner ruling, 2026-08-31 (`iteration-2-plan.md` §2.2, ruling 1).** A second brand colour
+     * enters the system: `--indigo-400` `#5B6CFF`. It **overrides**
+     * `brand-and-product-foundation.md` §3.1 rule 3 — *"mint stays the only brand colour"* — and it
+     * is knowingly set aside **for chrome only**.
+     *
+     * **The constraint that makes it safe is the reason it is indigo and not a warm accent.** Rule
+     * 3 exists because toast-gold sits a few degrees from the café amber, and on this map colour
+     * means *what a place is*. Indigo collides with none of the three category hues — restaurant
+     * `#E8735C`, café `#C99A55`, bar `#A288E0` — so the rule's reasoning survives even though its
+     * letter does not.
+     *
+     * **Where it may go:** the sign-in and landing grounds, their mesh, the empty states, the
+     * edges. **Where it may never go:** any pin, any category surface, any basemap layer, any
+     * filter chip. If a `--indigo-*` or `--chrome-*` reference ever appears under
+     * `components/map/`, `ui/place/` or `basemap-*`, that is the defect this paragraph names in
+     * advance. `tests/unit/design-system/chrome-tokens.test.ts` holds the line.
+     *
+     * The ramp inverts its roles exactly as the mint does (`.dark`'s rule 2): `--chrome-accent` is
+     * the step that can be *read*, which is `--indigo-600` on paper and `--indigo-400` at night.
+     *
+     * ### The four image tokens, and why they are images rather than colours
+     *
+     * `--chrome-mesh`, `--chrome-bloom-a/-b`, `--chrome-glow`, `--chrome-edge` and `--chrome-grain`
+     * are gradients and a data URI, so Tailwind has no namespace to register them under and they
+     * are read through `var()` in an inline `style` — the arrangement `--brand-wash` already uses
+     * on these same two surfaces.
+     *
+     * **Every alpha below is theme-specific and that is the whole point.** `--brand-wash`'s own
+     * comment predicted this: a saturated wash over near-black reads as a colour cast rather than
+     * as atmosphere, so the night mesh is not the day mesh at a different opacity — it is a
+     * different set of pigments (indigo and the *deep* mint) chosen for a ground that is emitting
+     * rather than reflecting.
+     *
+     * **The mesh can be this strong because nothing is read on it.** Measured on painted pixels at
+     * commit 3954793, the light theme's two smallest inks have almost no headroom:
+     * `--muted-foreground` lands at **4.51:1** and `--brand` as the kicker at **4.77:1**, against a
+     * 4.5 bar, and a 20% indigo bloom under either takes them to 3.66 and 3.82. (`--muted-foreground`
+     * has since been taken to `#6E6A64` for a different failure — see its own note — so its half of
+     * that pair now measures better than the number above. The argument is unaffected: the mesh is
+     * still strong because nothing is read on it, and `--brand` still has 0.27 of headroom.) That is the whole
+     * argument for the composition `ChromeStage` builds: **every string on both screens sits on
+     * `--panel-raised`, and the mesh is what surrounds the card.** So the alphas here are set by
+     * what the ground should look like rather than by what an ink can survive — the only thing the
+     * mesh reaches is the card's own material at 0.92/0.88, which changes the composite behind the
+     * ink by about a point and a half. Re-measured after doubling them: 112 strings, 0 failures,
+     * worst 4.61:1.
+     *
+     * **There is deliberately no wash on the card's editorial half.** There was one —
+     * `--chrome-panel-wash`, a mint-to-nothing sweep in light and an indigo one at night — and it
+     * is gone because `no-crumbs-design-system.html` §The system bans *"decorative gradients on
+     * content"* outright, independently of which hue the gradient is. The mesh, the glow and the
+     * lit edge are all *around* the reading surface and stay; a gradient sitting behind the
+     * headline and the subhead is on it. The card's two halves are told apart by the divider they
+     * already had.
+     *
+     * `--panel-raised` is the **card** material, distinct from `--panel`, which is the full-height
+     * column those two screens used to paint. A card is an object with an edge and a shadow and
+     * has to read as one thing over a coloured ground, so it is 0.86/0.88 rather than 0.55 —
+     * measured over the mesh it composites to `rgb(252,252,254)` in light and `rgb(33,33,37)` in
+     * dark, within a point or two of `--card` in both, which is the surface every contrast number
+     * in this file was taken against.
+     */
+    /*
+     * **The ground's own shadow**, and the reason it is a role rather than an inline `color-mix`.
+     *
+     * Light needed a dark end and the only deep pigments in the palette are the mint ramp — which
+     * is exactly what it may not use, because mint is the CTA and a ground cannot wear the button's
+     * colour. So depth comes from shading instead of from a hue, and shading is what this names.
+     *
+     * `--muted-foreground` rather than `--foreground`, and the difference is visible: `#1B1B1A` is
+     * effectively neutral (R−B of 1), so a wash of it turns the bottom of the page grey, which
+     * reads as a smudge on warm paper rather than as its shadow. `--muted-foreground` is `#75716A`,
+     * a warm grey with R−B of 11 — the tone the design system already uses for secondary ink, which
+     * is to say the colour this paper's own shadow already is. Composited at the alphas below it
+     * lands around `rgb(192,189,184)`, warm side of neutral, and the page still reads as paper.
+     *
+     * A reference, not a copy: if the ink is ever retuned the shadow follows it, which is the whole
+     * argument for the role layer. **It is not a brand colour and must not become one** — nothing
+     * here may be pressed, and no component may reach for `--chrome-shade` as ink or as a fill.
+     */
+    --chrome-shade: var(--muted-foreground);
+
+    --indigo-200: #DFE2FF;
+    --indigo-400: #5B6CFF;
+    --indigo-600: #3B49D1;
+    --indigo-900: #232A63;
+
+    --chrome-accent: var(--indigo-600);
+
+    /*
+     * **Light's depth is the paper's own shadow, not more mint — and that is a functional rule
+     * rather than a tonal preference.**
+     *
+     * The first attempt at giving light a dark end reached for the only deep pigments the palette
+     * has, which are the mint ramp, and it worked: the ground gained range and the card lifted off
+     * it. It also broke something more important, and measured rather than noticed:
+     *
+     *     light   CTA rgb(168,236,226) L*89   ground rgb(201,238,232) L*91   Δhue 0°   ΔL* 3
+     *     dark    CTA rgb(168,236,226) L*89   ground rgb(32,53,50)   L*20   Δhue 0°   ΔL* 68
+     *
+     * **The primary action and the page were the same colour, three lightness points apart.** The
+     * `Sign in` button stopped separating from the ground by colour and separated only by being a
+     * rounded rectangle. `no-crumbs-design-system.html` §The system says *"no second accent
+     * competing with mint for 'press this'"* — written about an accent, but a ground does the same
+     * damage by a different route, and the rule's reason survives its subject. Mint cannot both
+     * carry the ground's depth and mark the action.
+     *
+     * So the depth comes from `--chrome-shade` — see its own note above — which is **the paper's
+     * own shadow.** It introduces no pigment, competes with no signal, and it keeps the page warm
+     * because the warmth was never in the wash — `--background` is `#FAF9F6` and a neutral shade
+     * over warm paper is warm paper in shadow.
+     *
+     * **And there is no mint in this ground at all, which is the part to leave alone.** A reduced
+     * mint touch was tried first and still left 12.2% of the page within ΔE 15 of the button's own
+     * fill. Removing it takes that to near zero and states the rule cleanly: on the light chrome
+     * surfaces **mint appears only on things you press or follow** — the CTA, the kicker pill, the
+     * links — and the ground is lavender, warm shade and paper. The lavender is the admitted indigo
+     * at the alpha it already had, and indigo is safe here precisely because nothing indigo is
+     * pressable, which is the same test §The system's rule applies to an accent.
+     *
+     * **The warm end is the mascot's gold, admitted by owner ruling 2026-08-31 under indigo's
+     * fence.** It is the one warm pigment this brand owns, it sits **102°** from mint so it cannot
+     * repeat the collision the shade was introduced to fix, and it is why this ground can be warm
+     * without inventing a colour. `--chrome-shade` still carries the *depth* and gold carries the
+     * *warmth*; keeping those two jobs in two tokens is what stops either being asked to do both,
+     * which is the mistake mint was making.
+     *
+     * The low band is `MASCOT_CRUST` rather than `MASCOT_GOLD`, centred at 116% so what shows is the
+     * falloff rather than the bloom, and **listed last so the shade paints over it**. That order is
+     * the whole of how this is warmth *below* the card rather than *behind* it: the neutral shade
+     * still owns the ring the card's bottom edge separates against, and the gold only reaches where
+     * the shade has already fallen off. Measured either side, the bottom edge is the strongest of
+     * the four at ΔE 19.1 and warming it trades directly against that, so the edge is the stop
+     * condition and the numbers are in the commit.
+     *
+     * The top-right bloom is placed diagonally opposite the shade and **away from the card's mark**. That
+     * is deliberate rather than compositional taste: `MASCOT_CRUST` is 4° from `MASCOT_GOLD`, so
+     * gold near the lockup would put the mark's halo and the ground into one hue family and the
+     * halo would stop reading as light coming off the character. It is the one thing this ruling
+     * could have made worse, so it is measured rather than assumed — see the commit for the numbers
+     * either side.
+     *
+     * `color-mix()` rather than a hand-computed `rgba()`, so the shade *is* `--foreground` rather
+     * than a copy of it that can drift. The percentage inside is an alpha and this file is the one
+     * place an alpha belongs — `token-call-sites.test.ts` deliberately does not read `globals.css`
+     * for exactly that reason.
+     */
+    --chrome-mesh:
+        radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.26) 0%, rgba(91, 108, 255, 0) 62%),
+        radial-gradient(70% 60% at 104% 0%, rgba(242, 196, 107, 0.72) 0%, transparent 60%),
+        radial-gradient(74% 62% at 97% 99%, color-mix(in srgb, var(--chrome-shade) 62%, transparent) 0%, transparent 68%),
+        radial-gradient(66% 56% at -8% 104%, rgba(224, 168, 69, 0.34) 0%, transparent 62%),
+        radial-gradient(62% 52% at -10% 102%, color-mix(in srgb, var(--chrome-shade) 44%, transparent) 0%, transparent 64%),
+        radial-gradient(92% 96% at 50% 46%, color-mix(in srgb, var(--chrome-shade) 30%, transparent) 0%, transparent 78%),
+        radial-gradient(96% 46% at 50% 116%, rgba(224, 168, 69, 0.46) 0%, transparent 66%),
+        var(--background);
+    --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.30) 0%, rgba(91, 108, 255, 0) 100%);
+    /* The second bloom follows the mesh onto the warm shade, and it is the one that was still
+     * costing the CTA its separation after the mesh had been cleaned. It is a *large* drifting
+     * disc, so a pale mint here put roughly a seventh of the page in the button's own hue family
+     * even with no mint left in the mesh at all — measured, and only visible once the competing-area
+     * metric was tightened to require real chroma rather than mere lightness. Same rule as the
+     * mesh: on light chrome, mint is for things you press or follow. */
+    --chrome-bloom-b: radial-gradient(closest-side, color-mix(in srgb, var(--chrome-shade) 34%, transparent) 0%, transparent 100%);
+    /*
+     * **The pool the card sits in, and in light it darkens rather than lights.**
+     *
+     * This is the token where the two themes stop being the same idea at two alphas, and the reason
+     * is that "glow" describes what it does at night and not what it does on paper. In dark the
+     * card is a near-black panel and an indigo glow behind it *lifts* the surround, so the card
+     * reads as an object with light behind it. In light the card is near-white, and the same indigo
+     * lifted the ground toward white exactly where the card most needed something to sit against —
+     * measured, the card's top edge separated from its own surround by **ΔE 6.9** at 1440x900,
+     * against 14.8 for the same edge at night.
+     *
+     * So on paper it is the deep mint, and it works the other way round: it puts a soft shadow of
+     * colour under and around the card so a white object lifts off it. Same job — *make the card an
+     * object* — opposite mechanism, which is what a composition token with two values is for.
+     */
+    --chrome-glow: radial-gradient(closest-side, color-mix(in srgb, var(--chrome-shade) 38%, transparent) 0%, transparent 100%);
+    /*
+     * **The halo behind the mark, and it is the mascot's own light rather than the brand's.**
+     *
+     * A separate token from `--chrome-glow` because it is a different job at a different scale, and
+     * it has now been wrong twice for the same reason — each time it was chosen against a mark that
+     * then changed underneath it.
+     *
+     * First it was indigo, which behind the old *mint* disc on near-white desaturated to a grey
+     * disc with a visible boundary. Then it was mint, which was right for a mint mark and became
+     * wrong the moment the mascot landed: `#E0A845` at 224,168,69 is a warm object and a pale mint
+     * halo sits at the opposite temperature, so what it drew around the gold crumb was a cyan-green
+     * **fringe** rather than light. Measured 40px out from the mark's centre at 390x844, the halo
+     * read `rgb(239,249,251)` against a `rgb(252,252,254)` card — cool, where the object it
+     * surrounds is warm. Owner-side ruling, 2026-08-31: warm it.
+     *
+     * So it is `MASCOT_CRUST` — the character's own darker underside — at a low alpha, and it reads
+     * as the light coming off the crumb instead of as a second colour behind it.
+     *
+     * **And the binding reason is a rule rather than the measurement.** Team-lead ruling,
+     * 2026-08-31: `brand-and-product-foundation.md` §3.1 rule 3 says mint and gold *never appear on
+     * the same surface*, and a mint glow drawn two pixels around a gold character is those two
+     * colours meeting at the closest distance the product can put them. The owner's override admits
+     * **indigo** to chrome; it says nothing about mint and gold, so rule 3 still binds here. That is
+     * why this is the crust in **both** themes rather than a light-only correction — the night
+     * value was indigo rather than mint and so never broke rule 3, but it read as a bruise behind a
+     * warm character rather than as light, which is the same defect the light one had with the
+     * temperature reversed.
+     *
+     * **This is the fourth deliberate literal-versus-token duplication in this codebase and it
+     * follows the same rule as the other three** (`ui/place/palette.ts`, `components/brand/
+     * brand-colors.ts`, `mascot-colors.ts`): the value is *decided* in `mascot-colors.ts`, which is
+     * the one place the character's palette lives, and this is a copy because a stylesheet cannot
+     * import a TypeScript constant. `tests/unit/design-system/chrome-tokens.test.ts` asserts the
+     * two agree. **Do not retune this hue here** — move `MASCOT_CRUST` and let the test fail.
+     *
+     * **`.dark` is the same hue at a higher alpha, and that is the exception this file otherwise
+     * argues against.** Every other composition token here carries two genuinely different values
+     * because a pigment that works on paper does not work on near-black. This one does not, and the
+     * reason is that it is not lighting a *surface* — it is lighting a **character**, and the
+     * character is the same object in both themes. What changes is how much light a ground needs
+     * before a glow registers on it, which is an alpha and not a colour.
+     */
+    --chrome-mark-glow: radial-gradient(closest-side, rgba(224, 168, 69, 0.42) 0%, rgba(224, 168, 69, 0) 100%);
+
+    /*
+     * **The mascot's keyline, and it is the one part of the character that follows the theme.**
+     *
+     * Its argument lives on `MASCOT_KEYLINE_LIGHT`/`_DARK` in `components/brand/mascot-colors.ts`,
+     * which is where the decision is made; this is the copy the DOM can read, because a stylesheet
+     * cannot import a constant. `tests/unit/design-system/chrome-tokens.test.ts` asserts the two
+     * agree in **both** themes — the same arrangement the halo above already carries, and for the
+     * same reason: this value has been wrong twice by being tuned against a mark that then changed.
+     *
+     * The short version of why it is themed at all: `MASCOT_GOLD` against `--card` is **1.63:1** in
+     * light, so the outline is what gives the shape an edge there, and **10.11:1** in dark, where
+     * the body separates itself and the keyline is only drawing the character. Outlined was
+     * therefore rendering as very nearly Flat on dark — one construction drawing two different
+     * characters. `MASCOT_KEYLINE_DARK` takes the dark rim from ΔE00 11.9 to 23.9.
+     *
+     * **This is fidelity, not accessibility.** The first report of it called the keyline
+     * near-invisible and the crumb a gold disc without an edge; measured, it is a quiet rim rather
+     * than an absent one and the character was legible on dark throughout. Recorded because a token
+     * that arrives labelled as an accessibility fix gets defended differently from one labelled as
+     * a drawing correction.
+     *
+     * **Light is deliberately unchanged.** Taking the warm value to both themes would cost light the
+     * edge it is the only theme to actually need.
+     */
+    --mascot-keyline: #3A2A15;
+    /* The lit top edge of the card: the two brand colours as a single 1px rule, which is colour
+     * that costs no contrast because nothing is read on it. */
+    --chrome-edge:
+        linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.75) 24%, rgba(46, 122, 112, 0.85) 62%, rgba(46, 122, 112, 0) 100%);
+    /*
+     * **The spark that runs along the lit edge once, as the entrance's closing beat.**
+     *
+     * The same 1px rule the token above paints, brightened over a third of its width and moved
+     * across it exactly once. It is the "one orchestrated moment" the sign-in brief asks for rather
+     * than a sixth scattered effect: the card rises, its children stagger in, and then the edge
+     * lights up left to right — the object finishing arriving rather than a decoration starting.
+     *
+     * `mint-700` on paper and `mint-400` at night, which is the same inversion `--chrome-edge`
+     * already carries in its own middle stop. Deliberately **not** white: on the near-white light
+     * card a white spark is the edge *disappearing* where the highlight is, which reads as a
+     * rendering fault rather than as light.
+     *
+     * It is a `transform` on a strip that paints one gradient, so a frame costs a composite and no
+     * repaint — and it plays once, so it is an event rather than wallpaper. `#motion`'s rule about
+     * Land applies to it word for word: *"If it loops it stops being an event and becomes
+     * wallpaper."*
+     */
+    --chrome-edge-spark:
+        linear-gradient(90deg, rgba(46, 122, 112, 0) 0%, rgba(46, 122, 112, 0.95) 50%, rgba(46, 122, 112, 0) 100%);
+    /*
+     * **What the primary CTA does when a pointer arrives, as a shadow rather than as a colour.**
+     *
+     * Written when `Button`'s `default` variant answered a hover with `bg-primary/80` and this was
+     * the only visible half of that hover. **That is no longer the arrangement** — `--primary-hover`
+     * now darkens the fill itself, above — so read this as the flourish it was meant to be rather
+     * than as the state: it adds light *under* the CTA, which is a property the fill cannot
+     * express, on the largest mint object on a page whose whole job is to be pressed.
+     *
+     * `--brand` (`--mint-700`) rather than `--primary` (`--mint-400`), and it is the same evidence
+     * `button.tsx` records for the outline variant's border: a `#A8ECE2` glow under a `#A8ECE2`
+     * button on a near-white card is invisible. The deep mint reads in both themes.
+     *
+     * A shadow, so it costs a repaint on one small element and never a layout. Nothing on this
+     * screen animates a layout-triggering property, which is the standing rule for a codebase that
+     * has a MapLibre canvas one route away.
+     *
+     * **It opens with `var(--shadow-raised)` on purpose.** `box-shadow` is not additive, so a
+     * `hover:` utility naming only the halo would *replace* the button's resting elevation and the
+     * control would flatten at the exact moment it is being reached for. The two are one value
+     * because they are one appearance.
+     *
+     * Named `--shadow-*` rather than `--chrome-*` so it registers in `@theme inline` beside the
+     * other three and the call site can write `hover:shadow-cta-halo` — a registered utility rather
+     * than `shadow-[var(…)]`, which run rule 6a makes a review failure and which this file's own
+     * `@theme` block exists to make unnecessary.
+     */
+    --shadow-cta-halo:
+        var(--shadow-raised),
+        0 8px 26px -8px color-mix(in srgb, var(--brand) 65%, transparent);
+    /*
+     * Grain, as a tiled `feTurbulence` rather than a PNG: 160×160 of desaturated fractal noise,
+     * ~1.2 kB, no network request, no dependency. It is painted with `mix-blend-mode: overlay`, so
+     * mid-grey is neutral and only the deviation registers — which is why the SVG itself carries no
+     * opacity and the strength is a separate token. `%23` is `#`, which a data URI may not contain
+     * unencoded.
+     */
+    --chrome-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+    --chrome-grain-strength: 0.20;
+
+    /* 0.92, not the 0.86 this started at, and the six points came from a measurement rather than
+     * from taste. **The premise below has since been repaired at the source** — `--muted-foreground`
+     * is `#6E6A64` and clears `--background` by 0.60 rather than 0.01 — so this opacity is no longer
+     * the only thing holding that ink up. It is kept: it was raised again at 0.95 for the mesh's own
+     * deep end, which is a separate reason and still true, and nothing is gained by walking it back.
+     * The light theme's `--muted-foreground` cleared AA by 0.01 on bare `--background`,
+     * so the card is the only thing standing between the subhead and the mesh — and a more opaque
+     * card is a *better* lever than a weaker mesh, because it buys the ink its headroom without
+     * taking any colour off the ground around it.
+     *
+     * **0.95, raised from 0.92 when light's ground got its range.** Giving the mesh a genuinely
+     * deep end put a darker field under the card, and at 0.92 that came straight through: the
+     * worst light ink went 4.61 to 4.58 against a 4.5 bar. Three points is not a failure and it is
+     * not headroom either, and this file has now twice watched a 4.5-something value fail when
+     * something moved underneath it. Three more points of white buys it back and *also* lifts the
+     * card further off the ground, which is the thing the ground was deepened for — the only cost
+     * is frost, and frost is a night-time effect. Measured over the deepened mesh, 0.95 composites
+     * to `rgb(250,251,251)` and the worst light ink returns to 4.7. */
+    --panel-raised: rgba(255, 255, 255, 0.95);
+    --panel-raised-blur: 20px;
+
+    /*
+     * **How strongly a category colour tints a surface it is being used as the ground of.**
+     *
+     * The row disc is the only reader today (`ui/place/category-display.ts`'s `categoryTintVar`),
+     * and it is a token rather than a number for the same reason `--panel` and `--scrim` above are:
+     * **a percentage inside `color-mix(… N%, transparent)` is an alpha, not a constant.** It
+     * composites against whatever is behind it, so one number cannot mean one thing in two themes.
+     * `K12` cannot see it either — there is no hex literal anywhere in the expression, which is how
+     * it survived a whole run that was looking for exactly this class of bug.
+     *
+     * **The ceiling is the glyph, and it is the constraint nobody stated.** The disc carries a pin
+     * painted in the *same* category colour as its ground, so every point of tint the ground gains
+     * it takes from the glyph. Measured on painted pixels, worst of the four categories, both
+     * themes — the pin against its own disc:
+     *
+     *      %     12     18     22     26     30     36     42
+     *   light  4.22   3.87   3.66   3.45   3.23   2.94   2.67
+     *    dark  4.65   4.22   3.93   3.68   3.41   3.07   2.72
+     *
+     * WCAG non-text wants 3.0, so the hard ceiling is 30% in light and 36% in dark — and the
+     * ceiling is *lower* in light, which is the opposite of where the tint needs to go. 22 and 26
+     * are the pair that leaves the glyph the **same** headroom in both themes (3.66 and 3.68), and
+     * that symmetry is the reason they are these two numbers rather than two picked ones.
+     *
+     * 12% in either theme is where this started and it reads as a grey circle with a coloured pin
+     * in it: a café disc at 12% composites to `rgb(237,233,229)` on the light card and
+     * `rgb(52,46,34)` on the dark one, which are a neutral warm-grey and a dark olive. At 22 / 26
+     * they are `rgb(223,215,208)` and `rgb(75,63,42)` — a warm taupe and an amber-brown, and the
+     * category is legible from the disc rather than only from the pin inside it.
+     *
+     * Not registered in `@theme inline`: it is a *component* of a colour, not a colour, so there is
+     * no `bg-tint-strength` to generate and Tailwind has no namespace for it.
+     */
+    --tint-strength: 22%;
+
+    /*
+     * Elevation, as three named steps instead of one string copied into brackets.
+     *
+     * `--shadow-elevated` was the only shadow in the system and it was reached for as
+     * `shadow-[var(--shadow-elevated)]` at eleven call sites. `--shadow-sheet` **is that value** —
+     * so replacing those brackets with `shadow-sheet` is a rename and not a restyle — and the two
+     * either side of it fill the gap that forced every raised thing to choose between no shadow at
+     * all and the sheet's.
+     *
+     * `--shadow-elevated` is kept as the name the eleven call sites still use; it is the alias, not
+     * the definition, so there is one value and not two to drift.
+     */
+    --shadow-raised: 0 1px 2px -1px rgba(0, 0, 0, 0.10), 0 2px 6px -4px rgba(0, 0, 0, 0.12);
+    --shadow-sheet: 0 14px 28px -18px rgba(0, 0, 0, 0.18);
+    --shadow-overlay: 0 24px 48px -24px rgba(0, 0, 0, 0.28);
+    --shadow-elevated: var(--shadow-sheet);
+
+    /*
+     * `--radius-md` was **referenced four times in `components/ui/button.tsx` and never defined**
+     * (`facelift-plan.md` §1, finding 5), and the consequence is worse than that finding says:
+     * the four small button sizes were rendering with **square corners**.
+     *
+     * Measured in Chromium against the running dev server, 2026-08-31. `min(var(--radius-md), 10px)`
+     * with `--radius-md` undefined is invalid at computed-value time, which makes the property
+     * `unset` — and `border-radius` does not inherit, so `unset` is the initial value, `0`. The
+     * `rounded-lg` in the base class string does not save it, because `cn()`'s `twMerge` strips
+     * `rounded-lg` the moment the size adds its own `rounded-*`: an `xs` button's final class list
+     * carries `rounded-[min(var(--radius-md),10px)]` and nothing else in that group. So `xs`, `sm`,
+     * `icon-xs` and `icon-sm` were square, and had been for as long as the file has existed.
+     *
+     * Defining the token is therefore a visible change and the intended one: 10px on `xs` and
+     * `icon-xs`, 12px on `sm` and `icon-sm`, measured.
+     *
+     * 0.875rem sits where the ramp says it should, one step between `--radius-sm` and `--radius`,
+     * and above both `min()` caps so the caps are what decide — which is what makes the four sizes
+     * read as one family rather than as four numbers.
+     */
+    /*
+     * 10px. Added 2026-08-31 so `button.tsx`'s `xs` and `icon-xs` sizes can say `rounded-xs`
+     * instead of `rounded-[min(var(--radius-md),10px)]`.
+     *
+     * **Not `rounded-md`, and this is worth stating because a specification suggested it.**
+     * `ux-overnight-specs.md` Spec 2 §2.0 proposed collapsing those four brackets onto `rounded-md`
+     * — written while `--radius-md` was still undefined and those sizes were rendering square. Now
+     * that it is defined at 0.875rem, `rounded-md` would render them at **14px**, which is a real
+     * restyle of four button sizes wearing a bracket cleanup's clothes, on the four sizes W0-1 had
+     * just repaired. The `min()` expressions were clamping to 10px and 12px; `--radius-xs` is the
+     * 10px one and `--radius-sm` was already the 12px one.
+     */
+    --radius-xs: 0.625rem;
     --radius-sm: 0.75rem;
+    --radius-md: 0.875rem;
     --radius: 1rem;
     --radius-xl: 1.5rem;
+
+    /*
+     * Motion: the closed list of nine micro-animations in `facelift-plan.md` §3a, and nothing else.
+     * Named for the moment each one belongs to, so a reviewer can tell whether an animation is on
+     * the list by reading the class — `duration-press` is on it, `duration-[250ms]` is not.
+     *
+     * `--duration-base` is `pin.select`'s 220ms, and it is called "base" because it is the one an
+     * author reaches for when the moment has no name of its own.
+     *
+     * `pins.land` is the one entry that is only half CSS: the 900ms is a MapLibre camera flight,
+     * which reads a number in TypeScript and cannot read a custom property. The token exists so the
+     * paint half — the staggered drop — is written against the same number rather than a second one.
+     */
+    --duration-press: 90ms;
+    --duration-enter: 140ms;
+    --duration-couple: 160ms;
+    --duration-settle: 180ms;
+    --duration-stagger-row: 40ms;
+    --duration-cross: 200ms;
+    --duration-base: 220ms;
+    --duration-tick: 400ms;
+    --duration-flight: 900ms;
+    --duration-stagger-pin: 60ms;
+
+    /*
+     * **Two more, and they are the first entries here that the closed list of nine does not
+     * contain.** Owner mandate, 2026-08-31: *"opening/closing popups, modals, moving between pages,
+     * and basically every transition should include animation. from micro to more dominant."* The
+     * nine are the **data** surface's vocabulary — `iteration-2-plan.md` §2.1 splits the system in
+     * two, and on chrome an entrance is permitted. Neither of these may ever appear on a pin, a
+     * basemap layer or a filter chip; that fence is the same one indigo and the mascot's gold carry.
+     *
+     * `--duration-surface` is a surface that **arrives on its own** — the desktop import card and
+     * its scrim, a dialog, a modal. Distinct from `--duration-base`, which is what a surface's
+     * *contents* ride when something else is already carrying them: the add sheet's pane change
+     * stays at 220ms because vaul's own spring is opening the drawer underneath it, and a pane that
+     * takes 300ms lags behind the surface it is inside. **A tier named for what it does should be
+     * timed by what it carries**, which is why these are two numbers and not one.
+     *
+     * `--duration-screen` is one screen replacing another — the import flow's paste → rail →
+     * review, which is the product's only multi-step journey and the closest thing it has to moving
+     * between pages. It is deliberately not `--duration-tick`: 400ms was close enough to borrow and
+     * `count.tick` is a counting-up animation, so a screen transition written against it would read
+     * as a count at every call site.
+     *
+     * Both are consumed only through `src/lib/interaction.ts`, never at a call site.
+     */
+    --duration-surface: 300ms;
+    --duration-screen: 440ms;
+
+    /* Standard for anything that just moves; emphasised for the one thing the user is watching
+     * (`pin.select`, `pins.land`), which needs to leave quickly and arrive slowly; exit for
+     * something on its way off screen, which should not linger. */
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --ease-emphasised: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+
+    /*
+     * Type. Five sizes the product already uses that Tailwind's default ramp has no name for —
+     * measured as bracketed values across the `.tsx` tree: 11px x29, 13px x14, 15.5px x5, 34px
+     * x4 and the
+     * landing clamp x2. This is an *addition* to the default ramp, not a replacement: `text-sm`,
+     * `text-base` and `text-2xl` keep working and stay the right answer where they already fit.
+     */
+    --text-micro: 0.6875rem;
+    --leading-micro: 1.45;
+    --text-caption: 0.8125rem;
+    --leading-caption: 1.4;
+    --text-reading: 0.96875rem;
+    --text-display: 2.125rem;
+    --leading-display: 1.12;
+    /* The design system's Display cap, and its line height from the same demo. */
+    --text-display-lg: 2.5rem;
+    --leading-display-lg: 1.05;
+    --text-hero: clamp(2.5rem, 5.5vw, 4rem);
+    --leading-hero: 1.05;
 
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
@@ -154,50 +1110,449 @@
 }
 
 /*
- * Stale relative to the finalized light tokens above (still "Pale Sky" light-blue values) —
- * not yet reworked against the mint ramp. Not safe to toggle on until it gets its own pass;
- * first pass, not signed off.
+ * ## Night — the dark theme, rebuilt against the mint ramp (W7-1)
+ *
+ * **What was here before, because it is worth knowing what this replaced.** This block held an
+ * abandoned light-blue exploration — "Pale Sky", `--primary: #6FBEEF`, `--accent: #1E3A4A`, a
+ * blue-grey `#14181D` ground — carried forward from a scaffold and never reworked against the mint
+ * ramp. Its own comment said so: *"Stale relative to the finalized light tokens above … not yet
+ * reworked against the mint ramp. Not safe to toggle on until it gets its own pass; first pass, not
+ * signed off."* That warning was correct and it was also unreachable: **nothing in `src/` ever
+ * applied the class**, so the block was dead rather than merely stale, and its four `--tag*` values
+ * were explicitly deferred ("inventing a dark tag colour here would be a fifth unreviewed value
+ * rather than a decision").
+ *
+ * `facelift-plan.md` §4 decision 3 is binding — **a signed pass, or no toggle at all** — so this is
+ * the pass. Every value below is derived from the same ramp the light theme uses and every contrast
+ * claim in the comments was measured, not estimated.
+ *
+ * ## The three rules this palette follows
+ *
+ * **1. Warm, not blue.** The light theme is warm paper (`#FAF9F6`) and warm ink (`#1B1B1A`). Night
+ * is the same room with the lights off, so the ground is a warm near-black rather than the cool
+ * slate the scaffold used. A blue-grey dark theme under a warm light theme reads as two products.
+ *
+ * **2. The mint inverts its role, it does not change.** In light, the mint that can be *read* is
+ * `--mint-700` and the mint that is a *fill* is `--mint-400`. On a near-black ground those swap:
+ * `--mint-400` is the step with contrast against the dark (13.9:1 on `--background`), and
+ * `--mint-700` would be nearly invisible. So `--brand` and `--ring` move to `--mint-400` while
+ * `--primary` stays exactly where it was — the primary button is a mint fill with dark ink in both
+ * themes, which is the one component that should not change at all between them.
+ *
+ * **3. Elevation comes from the surface, not only from the shadow.** In light, `--card` over
+ * `--background` is a 1.03:1 seam and the shadow does the work. A shadow on a near-black ground has
+ * almost nothing to darken, so the surfaces separate instead: `--card` sits at 1.13:1 over the
+ * ground and `--card-2` a further step above it. The shadows below are also deepened, because
+ * 10% black over `#131312` is not a shadow, it is nothing.
+ *
+ * ## Measured, on `--card` (`#201F1C`) unless stated
+ *
+ * foreground 14.7:1 · muted-foreground 6.5:1 · brand/mint-400 as ink 12.9:1 · brand-tint 5.6:1 on
+ * the ground · ink-on-mint on a mint-400 fill 9.3:1 · tag-foreground on the tag ground 10.9:1 ·
+ * every state colour ≥ 6.5:1 against its own foreground and ≥ 6.9:1 as ink on the ground.
  */
 .dark {
-    --background: #14181D;
-    --foreground: #F2F5F7;
-    --card: #1C232B;
-    --card-foreground: #F2F5F7;
-    --popover: #1C232B;
-    --popover-foreground: #F2F5F7;
-    --primary: #6FBEEF;
-    --primary-foreground: #0B2233;
-    --secondary: #232A32;
-    --secondary-foreground: #F2F5F7;
-    --muted: #232A32;
-    --muted-foreground: #8B95A3;
-    --accent: #1E3A4A;
-    --accent-foreground: #F2F5F7;
-    /* Mapped onto this theme's own accent pair rather than given new values: the dark palette is
-     * explicitly a first pass and not signed off (see the block comment above), so inventing a
-     * dark tag colour here would be a fifth unreviewed value rather than a decision. The selected
-     * state borrows the dark theme's `--primary` pair for exactly the same reason. */
-    --tag: var(--accent);
-    --tag-foreground: var(--accent-foreground);
-    --tag-selected: var(--primary);
-    --tag-selected-foreground: var(--primary-foreground);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: #2A323B;
-    --input: #2A323B;
-    --ring: #6FBEEF;
+    --background: #131312;
+    --foreground: #F4F2EC;
+    --card: #201F1C;
+    --card-foreground: #F4F2EC;
+    --popover: #201F1C;
+    --popover-foreground: #F4F2EC;
+    --border: #332F2A;
+    --input: #332F2A;
+    --muted: #201F1C;
+    --muted-foreground: #A8A29A;
+
+    /* The ramp itself does not move. It is the brand, and a brand that changes hue when the lights
+     * go out is two brands. What changes is which step each role reaches for. */
+    --primary: var(--mint-400);
+    --primary-foreground: var(--ink-on-mint);
+    --secondary: #2A2825;
+    --secondary-foreground: #F4F2EC;
+    --accent: #222A28;
+    --accent-foreground: #F4F2EC;
+    --ring: var(--mint-400);
+    /* Lighter than the light theme's, for the same reason `--brand` is: the light `--destructive`
+     * is chosen to be read on paper. `0.73` and not `0.71`: at `0.71` this cleared AA on every dark
+     * surface except the destructive button's own 20% tint (4.34:1), and the button is the one
+     * place the token has to carry a label. `0.73` puts it at 4.59:1 and every other dark surface
+     * above 5.7:1. */
+    --destructive: oklch(0.73 0.14 22.216);
+
+    /* Rule 2, applied. `--brand-foreground` is the ink that sits *on* the brand, so it follows the
+     * brand from white onto `--ink-on-mint`. `--brand-tint` is the soft rule — a quote's border, a
+     * tinted band — and takes `--mint-600` rather than `--mint-900`: measured, `--mint-900` on this
+     * ground is 2.5:1 and reads as a smudge, `--mint-600` is 5.6:1 and reads as a line. */
+    --brand: var(--mint-400);
+    --brand-foreground: var(--ink-on-mint);
+    --brand-tint: var(--mint-600);
+
+    /* Rule 3. One step above `--card`, exactly as `--card-2` is one step below `--card` in light. */
+    --card-2: #2A2825;
+
+    /* Same three hues as the light theme (success 144°, warning 32°, info 210°), lifted to the
+     * lightness a dark ground needs. The light values are chosen to carry white; these are chosen
+     * to be read *as ink* on near-black and to carry a dark foreground when they are a fill. */
+    --success: #4FB27A;
+    --success-foreground: #0B1F13;
+    --warning: #D2913F;
+    --warning-foreground: #241605;
+    --info: #6FA9DE;
+    --info-foreground: #08192A;
+
+    /*
+     * **The tag pair, which the previous block explicitly refused to decide.**
+     *
+     * It aliased `--tag` onto `--accent` and `--tag-selected` onto `--primary` rather than invent
+     * "a fifth unreviewed value". That was the right call for an unsigned pass and it is now a
+     * decision: a chip at rest is a mint-tinted dark surface carrying `--mint-300`, and the pressed
+     * chip is the brightest object in the block — `--mint-400` with dark ink. That inversion is
+     * exactly what the light theme does (`--tag-selected` is the deep mint carrying white there),
+     * translated rather than copied: in both themes the pressed chip is the one unambiguous object
+     * among its neighbours, and in both it is painted the colour of the pins it left on the map.
+     */
+    --tag: #24302E;
+    --tag-foreground: var(--mint-300);
+    --tag-selected: var(--mint-400);
+    --tag-selected-foreground: var(--ink-on-mint);
+
+    /*
+     * **`--secondary-hover` and `--tag-selected-hover` are deliberately absent, and that is not an
+     * omission.** Both are declared in `:root` as `color-mix(in oklch, <surface>, var(--foreground)
+     * N%)`. A custom property's `var()` references are substituted against *the element the
+     * property is computed on*, and `.dark` sets `--secondary`, `--tag-selected` and `--foreground`
+     * on that same element — so both hovers recompute themselves here with no restatement.
+     *
+     * And they recompute in the right direction without being told to: mixing in `--foreground`
+     * darkens a surface on a light theme and lightens it on a dark one, because `--foreground` is
+     * near-black in one and near-white in the other. That is the property the light block's own
+     * comment predicted ("it keeps working if the ramp is retuned"); restating them here would
+     * silently break it the next time either surface moves.
+     */
+
+    /*
+     * **The category night values — measured, correct, and READ BY NOTHING YET. Do not mistake
+     * these for a working dark category palette.**
+     *
+     * I wrote them expecting them to theme the row disc and the chip dot, photographed the result,
+     * and saw both still painted in the light colours. The reason is worth recording, because it
+     * is not what the duplication comment in `palette.ts` leads you to expect: **no component
+     * anywhere in `src/` reads a `--category-*` token.** Every DOM surface that paints a category —
+     * the row's disc, the filter chip's dot, the profile page's swatch — goes through
+     * `categoryDisplay()`, which returns a literal from `src/ui/place/palette.ts` and is applied as
+     * an inline `style`. Grep for `--category-` outside this file: the only hit is a sentence
+     * inside `palette.ts`'s own header.
+     *
+     * So these four are a **contract, not a style source**. Their job in `:root` is to be the thing
+     * `tests/unit/ui/palette-tokens.test.ts` compares the literals against; overriding them here
+     * changes what nothing does. They are kept rather than deleted because the values are the
+     * measured half of W7-3's job and throwing them away would mean measuring them twice — but
+     * until `categoryDisplay()` becomes theme-aware, **dark mode paints light-mode categories on
+     * both the rows and the pins**, consistently with each other and wrongly with the ground.
+     *
+     * The measurement, so W7-3 does not repeat it. On `--card`, the light values are café **2.2:1**
+     * and bar **2.7:1** — a café disc on a night row is very nearly invisible, which is the defect
+     * these fix. Lifted, all four clear AA as ink (5.5–7.8:1) and they keep separating from each
+     * other: the worst pair is restaurant/café at **ΔE 23.2**, better than the light set's own
+     * worst pair (20.1, after W0-2 retuned café for exactly this confusion). Hue identity is
+     * preserved — a café is still brown, a bar is still purple.
+     */
+    --category-restaurant: #E8735C;
+    --category-cafe: #C99A55;
+    --category-bar: #A288E0;
+    --category-uncategorised: #5FC3B4;
+    /* The ground, not `--ink-on-mint`. Measured on the three lifted fills: the near-black is
+     * 6.2 / 7.3 / 6.3 : 1 where `--ink-on-mint` is 4.1 / 4.8 / 4.2 — the latter fails AA on two of
+     * three, and this is 12px bold text on the one chip that has to read unambiguously. It also
+     * lands close to the light theme's own worst case (5.0:1), so the pressed chip is about as
+     * legible at night as it is in daylight rather than merely legal. */
+    --on-category: var(--background);
+
+    /* Same caveat as the categories above, and for the same reason: `--pin*` is read by nothing
+     * either — `marker-style.ts` imports `PIN_LABEL_HALO` and friends from `palette.ts` as
+     * literals, because a GL style expression cannot resolve a custom property at all. These are
+     * the measured night values waiting for W7-3 to make that module theme-aware. A white halo is
+     * the correct ring around a pin on paper and the wrong one on a night basemap, where the
+     * ground is what the halo has to separate the label from. */
+    --pin: var(--mint-400);
+    --pin-selected: var(--mint-300);
+    --pin-halo: #131312;
+
+    /* The washes invert: a mint *glow* on a dark ground rather than a mint tint on a light one, at
+     * roughly a third of the alpha, because a saturated wash over near-black reads as a colour cast
+     * across the whole screen rather than as atmosphere. `--background` stays the last layer, so
+     * the result is still opaque. */
+    --wash-from: #1D2C2A;
+    --wash-to: transparent;
+    --row-selected-from: #1D2C2A;
+    --row-selected-to: transparent;
+    --brand-wash:
+        radial-gradient(130% 110% at 115% -15%, rgba(70, 155, 142, 0.20) 0%, rgba(70, 155, 142, 0) 58%),
+        radial-gradient(120% 130% at -15% 118%, rgba(33, 95, 86, 0.16) 0%, rgba(33, 95, 86, 0) 62%),
+        radial-gradient(90% 90% at 45% 40%, rgba(46, 122, 112, 0.12) 0%, rgba(46, 122, 112, 0) 70%),
+        var(--background);
+
+    /*
+     * Composition. `--panel-blur` is not restated: the blur radius is a geometry, not a colour, and
+     * 10px of backdrop blur is the same amount of blur in either theme.
+     *
+     * `--panel` takes `--card`'s value (`#201F1C` = 32,31,28) at the light theme's own alpha, so
+     * the panel is the same *material* in both themes rather than the same *pigment*. Composited
+     * over the ground: 0.55x32 + 0.45x19 = 31.4, so `rgb(31,30,27)` — a point off `--card`, which
+     * is the surface the whole `.dark` block's contrast table was measured on. That is what carries
+     * the labels from 1.18:1 to `--muted-foreground`'s 6.5:1 without anyone re-picking an ink.
+     *
+     * `--scrim` goes *up* at night, to 0.62. Over a daylight map 40% black is already a clear
+     * separation; over the night basemap it is a barely-visible film, and the sheet in front of it
+     * (`--card`, one step *lighter* than the ground) has nothing to sit against. 0.62 puts the
+     * dimmed map at roughly the same distance from the sheet's surface as 0.40 does in daylight.
+     */
+    --panel: rgba(32, 31, 28, 0.55);
+    --scrim: rgba(0, 0, 0, 0.62);
+
+    /*
+     * Chrome at night. The ramp does not move — `--indigo-400` is the ruled `#5B6CFF` in both
+     * themes, exactly as the mint ramp is one ramp — what changes is which step each role reaches
+     * for and how much pigment the ground can take.
+     *
+     * `--chrome-accent` follows the mint's rule 2 and inverts to `--indigo-400`: `--indigo-600` on
+     * this ground measures 3.1:1 and reads as a bruise, `--indigo-400` is 5.6:1 and reads as a
+     * colour.
+     *
+     * The mesh swaps its *pigments* rather than its opacity. The day mesh uses `--mint-400`, which
+     * is a pale fill and turns to a grey haze over near-black; the night mesh uses the deep
+     * `--mint-700`/`--mint-600`, which glow. Indigo roughly doubles, because the ink that has to
+     * survive it is `--muted-foreground` at 6.5:1 on `--card` rather than light's 4.51:1 — measured
+     * on painted pixels, the worst ink over the strongest bloom lands at 4.87:1.
+     *
+     * Grain drops to 0.14: `overlay` against a near-black ground lifts more than it darkens, and
+     * the day value visibly greyed the panel.
+     */
+    --chrome-accent: var(--indigo-400);
+
+    --chrome-mesh:
+        radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.38) 0%, rgba(91, 108, 255, 0) 62%),
+        radial-gradient(66% 56% at 104% 2%, rgba(46, 122, 112, 0.44) 0%, rgba(46, 122, 112, 0) 60%),
+        radial-gradient(84% 68% at 98% 106%, rgba(59, 73, 209, 0.40) 0%, rgba(59, 73, 209, 0) 66%),
+        radial-gradient(62% 52% at -10% 102%, rgba(70, 155, 142, 0.32) 0%, rgba(70, 155, 142, 0) 64%),
+        var(--background);
+    --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.40) 0%, rgba(91, 108, 255, 0) 100%);
+    --chrome-bloom-b: radial-gradient(closest-side, rgba(70, 155, 142, 0.42) 0%, rgba(70, 155, 142, 0) 100%);
+    --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.44) 0%, rgba(91, 108, 255, 0) 100%);
+    /* `MASCOT_CRUST` again, at a higher alpha — see `:root`. A near-black ground swallows a warm
+     * glow that a near-white one carries easily, so the pigment is held and the alpha moves. The
+     * indigo that was here read as a bruise behind the gold character rather than as light. */
+    --chrome-mark-glow: radial-gradient(closest-side, rgba(224, 168, 69, 0.62) 0%, rgba(224, 168, 69, 0) 100%);
+
+    /* `MASCOT_KEYLINE_DARK`, which is `MASCOT_INK_FLAT`'s value under a second name on purpose —
+     * two decisions that happen to agree, so that moving one re-argues the other rather than
+     * dragging it. See `:root` for why the keyline is themed and the mascot module for the
+     * measurements. */
+    --mascot-keyline: #6B4A1E;
+    --chrome-edge:
+        linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.95) 24%, rgba(168, 236, 226, 0.9) 62%, rgba(168, 236, 226, 0) 100%);
+    /* `mint-400`, following `--chrome-edge`'s own inversion in this theme: the light card's edge is
+     * the deep mint and the night card's is the pale one, so the spark is whichever of the two the
+     * line it runs along is already made of. */
+    --chrome-edge-spark:
+        linear-gradient(90deg, rgba(168, 236, 226, 0) 0%, rgba(168, 236, 226, 1) 50%, rgba(168, 236, 226, 0) 100%);
+    /* Not restated: `--shadow-cta-halo` is written as a `color-mix` over `--brand`, and `--brand`
+     * inverts to `--mint-400` under `.dark` on its own. A second literal here would be a copy that
+     * can drift, which is the arrangement `--chrome-shade` argues against at length. */
+    --chrome-grain-strength: 0.14;
+
+    /* `--card`'s own value at a card's alpha rather than a column's. Composited over the night mesh
+     * it lands on `rgb(33,33,37)` — a couple of points off `--card` (`#201F1C`), which is the
+     * ground this whole block's contrast table was measured on. `--panel-raised-blur` is not
+     * restated: like `--panel-blur` it is a geometry, and 20px is 20px in either theme. */
+    --panel-raised: rgba(32, 31, 28, 0.88);
+    /* Four points above light's, and the reason is not "dark needs more": it is that both values
+     * are set from the *glyph* ceiling in `:root`, and that ceiling is higher here (36% against
+     * light's 30%) because the night category colours are the lifted ones. Same headroom, different
+     * number. */
+    --tint-strength: 26%;
+
+    /* Rule 3's other half. The light values are 10-28% black, which over `#131312` is
+     * indistinguishable from no shadow at all; these are the same three steps at the alpha a dark
+     * ground needs to register them. `--shadow-elevated` is not restated — it is `var(--shadow-sheet)`
+     * in `:root` and follows it here, which is what makes it an alias rather than a fourth value. */
+    --shadow-raised: 0 1px 2px -1px rgba(0, 0, 0, 0.55), 0 2px 6px -4px rgba(0, 0, 0, 0.60);
+    --shadow-sheet: 0 14px 28px -18px rgba(0, 0, 0, 0.75);
+    --shadow-overlay: 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: #1C232B;
-    --sidebar-foreground: #F2F5F7;
-    --sidebar-primary: #6FBEEF;
-    --sidebar-primary-foreground: #0B2233;
-    --sidebar-accent: #1E3A4A;
-    --sidebar-accent-foreground: #F2F5F7;
-    --sidebar-border: #2A323B;
-    --sidebar-ring: #6FBEEF;
+
+    --sidebar: #201F1C;
+    --sidebar-foreground: #F4F2EC;
+    --sidebar-primary: var(--mint-400);
+    --sidebar-primary-foreground: var(--ink-on-mint);
+    --sidebar-accent: #222A28;
+    --sidebar-accent-foreground: #F4F2EC;
+    --sidebar-border: #332F2A;
+    --sidebar-ring: var(--mint-400);
+}
+
+/*
+ * ## The device's own dark preference, for a visitor whose JavaScript never ran
+ *
+ * **Measured gap:** with scripting off, this product rendered light whatever the device asked for.
+ * The *stored* preference lives in `localStorage` and genuinely cannot work without JavaScript —
+ * `app/profile/theme-choice.tsx` correctly hides itself there. But the **device's** preference
+ * needs no JavaScript at all, and `theme.ts`'s own `DEFAULT_PREFERENCE` is `'system'`. Without JS,
+ * `'system'` is the only preference that exists, so honouring it is implementing the default this
+ * product already declares rather than adding behaviour.
+ *
+ * ### `:root:not([data-theme])` is an exact "the script did not run" seam, not an approximation
+ *
+ * This is the part that has to be right, because the failure mode is a user whose stored choice is
+ * **Light**, on a **dark** device, getting a dark page — or a flash of one.
+ *
+ * `THEME_INIT_SCRIPT` writes three things, and the one that matters here is `data-theme`. It is
+ * written on **both** branches — `"light"` and `"dark"` — never only on the dark one. Evaluated
+ * against a stub DOM across all ten combinations of stored preference (`light`, `dark`, `system`,
+ * absent, corrupt) x device scheme, `data-theme` is present in ten of ten. So with scripting on the
+ * attribute is always there and this rule never matches; with scripting off it is never there and
+ * this rule is the only opinion on the page. The two cases are disjoint by construction rather than
+ * by luck.
+ *
+ * **And there is no flash**, for the same reason the `.dark` class does not flash: the script is
+ * synchronous, in `<head>`, before `<body>` — the browser cannot paint before it runs. Whatever
+ * this rule would have said is decided before the first frame, not corrected after it.
+ *
+ * **One case changes behaviour with scripting on, and the change is a fix.** When `localStorage`
+ * throws — site data blocked, a partitioned iframe — the script's `try/catch` swallows the whole
+ * body and `data-theme` is never written. Those users were getting light on a dark device. They now
+ * get dark, which is what `ThemeProvider` independently resolves to a moment later
+ * (`readStoredPreference` returns `DEFAULT_PREFERENCE` on throw), so the two agree and nothing
+ * flashes back.
+ *
+ * ### Specificity, stated because it is load-bearing
+ *
+ * `:root:not([data-theme])` is (0,2,0) and beats `:root` (0,1,0), which is what lets it override the
+ * light palette wherever it applies. It is also above `.dark` (0,1,0) — which is harmless, because
+ * the two can never match the same element, and if they somehow did they would paint the same
+ * palette.
+ *
+ * **An earlier version of this paragraph added "do not lower it to `html:not([data-theme])`, that
+ * is (0,1,1) and would lose to `:root`". That is false**, and it was reasoned rather than measured.
+ * Specificity compares lexicographically on (ids, classes/attributes/pseudo-classes, elements):
+ * (0,1,1) ties `:root`'s (0,1,0) on the middle column and is *ahead* on the last, so it wins.
+ * Checked in a browser with the `:root` rule written last, so source order would have given the
+ * opposite answer. Both forms are correct; `:root` is used here because the light palette beside it
+ * is written on `:root` and the two should read as a pair. Recorded because a stated trap that does
+ * not exist is worse than no note: the next reader trusts it instead of checking.
+ *
+ * ### The duplication below is deliberate, and it is guarded
+ *
+ * CSS has no way to say *"these declarations apply for `.dark`, or under this media query"* in one
+ * rule: a media query wraps whole rules, so a selector list cannot have one member gated by it. The
+ * alternatives were rewriting all 75 roles as `light-dark()` — which would restructure the entire
+ * token layer and the two suites that parse it — or a server-read cookie in `layout.tsx`, which is
+ * a heavier change in another lane's file. So this is a copy, and it follows the rule this file
+ * already applies to `--chrome-mark-glow` and `--mascot-keyline`: **a deliberate duplication is
+ * only allowed with a test that makes drift impossible.** `tests/unit/ui/no-js-dark.test.ts`
+ * compares the two blocks declaration for declaration and fails on any difference.
+ *
+ * **Edit `.dark` above, never this block, and let the test tell you to copy it down.**
+ *
+ * `color-scheme` is the one declaration here that `.dark` does not carry, and the test asserts that
+ * exception by name. With scripting on it is an inline style written by `applyTheme`; with
+ * scripting off nothing writes it, and without it a dark page keeps white scrollbars, white form
+ * controls and a white overscroll — the single most obvious tell that a dark mode was painted on
+ * rather than declared.
+ */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        color-scheme: dark;
+        --background: #131312;
+        --foreground: #F4F2EC;
+        --card: #201F1C;
+        --card-foreground: #F4F2EC;
+        --popover: #201F1C;
+        --popover-foreground: #F4F2EC;
+        --border: #332F2A;
+        --input: #332F2A;
+        --muted: #201F1C;
+        --muted-foreground: #A8A29A;
+        --primary: var(--mint-400);
+        --primary-foreground: var(--ink-on-mint);
+        --secondary: #2A2825;
+        --secondary-foreground: #F4F2EC;
+        --accent: #222A28;
+        --accent-foreground: #F4F2EC;
+        --ring: var(--mint-400);
+        --destructive: oklch(0.73 0.14 22.216);
+        --brand: var(--mint-400);
+        --brand-foreground: var(--ink-on-mint);
+        --brand-tint: var(--mint-600);
+        --card-2: #2A2825;
+        --success: #4FB27A;
+        --success-foreground: #0B1F13;
+        --warning: #D2913F;
+        --warning-foreground: #241605;
+        --info: #6FA9DE;
+        --info-foreground: #08192A;
+        --tag: #24302E;
+        --tag-foreground: var(--mint-300);
+        --tag-selected: var(--mint-400);
+        --tag-selected-foreground: var(--ink-on-mint);
+        --category-restaurant: #E8735C;
+        --category-cafe: #C99A55;
+        --category-bar: #A288E0;
+        --category-uncategorised: #5FC3B4;
+        --on-category: var(--background);
+        --pin: var(--mint-400);
+        --pin-selected: var(--mint-300);
+        --pin-halo: #131312;
+        --wash-from: #1D2C2A;
+        --wash-to: transparent;
+        --row-selected-from: #1D2C2A;
+        --row-selected-to: transparent;
+        --brand-wash:
+            radial-gradient(130% 110% at 115% -15%, rgba(70, 155, 142, 0.20) 0%, rgba(70, 155, 142, 0) 58%),
+            radial-gradient(120% 130% at -15% 118%, rgba(33, 95, 86, 0.16) 0%, rgba(33, 95, 86, 0) 62%),
+            radial-gradient(90% 90% at 45% 40%, rgba(46, 122, 112, 0.12) 0%, rgba(46, 122, 112, 0) 70%),
+            var(--background);
+        --panel: rgba(32, 31, 28, 0.55);
+        --scrim: rgba(0, 0, 0, 0.62);
+        --chrome-accent: var(--indigo-400);
+        --chrome-mesh:
+            radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.38) 0%, rgba(91, 108, 255, 0) 62%),
+            radial-gradient(66% 56% at 104% 2%, rgba(46, 122, 112, 0.44) 0%, rgba(46, 122, 112, 0) 60%),
+            radial-gradient(84% 68% at 98% 106%, rgba(59, 73, 209, 0.40) 0%, rgba(59, 73, 209, 0) 66%),
+            radial-gradient(62% 52% at -10% 102%, rgba(70, 155, 142, 0.32) 0%, rgba(70, 155, 142, 0) 64%),
+            var(--background);
+        --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.40) 0%, rgba(91, 108, 255, 0) 100%);
+        --chrome-bloom-b: radial-gradient(closest-side, rgba(70, 155, 142, 0.42) 0%, rgba(70, 155, 142, 0) 100%);
+        --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.44) 0%, rgba(91, 108, 255, 0) 100%);
+        --chrome-mark-glow: radial-gradient(closest-side, rgba(224, 168, 69, 0.62) 0%, rgba(224, 168, 69, 0) 100%);
+        --mascot-keyline: #6B4A1E;
+        --chrome-edge: linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.95) 24%, rgba(168, 236, 226, 0.9) 62%, rgba(168, 236, 226, 0) 100%);
+        --chrome-edge-spark: linear-gradient(90deg, rgba(168, 236, 226, 0) 0%, rgba(168, 236, 226, 1) 50%, rgba(168, 236, 226, 0) 100%);
+        --chrome-grain-strength: 0.14;
+        --panel-raised: rgba(32, 31, 28, 0.88);
+        --tint-strength: 26%;
+        --shadow-raised: 0 1px 2px -1px rgba(0, 0, 0, 0.55), 0 2px 6px -4px rgba(0, 0, 0, 0.60);
+        --shadow-sheet: 0 14px 28px -18px rgba(0, 0, 0, 0.75);
+        --shadow-overlay: 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+        --chart-1: oklch(0.87 0 0);
+        --chart-2: oklch(0.556 0 0);
+        --chart-3: oklch(0.439 0 0);
+        --chart-4: oklch(0.371 0 0);
+        --chart-5: oklch(0.269 0 0);
+        --sidebar: #201F1C;
+        --sidebar-foreground: #F4F2EC;
+        --sidebar-primary: var(--mint-400);
+        --sidebar-primary-foreground: var(--ink-on-mint);
+        --sidebar-accent: #222A28;
+        --sidebar-accent-foreground: #F4F2EC;
+        --sidebar-border: #332F2A;
+        --sidebar-ring: var(--mint-400);
+    }
 }
 
 @layer base {
@@ -210,8 +1565,129 @@
   html {
     @apply font-sans;
     }
+
+  /*
+   * ## The pointer cursor, restored — and it is a correctness bug rather than polish
+   *
+   * **Tailwind v3 shipped `cursor: pointer` on `<button>` in preflight and v4 removed it**, on the
+   * grounds that the CSS spec's default for a button is `cursor: default`. Verified against the
+   * installed 4.3.3 rather than recalled: the string `cursor` appears **exactly once** in
+   * `node_modules/tailwindcss/preflight.css`, in a comment about Safari's number-input spin
+   * buttons. There is no rule. So every `<button>` in this product was showing an arrow.
+   *
+   * That is not a taste question. A hand is the one signal a pointer user has that a thing is
+   * pressable *before* they press it, and this product's controls lean hard on shape — the FAB, the
+   * nav tabs, the filter pills, the sheet handle, the icon buttons — none of which is underlined or
+   * blue.
+   *
+   * **Measured in a browser at commit `9a95444`**, seven routes x two themes x two gate viewports,
+   * reading `getComputedStyle().cursor` on every candidate rather than reading class strings:
+   *
+   *  | | `pointer` | `default` |
+   *  |---|---|---|
+   *  | `<button>` samples | 44 | **216** |
+   *  | distinct `<button>` elements | 21 | **53** |
+   *  | `<a href>` samples | 112 | 0 |
+   *
+   * The 21 that were already right are the six call sites that had remembered to write
+   * `cursor-pointer` themselves, which is the shape of the problem rather than an exception to it.
+   * The anchors were never affected: the UA stylesheet gives them a pointer and no framework has
+   * ever removed it.
+   *
+   * ## Why it is here and not on the `Button` primitive
+   *
+   * Because `Button` is not where the problem is. There are **60 raw `<button>` elements** across
+   * 24 files against 81 `<Button>` call sites, and the raw ones are the FAB, the nav tabs, the
+   * sheet handle and the map controls — the elements least likely to be routed through a primitive
+   * and most likely to be the next one somebody adds. A fix on the component covers 57% of the
+   * problem and leaves the other 43% to be remembered, forever, one author at a time. A fix in
+   * `base` covers the element.
+   *
+   * `@layer base` and not `@layer components` or a `@utility`, and the layer is the whole design:
+   * base loses to every Tailwind utility, so `cursor-default`, `cursor-not-allowed`, `cursor-grab`
+   * on the map and `disabled:cursor-default` in `candidate-card.tsx` all still win at the call site
+   * without `!important` anywhere. This is a floor, not a ceiling.
+   *
+   * ## The selector list, and the two things deliberately not in it
+   *
+   * `<a href>` is absent because the UA stylesheet already gives it a pointer; adding it here would
+   * be a rule that never changes anything, which is how a stylesheet stops being readable.
+   *
+   * There is no `[onclick]` / `div` catch-all either, and that one was decided by the measurement
+   * rather than by preference. Exactly **one** element in this product carries a React click
+   * handler without being a `<button>` or an `<a>` — the sheet's drag handle — and it is handled
+   * by name below because what it wants is `grab`, not `pointer`. A catch-all would have given it
+   * the wrong cursor while looking like it had found something.
+   *
+   * A `<label>` earns a pointer only when it wraps a **checkbox or radio**, because there clicking
+   * the label toggles a control; a label over a text field only moves focus into it, which is what
+   * a text cursor already promises. The sign-in screen's *Remember me* row is the checkbox case,
+   * and the row rather than the 16px box is the hit area.
+   */
+  button,
+  [role='button'],
+  summary,
+  select,
+  input:where([type='checkbox'], [type='radio'], [type='submit'], [type='button'], [type='reset']),
+  label:has(> input:where([type='checkbox'], [type='radio'])),
+  ::file-selector-button {
+    cursor: pointer;
+    }
+
+  /*
+   * An inactive control is not pressable, so it does not promise a press. `default` rather than
+   * `not-allowed`: the fields already write `disabled:cursor-not-allowed` as a utility and it still
+   * wins here, and on a `<Button>` this never renders at all — `disabled:pointer-events-none` means
+   * the cursor resolves against the parent. This exists for the controls that stay hit-testable
+   * while inert, which is the `aria-disabled` case.
+   */
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled='true'] {
+    cursor: default;
+    }
+
+  /*
+   * **The sheet's drag handle wants `grab`, and it is the one control in the product that does.**
+   *
+   * `[data-vaul-handle]` is vaul's own attribute (`node_modules/vaul/dist/index.mjs`, in the
+   * stylesheet it injects), so this reaches the handle in `shell/map-shell.tsx` and the one in
+   * `add/add-sheet.tsx` without either file having to know. Measured at `9a95444` it computed
+   * `cursor: auto` in both, on every route that mounts a sheet: an element you are meant to drag,
+   * offering the cursor of ordinary page text.
+   *
+   * `grab` rather than `pointer` because dragging is what it is for — the click-to-toggle is the
+   * secondary behaviour, and a hand-with-a-finger over a drag affordance promises the wrong
+   * gesture. `grabbing` while held, which is the pair the two cursors exist as.
+   *
+   * It is styled here rather than at either call site for the same reason as everything above:
+   * there are two handles today and the third one should not have to remember.
+   */
+  [data-vaul-handle],
+  [data-vaul-handle-hitarea] {
+    cursor: grab;
+    }
+  [data-vaul-handle]:active,
+  [data-vaul-handle]:has([data-vaul-handle-hitarea]:active) {
+    cursor: grabbing;
+    }
+
+  /*
+   * The popup is the desktop map's *only* detail surface, and it was set in Helvetica Neue.
+   *
+   * `maplibre-gl.css` line 1 fonts the whole map container —
+   * `.maplibregl-map{font:12px/20px Helvetica Neue,Arial,Helvetica,sans-serif}` — and the popup
+   * is a child of it, so every text node inside `PlaceDetail variant="popover"` inherited a face
+   * the product does not own. Measured at 1280x900 before this rule: **36 Helvetica nodes against
+   * 1 Manrope** (only the `<h2>`, which carries `font-heading` explicitly).
+   *
+   * `font-sans`, not `font: inherit`: inherit resolves to `.maplibregl-map`'s Helvetica and
+   * changes nothing. Measured. The CARTO attribution is untouched — `.maplibregl-ctrl-attrib` is
+   * a sibling of the popup, not inside it, and its licence text stays where MapLibre put it.
+   */
   .maplibregl-popup-content {
-    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+    @apply bg-transparent! shadow-none! p-0! rounded-none! font-sans!;
     }
   .maplibregl-popup-tip {
     @apply hidden!;
@@ -230,13 +1706,13 @@
    * ever see is a compliance defect rather than a cosmetic one — and a zoom button you cannot
    * press is a plain bug.
    *
-   * `SHEET_PEEK_PX` (128) plus the safe-area inset the sheet sits on, plus a little air. Mirrored
+   * `SHEET_PEEK_PX` (156) plus the safe-area inset the sheet sits on, plus a little air. Mirrored
    * from `components/map/query-rect.ts`, which mirrors it from the sheet — the coupling is named
    * in both places rather than reached for.
    */
   .maplibregl-ctrl-bottom-right,
   .maplibregl-ctrl-bottom-left {
-    padding-bottom: calc(128px + env(safe-area-inset-bottom) + 0.25rem);
+    padding-bottom: calc(156px + env(safe-area-inset-bottom) + 0.25rem);
     }
   @media (min-width: 64rem) {
     .maplibregl-ctrl-bottom-right,
@@ -252,5 +1728,607 @@
     }
   .maplibregl-ctrl-attrib-button {
     @apply bg-transparent! dark:invert;
+    }
+}
+/* -------------------------------------------------------------------------- */
+/* The mascot's motion                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * **The seven animations of `docs/no-crumbs-design-system.html` chapter 03, and the three of them
+ * this product has a screen for today.**
+ *
+ * *"The two of them this product has a screen for"* is what this line said until 2026-08-31, and
+ * the count was the smaller problem. It read as a **scoping decision** and it was not one: the
+ * product had a screen for Land — the post-import confirmation — and the animation simply had no
+ * call site, so the header recorded an absence as if it were a boundary and stopped anyone from
+ * looking (`docs/product-review-2026-08-31-r2.md`, delight §2). Land is wired now, in
+ * `components/map/import-confirmation.tsx`.
+ *
+ * **Three is a backlog, not a boundary either.** `halo` has a state waiting for it (`nearMe`, the
+ * locating fix) and `bob` and `scan` do not have one yet. Those are findings on the review's list
+ * and are dispatched deliberately; wiring an animation because it exists is how a mascot becomes
+ * wallpaper, which is the same failure `#rules` rule 6 names for moods.
+ *
+ * The rig has been in `src/components/brand/` since I2-W and every hook it emits — `crumb-all`,
+ * `crumb-eyes`, `crumb-halo`, `crumb-spark-1/2`, `crumb-trail-dot-*` — was targeted by nothing.
+ * A hook with no rule on the other end is not a smaller version of a working animation; it is dead
+ * markup that reads like one. This is the other end.
+ *
+ * **Why here and not in a CSS module beside the component.** A module was proposed and ruled
+ * against, correctly: this repo has zero `.module.css`, so introducing one buys a permanent second
+ * styling convention — every future rule needs a decision about which of two homes it belongs in —
+ * to solve a scheduling problem that is paid once. Keyframes are global in CSS whatever file they
+ * are written in, so the module would not even have scoped the thing that matters.
+ *
+ * **`transform-origin` is in the mascot's own user space**, which is why `crumb-mascot-markup.ts`
+ * wraps the drawing in `crumb-all` rather than letting these rules target the `<svg>`. `50px 94px`
+ * is the bottom of the crumb at 40px, at 168px and inside the trail's scaled group; on the `<svg>`
+ * it would be a CSS-pixel offset and a small mark and a large one would squash about different
+ * points.
+ *
+ * Every property animated here is `transform` or `opacity` — compositor-only, no layout, no paint.
+ * That is a hard rule on a screen that also holds a MapLibre canvas one route away.
+ */
+
+@keyframes crumb-bob {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  45% { transform: translateY(-8px) scale(0.97, 1.04); }
+  70% { transform: translateY(0) scale(1.05, 0.94); }
+  85% { transform: translateY(0) scale(1, 1); }
+}
+
+@keyframes crumb-wobble {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+@keyframes crumb-scan {
+  0%, 100% { transform: translateX(-2.6px); }
+  50% { transform: translateX(3.2px); }
+}
+
+@keyframes crumb-land {
+  0% { transform: translateY(-46px) scale(0.86, 1.16); opacity: 0; }
+  55% { transform: translateY(0) scale(1.12, 0.88); opacity: 1; }
+  75% { transform: translateY(-7px) scale(0.97, 1.04); }
+  100% { transform: translateY(0) scale(1, 1); opacity: 1; }
+}
+
+@keyframes crumb-halo {
+  0%, 100% { opacity: 0.18; transform: scale(1); }
+  50% { opacity: 0.42; transform: scale(1.14); }
+}
+
+@keyframes crumb-spark {
+  0%, 70%, 100% { opacity: 0; transform: scale(0.4); }
+  20%, 50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes crumb-trail-dot {
+  0%, 100% { opacity: 0.18; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-5px); }
+}
+
+/**
+ * **The idle stir — "a gentle movement from time to time", read literally.**
+ *
+ * Owner, 2026-08-31: *"it should have idle state, when it has a gentle movement from time to time.
+ * it should be alive! not just a logo."* The two halves of that are in tension and the tension is
+ * the design: **a loop that is mostly stillness is alive; a loop that is mostly motion is a
+ * spinner.** `facelift-plan.md` §3a bans a continuous pulse outright, and Bob at 1.15s is a
+ * continuous pulse by any honest reading — it is the workhorse for *"anywhere a spinner would have
+ * gone"*, which is precisely the thing this is not.
+ *
+ * So the cycle is **17 seconds and 85.6% of it is the rest pose.** Two stirs, deliberately
+ * dissimilar, at deliberately unequal offsets.
+ *
+ * **85.6 is measured, not computed.** The stops below put 88% of the timeline at `rotate(0deg)`;
+ * sampling the *computed* transform at 340 phases through a negative `animation-delay` gives 85.6%
+ * below a quarter-degree, because `ease-in-out` spills motion past the stop boundaries. Peak
+ * rotation lands at 4.14° rather than the 4.2° written here for the same reason. The arithmetic
+ * figure was in this comment first and is corrected rather than kept: a number a reader would take
+ * for a measurement should be one.
+ *
+ * | | when | for | what |
+ * |---|---|---|---|
+ * | first | 5.5–12.5% | 1.19 s | a quick double-rock, left then right then settling |
+ * | gap | | **7.57 s** | |
+ * | second | 57–67.5% | 1.79 s | one slower lean right, unwinding |
+ * | gap | | **6.55 s** | |
+ *
+ * **The two gaps differ by a second and the two stirs differ in kind**, which is what stops it
+ * reading metronomic. A single stir on a fixed period is a metronome the moment anybody notices
+ * the period, and somebody looking at a sign-in screen for thirty seconds will.
+ *
+ * ## Rotation, and this is the map's motion boundary rather than a style choice
+ *
+ * **Owner ruling 6 put the mascot on `/map`, which is a data surface**, and §3a's rule there is
+ * that a thing that moves is a thing that changed. The question *"can a moving mascot be told
+ * apart from a pin's own motion"* has a structural answer, read out of the map lane's code rather
+ * than judged:
+ *
+ *  - `icon-opacity` — the pin landing is a **staggered fade**, eight waves over a per-feature
+ *    `landOrder` (`place-marker-layer.tsx`, which records that a per-pin drop was impossible
+ *    because `icon-translate` is not data-driven);
+ *  - `icon-translate: [0, -3]` — a 3px lift on **exactly one selected pin** (`marker-style.ts`).
+ *
+ * That is the whole vocabulary, and **`icon-rotate` appears nowhere in `components/map/`**.
+ * Therefore:
+ *
+ *  - **Bob may not go on the map.** `translateY(-8px)` with squash *is* the selected-pin lift, only
+ *    larger — a mascot bobbing on a loop says *something is selected*, sixty times a minute.
+ *  - **Halo, and any opacity pulse, may not either.** Opacity *is* the pin-landing language.
+ *  - **Rotation is unambiguous by construction**, because it is the one gesture that surface has
+ *    never used.
+ *
+ * `map-mascot-motion.test.ts` holds that boundary by parsing this rule's keyframes: the map-facing
+ * animation may contain no `translate` and no `opacity`. Read the sentence above before assuming
+ * "no bob on the map" was timidity.
+ *
+ * `transform-origin` is the crumb's base, so it pivots like something standing rather than
+ * spinning about its middle.
+ */
+@keyframes crumb-stir {
+  0%, 5.5% { transform: rotate(0deg); }
+  7.2% { transform: rotate(-4.2deg); }
+  9.1% { transform: rotate(2.8deg); }
+  10.8% { transform: rotate(-1.1deg); }
+  12.5%, 57% { transform: rotate(0deg); }
+  60.5% { transform: rotate(3.4deg); }
+  64% { transform: rotate(1.2deg); }
+  67.5%, 100% { transform: rotate(0deg); }
+}
+
+/** The success beat's fade, and the *only* thing that survives `prefers-reduced-motion` below. */
+@keyframes crumb-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Bob — the workhorse, 1.15s. Not used on the import wait; see Wobble. */
+.crumb-anim-bob .crumb-all {
+  animation: crumb-bob 1.15s cubic-bezier(0.4, 0, 0.3, 1) infinite;
+  transform-origin: 50px 94px;
+}
+
+/* Wobble — the import wait, and `#motion` is explicit that this is not interchangeable with Bob:
+   *"seven to thirty-four seconds is a long time to watch something bounce. Wobble reads as
+   patient; Bob reads as impatient by about second six."* No vertical travel, 1.8s. */
+.crumb-anim-wobble .crumb-all {
+  animation: crumb-wobble 1.8s ease-in-out infinite;
+  transform-origin: 50px 90px;
+}
+
+/* Scan — the eyes track, the body does not move. The only one that says *working on your thing*
+   rather than *working*. */
+.crumb-anim-scan .crumb-eyes {
+  animation: crumb-scan 1.5s ease-in-out infinite;
+}
+
+/* Land — **one-shot**, `1 both`, never `infinite`. `#motion`: *"If it loops it stops being an
+   event and becomes wallpaper."* The design system's own page loops it only to demonstrate it. */
+.crumb-anim-land .crumb-all {
+  animation: crumb-land 0.78s cubic-bezier(0.3, 1.1, 0.4, 1) 1 both;
+  transform-origin: 50px 94px;
+}
+
+/* The spark pair rides with Land rather than with the `found` mood, so motion stays opt-in: a face
+   that twinkled merely by existing would be an animation nobody asked a call site for.
+
+   **`1 both`, for the same reason the body above is `1 both`, and it was `infinite` until
+   2026-08-31.** The rule was written four lines up and broken immediately under it: the body landed
+   once and the sparks twinkled forever, which is precisely the wallpaper `#motion` forbids. It was
+   invisible because nothing used Land — the defect and the animation's first call site were one
+   commit apart, so this is fixed *before* the swap rather than discovered by it
+   (`docs/product-review-2026-08-31-r2.md`, delight §3.1).
+
+   `both` matters as much as `1` here: `crumb-spark`'s first and last frames are both `opacity: 0`,
+   so the fill holds the sparks invisible before their offset and invisible again afterwards. Drop
+   it and the pair would flash on at rest, which is the same defect wearing the opposite sign.
+
+   The pair outlasts the body deliberately — the body settles at 0.78s, spark-1 peaks 0.32–0.8s and
+   spark-2 0.67–1.15s — so the celebration ends on the sparks rather than on the landing. The
+   durations are `#motion`'s own and are not retuned here. */
+.crumb-anim-land .crumb-spark-1 {
+  animation: crumb-spark 1.6s ease-in-out 1 both;
+  transform-origin: 16px 20px;
+}
+.crumb-anim-land .crumb-spark-2 {
+  animation: crumb-spark 1.6s ease-in-out 0.35s 1 both;
+  transform-origin: 86px 28px;
+}
+
+/* Stir — the idle state, 17s, a measured 85.6% of it still. See the keyframe: rotation only, because rotation
+   is the one gesture the data surface has never used, and this animation is licensed on `/map`. */
+.crumb-anim-stir .crumb-all {
+  animation: crumb-stir 17s ease-in-out infinite;
+  transform-origin: 50px 94px;
+}
+
+/**
+ * **Awareness — the eyes follow the pointer.** Owner: *"hovering it should make him notice, maybe
+ * follow with eyes?"*
+ *
+ * The transform rides on `.crumb-eyes`, which is the group Scan already moves, so this is the
+ * existing geometry driven from a different source rather than a second way to move a face. Two
+ * custom properties are written by `crumb-aware.tsx` on the wrapper and inherit down to the group;
+ * **nothing re-renders and nothing touches layout** — a pointer move sets two variables and the
+ * compositor does the rest.
+ *
+ * The lengths are SVG user units, so the travel is a fraction of the body and is proportionally
+ * identical at 44px and 56px. They are `TRAVEL_X = 5` and `TRAVEL_Y = 3.2`, in `crumb-aware.tsx`,
+ * and this comment is not free to restate them — it said `2.4` and `1.8` until 2026-08-31, which
+ * were **measured and rejected**, not current.
+ *
+ * The rejection is the part worth keeping: the outlined artboard is 116 units wide, so at a 44px
+ * mark one unit is 0.379 CSS px and 2.4 units is **0.91 px** — sub-pixel at the smaller of the two
+ * chrome sizes, and photographed at the two extremes the frames were indistinguishable. 5.0 is
+ * 1.90 px at 44px and 2.41 at 56px, which crosses a whole pixel on a 1× display.
+ *
+ * Scan's own `-2.6 … 3.2` sweep looks like a precedent for the smaller numbers and is not one: it
+ * moves continuously, so motion carries it, where a static offset has to be legible standing still.
+ * The vertical stays smaller than the horizontal because a face that tracks as far up as sideways
+ * reads as startled rather than attentive.
+ *
+ * A comment that quotes a value it does not own is a value written twice, and the reader who tunes
+ * this next would have read the rejected pair as the shipped one and reverted the fix
+ * (`docs/product-review-2026-08-31-r2.md`, delight §3.2).
+ *
+ * **The transition is asymmetric on purpose.** `crumb-aware.tsx` shortens it on enter so the eyes
+ * *snap* to you — that is the "notice" half of the request — and the 260ms here is the unhurried
+ * return to centre on leave. A single symmetric duration reads as either twitchy or asleep.
+ */
+.crumb-aware .crumb-eyes {
+  transform: translate(var(--crumb-eye-x, 0px), var(--crumb-eye-y, 0px));
+  transition: transform var(--crumb-eye-ease, 260ms) cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* Halo — a slow pulse behind the body. Reads as a signal, not as progress. */
+.crumb-anim-halo .crumb-halo {
+  animation: crumb-halo 1.9s ease-in-out infinite;
+  transform-origin: 50px 50px;
+}
+
+/* The trail's three crumbs, staggered 160ms apart so they read as one thing rising rather than as
+   three things blinking. No theme rule: measured on both grounds, the drawn opacities hold, and
+   the weaker theme is light — see `components/brand/crumb-trail.tsx`. */
+.crumb-trail-dot-1 { animation: crumb-trail-dot 1.25s ease-in-out infinite; }
+.crumb-trail-dot-2 { animation: crumb-trail-dot 1.25s ease-in-out 0.16s infinite; }
+.crumb-trail-dot-3 { animation: crumb-trail-dot 1.25s ease-in-out 0.32s infinite; }
+
+/**
+ * **Reduced motion, and this is not `facelift-plan.md` §3a applied literally — deliberately.**
+ *
+ * §3a says its nine moments *"collapse to the opacity change alone — not to nothing, because the
+ * pin just selected still has to be findable."* All nine are **one-shot state transitions**, and
+ * the opacity change is what preserves findability across them.
+ *
+ * These are mostly **loops**, and a loop has nothing to keep findable. Collapsing one to an opacity
+ * loop would produce a continuous pulse — which the same paragraph bans outright in its next
+ * sentence (*"no continuous pin pulsing"*) — while claiming to obey the rule. So:
+ *
+ *  - **the loops stop and the character stays.** That is still "not to nothing": the mascot is on
+ *    screen, in the mood the state calls for, holding still. The design system's own rig says the
+ *    same thing in one line — *"The mascot stays; only the movement goes."*
+ *  - **Land, the one one-shot here, collapses to a fade**, which is §3a exactly.
+ *
+ * This is also strictly better than what the import flow did before the trail. `hidden
+ * motion-safe:block` — the pattern used to avoid leaving a frozen spinner arc on screen — computes
+ * to `display: none` under `reduce`, and on the rail the label sat *outside* the icon circle, so a
+ * reduced-motion user got a 28px empty circle on the longest wait in the product. Measured on a
+ * live page with a control, not inferred. A still mascot is not a rendering artefact; a still
+ * three-quarter arc is, which is why that pattern existed and why it is not needed here.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .crumb-anim-bob .crumb-all,
+  .crumb-anim-stir .crumb-all,
+  .crumb-anim-wobble .crumb-all,
+  .crumb-anim-scan .crumb-eyes,
+  .crumb-anim-halo .crumb-halo,
+  .crumb-anim-land .crumb-spark-1,
+  .crumb-anim-land .crumb-spark-2,
+  .crumb-trail-dot-1,
+  .crumb-trail-dot-2,
+  .crumb-trail-dot-3 {
+    animation: none;
+  }
+
+  .crumb-anim-land .crumb-all {
+    animation: crumb-appear 140ms ease-out 1 both;
+  }
+
+  /*
+   * **The eyes do not follow the pointer, and this one needs saying rather than assuming.**
+   *
+   * Every other rule in this block switches off a *loop* — something the product started on its
+   * own. Awareness is different in kind: it is a response to the user's own pointer, and there is a
+   * real argument that direct manipulation is exempt because the user caused it and can stop it.
+   *
+   * It is switched off anyway, and the reason is WCAG 2.2 SC **2.3.3 Animation from Interactions**,
+   * which is about exactly this class — motion triggered by interaction, disableable unless the
+   * motion is essential to the function. A mascot's glance is decorative by definition, so it is
+   * not essential, so it goes. A head that follows a cursor is motion the user asked not to
+   * receive, and "but you moved the mouse" is not consent.
+   *
+   * `crumb-aware.tsx` also declines to attach its listeners at all under the same preference, and
+   * subscribes to it so a mid-session change takes effect. Two mechanisms because they fail
+   * differently: this one holds if the script never runs, that one stops the work rather than
+   * merely hiding its result.
+   */
+  .crumb-aware .crumb-eyes {
+    transform: none;
+    transition: none;
+  }
+}
+
+/*
+ * ## The signature entrance, executed by CSS rather than by JavaScript
+ *
+ * **This used to be Motion variants, and it server-rendered a blank front door.**
+ *
+ * Motion writes a variant's initial state into the server HTML, which is correct and is what stops
+ * a flash of finished layout. It also means `/` and `/sign-in` shipped **10 and 11 inline
+ * `opacity: 0` declarations**, the card among them, and the only thing that removed them was React
+ * hydrating. Measured by aborting every `.js` request with scripting still enabled — the shape of a
+ * slow connection, a chunk that 404s, or any hydration error — **minimum opacity 0 and 0 of 7
+ * controls visible on `/sign-in`.** A blank page on the product's front door.
+ *
+ * The `<noscript>` override that was here handled scripting *off* correctly and could never handle
+ * this: scripting is *on*, so the `<noscript>` path is not taken, and the code that would reveal
+ * the content is the code that failed. It is gone, because this needs no fallback rather than a
+ * better one.
+ *
+ * **A CSS animation cannot fail this way.** It is declared by the stylesheet, runs on the
+ * compositor's own timeline, needs no framework, and `animation-fill-mode: both` means the resting
+ * state is the *end* of the animation rather than something a script has to apply. If the
+ * stylesheet loads, the page reveals itself; if the stylesheet does not load, the page was never
+ * hidden. There is no third case. That is the same reasoning `iteration-2-plan.md` ruling 2 applies
+ * to the map — an entrance may not decide whether the product exists.
+ *
+ * The numbers are unchanged and still specified in `components/brand/chrome-motion.ts`, which is
+ * now the *specification* and no longer the executor: 60 ms for the card, children 45 ms apart from
+ * 180 ms, everything `opacity` and `transform` only.
+ *
+ * **`--enter-step` is the stagger**, set inline by `ChromeItem` because the beats are composed
+ * across two columns and `nth-child` restarts in each. Reduced motion is a media query rather than
+ * a hook, which is the other half of the same win: no render-time branch on a device preference, so
+ * the server and the client cannot disagree about it.
+ */
+@keyframes chrome-enter-card {
+    from { opacity: 0; transform: translateY(18px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes chrome-enter-item {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* The mark is the one element with overshoot, standing in for the spring it had: it is the
+ * product's face and the first thing on the screen, so it lands with a little weight. */
+@keyframes chrome-enter-mark {
+    0% { opacity: 0; transform: scale(0.62) rotate(-12deg); }
+    68% { opacity: 1; transform: scale(1.045) rotate(2.5deg); }
+    100% { opacity: 1; transform: none; }
+}
+
+@keyframes chrome-enter-bloom {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: none; }
+}
+
+/* The ambient field. `alternate` rather than a loop because a bloom that snaps back to its start
+ * is a cut, and a cut is the one thing an ambient layer must never be. */
+@keyframes chrome-drift-a {
+    from { transform: translate3d(-2vmax, 0, 0) scale(0.94); }
+    to { transform: translate3d(4vmax, 5vmax, 0) scale(1.06); }
+}
+
+@keyframes chrome-drift-b {
+    from { transform: translate3d(2vmax, 1vmax, 0) scale(1.05); }
+    to { transform: translate3d(-4vmax, -4vmax, 0) scale(0.95); }
+}
+
+@keyframes chrome-enter-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/*
+ * **The closing beat of the entrance: the card's lit edge lights up, once, left to right.**
+ *
+ * The owner's note on `/sign-in` was *"more alived"*, and the brief's own instruction is that **one
+ * orchestrated moment beats scattered effects**. This is that moment. The entrance already ends
+ * silently at ~790 ms with the last form field settling; the sweep runs from 720 ms to 1.6 s so it
+ * overlaps the tail rather than starting after a gap, and the arrival reads as one gesture that
+ * finishes on the object rather than on its contents.
+ *
+ * Both properties are compositor-only, and the strip paints exactly one gradient. It plays **once**
+ * — `1 both`, never `infinite`, for the reason `#motion` gives about Land: a repeating event is not
+ * an event.
+ *
+ * The percentages ramp the opacity inside the travel rather than fading the strip in a second
+ * declaration, so there is one animation and one clock. It ends at 0, which is the resting state:
+ * nothing is left on the edge afterwards.
+ */
+@keyframes chrome-edge-sweep {
+    0% { opacity: 0; transform: translateX(-110%); }
+    16% { opacity: 1; }
+    78% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(220%); }
+}
+
+/*
+ * **The halo behind the mark breathes**, and it is the one thing on the card still moving after the
+ * entrance ends.
+ *
+ * Licensed by the same paragraph as the two ambient blooms (`chrome-motion.ts`, and
+ * `iteration-2-plan.md` §2.1's chrome/data split), and it is held to the identical three
+ * conditions:
+ *
+ *  1. **Behind the reading surface, never on it.** `--chrome-mark-glow`'s own box was cut back to
+ *     match the lockup's gap precisely so it stops where the wordmark begins — see
+ *     `chrome-stage.tsx`. This animates **opacity only** and never `scale`, because a scale would
+ *     grow that box back over the ink and rebuild the defect that measurement removed.
+ *  2. **Ambient, never signalling.** It does not respond to state, does not change speed and does
+ *     not change colour. At 7 s it is slower than anyone watches.
+ *  3. **Dead under `prefers-reduced-motion`**, below, where the loop stops and the halo stays lit.
+ *
+ * 0.72 to 1 rather than 0 to 1: at the bottom of the range the light is still there. A halo that
+ * goes out and comes back is a blink, and a blink is a signal.
+ */
+@keyframes chrome-mark-breathe {
+    0%, 100% { opacity: 0.72; }
+    50% { opacity: 1; }
+}
+
+@layer components {
+    [data-entrance] {
+        animation-duration: 340ms;
+        animation-timing-function: var(--ease-standard);
+        animation-fill-mode: both;
+        animation-delay: calc(180ms + var(--enter-step, 0) * 45ms);
+    }
+
+    [data-entrance='card'] {
+        animation-name: chrome-enter-card;
+        animation-duration: 420ms;
+        animation-delay: 60ms;
+        animation-timing-function: var(--ease-emphasised);
+    }
+
+    [data-entrance='item'] {
+        animation-name: chrome-enter-item;
+    }
+
+    [data-entrance='mark'] {
+        animation-name: chrome-enter-mark;
+        animation-duration: 460ms;
+        animation-delay: 180ms;
+    }
+
+    /* Two animations on one element: it arrives, then it drifts for as long as the page is open.
+     * The drift's delay is the enter's duration, so the two never overlap and neither snaps. */
+    [data-entrance='bloom-a'],
+    [data-entrance='bloom-b'] {
+        animation-duration: 600ms, 24s;
+        animation-timing-function: var(--ease-standard), ease-in-out;
+        animation-delay: 0ms, 600ms;
+        animation-iteration-count: 1, infinite;
+        animation-direction: normal, alternate;
+    }
+
+    [data-entrance='bloom-a'] {
+        animation-name: chrome-enter-bloom, chrome-drift-a;
+    }
+
+    [data-entrance='bloom-b'] {
+        animation-name: chrome-enter-bloom, chrome-drift-b;
+        animation-delay: 80ms, 680ms;
+    }
+
+    /*
+     * **`data-chrome-motion`, deliberately not a third `data-entrance` value, and the reason is a
+     * contract rather than a namespace preference.**
+     *
+     * `[data-entrance]` means one specific thing in this file: *a staggered beat of the card's
+     * arrival*, carrying the shared duration, the shared easing, the `--enter-step` delay and — the
+     * load-bearing part — `animation-fill-mode: both`, so that the element's resting state is the
+     * **end** of its animation and the page reveals itself with no JavaScript. Every one of those
+     * beats ends fully opaque, which is what lets the reduced-motion block collapse the lot of them
+     * to one fade with a single rule.
+     *
+     * Neither of the two below is that. They override every property of the shared rule, they are
+     * not part of the stagger, they opt out of the shared collapse, and one of them **ends at
+     * `opacity: 0` by design** and the other never ends at all. They share the mechanism and not
+     * the meaning, and an attribute is a claim about meaning.
+     *
+     * This was found by an instrument rather than by argument, which is why it is written down:
+     * `verify-i2.mjs`'s reduced-motion probe counts `[data-entrance]` elements sitting under 0.99
+     * opacity at rest, because *"anything still invisible at rest is the failure mode this probe
+     * exists for"* — the blank front door. Filed under `data-entrance`, a decorative strip that is
+     * *supposed* to be invisible made that counter read 1 on `/` and `/sign-in`. Nothing was broken
+     * and the gate could no longer say so, which is the more expensive of the two outcomes.
+     */
+
+    /* The sweep. `both` so the strip is at the first keyframe (opacity 0, off to the left) before
+     * its delay elapses rather than sitting visible in the middle of the edge until it starts. */
+    [data-chrome-motion='edge-sweep'] {
+        animation-name: chrome-edge-sweep;
+        animation-duration: 880ms;
+        animation-delay: 720ms;
+        animation-timing-function: var(--ease-emphasised);
+        animation-iteration-count: 1;
+        animation-fill-mode: both;
+    }
+
+    /* The halo's breath starts after the mark's own arrival has finished (180 + 460 ms), so the two
+     * never overlap and the character does not appear to pulse while it is still landing.
+     * `fill-mode: none` so it sits at its natural full opacity until then rather than at the
+     * keyframe's floor. */
+    [data-chrome-motion='mark-breathe'] {
+        animation-name: chrome-mark-breathe;
+        animation-duration: 7s;
+        animation-delay: 700ms;
+        animation-timing-function: ease-in-out;
+        animation-iteration-count: infinite;
+        animation-fill-mode: none;
+    }
+
+    /*
+     * `facelift-plan.md` §3a — the nine collapse **to the opacity change, not to nothing**. Every
+     * transform goes, the stagger goes, the ambient drift stops outright, and what is left is a
+     * 140 ms fade. `--duration-enter` is that number; it is written here rather than referenced
+     * because `animation-duration` inside a media query resolves the custom property the same way
+     * and the token would only add a hop.
+     */
+    @media (prefers-reduced-motion: reduce) {
+        [data-entrance],
+        [data-entrance='card'],
+        [data-entrance='mark'],
+        [data-entrance='bloom-a'],
+        [data-entrance='bloom-b'] {
+            animation-name: chrome-enter-fade;
+            animation-duration: var(--duration-enter);
+            animation-delay: 0ms;
+            animation-iteration-count: 1;
+            animation-timing-function: linear;
+        }
+
+        /*
+         * **Two collapses that are not the fade, and each one is the fade being wrong rather than
+         * an exemption from it.**
+         *
+         * The rule this file already states twice: §3a's nine collapse *to the opacity change, not
+         * to nothing*, because the pin that was just selected still has to be findable. Both
+         * elements below fail that rule's premise rather than its letter.
+         *
+         * **The sweep** ends at `opacity: 0`. Its whole existence is the travel, so the generic
+         * collapse — `chrome-enter-fade`, which ends at `opacity: 1` — would park a bright blob in
+         * the middle of the card's top edge and leave it there for the rest of the session. The
+         * thing that has to stay findable is the **edge**, and the edge is a separate element that
+         * never moves.
+         *
+         * `display: none` rather than `opacity: 0`, and the difference is honesty rather than
+         * pixels: both paint nothing, and only one of them *says* nothing is there. A transparent
+         * element is a thing present at zero alpha, which is indistinguishable from a defect to
+         * anything that inspects the page — including the reduced-motion gate, which is exactly how
+         * this pair of rules got its attribute renamed above.
+         *
+         * **The breath** is a loop, and a loop has nothing to keep findable. Collapsing it to an
+         * opacity change would produce exactly the continuous pulse §3a bans in its next sentence.
+         * Same ruling as the mascot's own loops higher up this file: **the loop stops and the light
+         * stays** — `animation: none` leaves the halo at its natural full opacity, which is more
+         * light than the animated version averages, not less.
+         */
+        [data-chrome-motion='edge-sweep'] {
+            animation: none;
+            display: none;
+        }
+
+        [data-chrome-motion='mark-breathe'] {
+            animation: none;
+        }
     }
 }

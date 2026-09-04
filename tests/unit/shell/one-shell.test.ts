@@ -81,8 +81,21 @@ describe('one MapSurface call site', () => {
     }
   });
 
-  it('is actually in the shell', () => {
-    expect(code(`${SHELL}map-shell.tsx`)).toContain('<MapSurface');
+  /**
+   * **The call site moved inside the shell directory on 2026-08-31 and did not leave it.**
+   *
+   * `persistent-map.tsx` renders `MapSurface` once, from the root layout, so that a tab change
+   * stops destroying the MapLibre instance — measured at `9a95444` as one new WebGL context and
+   * 13-16 re-requested tiles per `/map` <-> `/collections` hop. `MapShell` now renders the slot
+   * that borrows it.
+   *
+   * The guard above is unchanged and still says what it always said: no route mounts the map. This
+   * one keeps the other half honest — that the single call site exists, and is in `components/shell/`
+   * — and it names both halves so neither can quietly disappear.
+   */
+  it('is actually in the shell, as the one surface the shell mounts for every route', () => {
+    expect(code(`${SHELL}persistent-map.tsx`)).toContain('<MapSurface');
+    expect(code(`${SHELL}map-shell.tsx`)).toContain('<PersistentMapSlot');
   });
 });
 
@@ -141,18 +154,32 @@ describe('no scope chip over a collections map', () => {
    * 0, and `L2-COLL-CAM-2` measured what a phantom 100 px band did to the fit at 640×360 — 394 px
    * of padding in a 360 px container, and the lowest pin coming to rest under the sheet.
    */
-  it('is what both collections routes pass to the shell', () => {
-    for (const route of [
-      'app/collections/collections-index-client.tsx',
-      'app/collections/[id]/collection-client.tsx',
-    ]) {
-      expect(code(route), route).toContain('floatingTopChromePx={0}');
-    }
+  it('is no longer passed at all, because the chrome is now really there', () => {
+    /**
+     * **This assertion inverted on 2026-08-31 and the ruling it enforces did not.**
+     *
+     * §3 forbids a *scope chip* over a collection's map so that this number can stay honest, and
+     * `L2-COLL-CAM-2` measured what a phantom 100 px did to the fit at 640×360 — 394 px of padding
+     * in a 360 px container, and the lowest pin coming to rest under the sheet. `0` was the honest
+     * number while the collections routes were their own segments with nothing floating over them.
+     *
+     * All three views are now one mount on `/map`, and `/map` draws `ShellWordmark` — `h-11`, no
+     * breakpoint, over the top edge — on every one of them. So the chrome *is* there, and the
+     * honest number is `/map`'s own default. Passing `0` would be the same lie L2-COLL-CAM-2 was,
+     * told from the other side.
+     *
+     * What still binds is the ruling: no scope chip. That is checked by its absence from the
+     * client, not by a number.
+     */
+    const client = code('app/map/map-page-client.tsx');
+    expect(client).not.toContain('floatingTopChromePx');
+    expect(code('app/map/collections-scope.tsx')).not.toContain('floatingTopChromePx');
   });
 });
 
 describe('the collections index is the sheet, not a page', () => {
-  const index = code('app/collections/collections-index-client.tsx');
+  const index = code('app/map/collections-index-list.tsx');
+  const drawer = code('app/map/map-page-client.tsx');
 
   /** §5 item 1: the standalone document layout. */
   it('has no page column, no full-height document wrapper and no header element', () => {
@@ -174,6 +201,31 @@ describe('the collections index is the sheet, not a page', () => {
   });
 
   it('renders through the shell instead', () => {
-    expect(index).toContain('<MapShell');
+    expect(drawer).toContain('<MapShell');
+  });
+
+  /**
+   * **The index and a collection are one segment, and `[id]` is a redirect.**
+   *
+   * This is the structural claim the whole 2026-08-31 change rests on: a sibling segment change
+   * unmounts the drawer, so the two views cannot be two segments. Asserted here rather than only
+   * in `_lib/drawer-view.test.ts` because the failure mode is somebody re-creating a real page at
+   * `[id]` — which would pass every unit test of the parsing while quietly restoring the remount.
+   */
+  it('leaves nothing behind at either old segment but a redirect', () => {
+    for (const shim of ['app/collections/page.tsx', 'app/collections/[id]/page.tsx']) {
+      expect(code(shim), shim).toContain('redirect(');
+      expect(code(shim), shim).not.toContain('MapShell');
+    }
+    const files = readdirSync(`${SRC}app/collections/`, { recursive: true, encoding: 'utf8' });
+    for (const gone of [
+      '[id]/collection-client.tsx',
+      '[id]/loading.tsx',
+      'collections-index-client.tsx',
+      'collections-drawer-client.tsx',
+      'loading.tsx',
+    ]) {
+      expect(files, gone).not.toContain(gone);
+    }
   });
 });

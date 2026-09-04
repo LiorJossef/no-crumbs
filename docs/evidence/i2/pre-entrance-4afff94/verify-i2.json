@@ -1,0 +1,121 @@
+{
+  "takenAt": "2026-08-31T08:54:02.702Z",
+  "commit": "4afff94322ed86b62e7c4d548df331af42510644",
+  "commitish": "4afff94",
+  "places": 12,
+  "dataSource": "stub (tests/harness/stub-supabase.mjs) — layout and colour are real, rows are not",
+  "buildMode": "git archive <sha> -> next build -> next start",
+  "instrument": {
+    "contrastSelfTest": null
+  },
+  "browser": "bundled Playwright Chromium",
+  "contrast": [],
+  "brand": [],
+  "arrival": [
+    {
+      "viewport": "390x844",
+      "reducedMotion": "no-preference",
+      "run": 1,
+      "marks": {
+        "canvas": 161.4
+      }
+    },
+    {
+      "viewport": "390x844",
+      "reducedMotion": "no-preference",
+      "run": 2,
+      "marks": {
+        "canvas": 157.1
+      }
+    },
+    {
+      "viewport": "390x844",
+      "reducedMotion": "no-preference",
+      "run": 3,
+      "marks": {
+        "canvas": 148.2
+      }
+    },
+    {
+      "viewport": "390x844",
+      "reducedMotion": "reduce",
+      "run": 1,
+      "marks": {
+        "canvas": 155.9
+      }
+    },
+    {
+      "viewport": "390x844",
+      "reducedMotion": "reduce",
+      "run": 2,
+      "marks": {
+        "canvas": 154.8
+      }
+    },
+    {
+      "viewport": "390x844",
+      "reducedMotion": "reduce",
+      "run": 3,
+      "marks": {
+        "canvas": 264.1
+      }
+    },
+    {
+      "viewport": "1440x900",
+      "reducedMotion": "no-preference",
+      "run": 1,
+      "marks": {
+        "listContent": 20.7,
+        "canvas": 173.4
+      }
+    },
+    {
+      "viewport": "1440x900",
+      "reducedMotion": "no-preference",
+      "run": 2,
+      "marks": {
+        "listContent": 20.1,
+        "canvas": 162.8
+      }
+    },
+    {
+      "viewport": "1440x900",
+      "reducedMotion": "no-preference",
+      "run": 3,
+      "marks": {
+        "listContent": 18.9,
+        "canvas": 161.5
+      }
+    },
+    {
+      "viewport": "1440x900",
+      "reducedMotion": "reduce",
+      "run": 1,
+      "marks": {
+        "listContent": 18.2,
+        "canvas": 154.9
+      }
+    },
+    {
+      "viewport": "1440x900",
+      "reducedMotion": "reduce",
+      "run": 2,
+      "marks": {
+        "listContent": 18.7,
+        "canvas": 168.7
+      }
+    },
+    {
+      "viewport": "1440x900",
+      "reducedMotion": "reduce",
+      "run": 3,
+      "marks": {
+        "listContent": 18.5,
+        "canvas": 168.7
+      }
+    }
+  ],
+  "entrance": [],
+  "reduced": [],
+  "notes": []
+}

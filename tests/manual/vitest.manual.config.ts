@@ -20,7 +20,11 @@ import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   resolve: {
-    alias: { '@': fileURLToPath(new URL('../../src', import.meta.url)) },
+    alias: {
+      '@': fileURLToPath(new URL('../../src', import.meta.url)),
+      // See `_stubs/server-only.ts` for why this is safe here and unsafe in the root config.
+      'server-only': fileURLToPath(new URL('./_stubs/server-only.ts', import.meta.url)),
+    },
   },
   test: {
     environment: 'node',
