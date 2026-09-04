@@ -136,6 +136,10 @@ import {
   type SentenceApplication,
 } from '@/components/sheet/sentence-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
+import {
+  matchingBoundsInCountry,
+  summariesForMatches,
+} from '@/components/map/summary-matches';
 import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import { categoryFacets, filterByCategory, toggleCategory } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
@@ -160,7 +164,7 @@ import {
   type ListScope,
 } from '@/ui/place/list-scope';
 import { distancesFromUser, nearestArea, nearestFirst } from '@/ui/place/nearby';
-import { meanCentroid, unionBounds } from '@/domain/places/country-bucket';
+import { unionBounds } from '@/domain/places/country-bucket';
 import { summariseByCountry } from '@/ui/place/library-summary';
 import { zeroStateBounds } from '@/ui/place/viewport';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
@@ -517,9 +521,10 @@ export function MapPageClient({
    *     into the band the *raised* sheet leaves visible, not into the whole viewport — the surface
    *     reads `selected` for that, which is why 3 and 6 are one padding rule rather than two.
    *  4. Tapping an `Elsewhere` row — or the map's own area marker, which is the same gesture — flies
-   *     to that area, and sets an **area** scope by hand.
-   *  5. Tapping a country marker frames that country's areas, clamped inside the area band, and
-   *     sets a **country** scope. See `focusCountry`.
+   *     to that area, and sets an **area** scope by hand. It frames the places the filters left, and
+   *     since 2026-09-04 the marker itself is drawn only where there are some — see `summaries`.
+   *  5. Tapping a country marker frames the places the filters left in that country, clamped inside
+   *     the area band, and sets a **country** scope. See `focusCountry`.
    *  6. Selecting a place raises the sheet to `half`, so the camera offsets itself by the fraction
    *     of the viewport the sheet is about to cover — otherwise the pin just tapped comes to rest
    *     behind it. It lives in the surface (`map-surface.mapcn.tsx`, `selectedOcclusionFraction`)
@@ -895,36 +900,26 @@ export function MapPageClient({
   );
 
   /**
-   * The same summary, in the map port's own shape (`components/map/types.ts`).
+   * The same summary, in the map port's own shape (`components/map/types.ts`), **narrowed to what
+   * the filters left**.
    *
    * Mapped here rather than derived in the surface, so the map and the list are two renderings of
    * one computation — §2's opening claim, and the thing that makes the band accessible: a canvas is
    * unreachable by a screen reader and the list beside it has to carry the identical geography.
    * The port's types are flat and provider-agnostic, so no map implementation ever learns what an
    * `Area` is.
+   *
+   * **The narrowing is the 2026-09-04 repair, and it is `matchIds` and nothing else.** The bands
+   * were mapped straight off `countries` / `areas` — the whole library — while `places={matches}`
+   * gave the surface the filtered set, so two tag chips that match nothing left the list saying
+   * `No places match these filters.` under a map still drawing `תל אביב-יפו 33`. `summary-matches.ts`
+   * carries the argument, including why the narrowing stops here: `countries` and `areas`
+   * themselves stay library-wide, because they resolve the scope and the opening camera, and a
+   * filter that could invalidate those would make narrowing navigate.
    */
   const summaries = useMemo<MapSummaries>(
-    () => ({
-      countries: countries.map((country) => ({
-        key: country.key,
-        countryCode: country.countryCode,
-        label: country.label,
-        count: country.count,
-        lat: country.centroid.lat,
-        lng: country.centroid.lng,
-        bounds: country.bounds,
-      })),
-      areas: areas.map((area) => ({
-        id: area.id,
-        label: area.label,
-        count: area.count,
-        // The area's marker sits at the mean of its own places, the same rule the country's does —
-        // never the centre of its bounding box, which for an L-shaped city is in the sea.
-        ...(meanCentroid(area.points) ?? { lat: 0, lng: 0 }),
-      })),
-      activeCountryKey,
-    }),
-    [countries, areas, activeCountryKey],
+    () => summariesForMatches({ countries, areas, matchIds, activeCountryKey }),
+    [countries, areas, matchIds, activeCountryKey],
   );
 
   /**
@@ -1056,9 +1051,16 @@ export function MapPageClient({
    *
    * **It frames the places the filter left**, not the area's whole membership. Tapping an area
    * marker under a search used to fly the camera to a box around all eighteen London places while
-   * the list showed one row; the camera and the list were answering different questions. It falls
-   * back to the whole area when the filter has left nothing there, because an empty box frames
-   * nothing at all.
+   * the list showed one row; the camera and the list were answering different questions.
+   *
+   * **The `area.members` fallback below can no longer fly, and is kept as an argument rather than
+   * as a camera** (2026-09-04). It was written so that an area emptied by a filter still framed
+   * *something*, and it never did: the surface resolves the ids it is handed against its own
+   * `places` prop, which is the filtered set, so a request naming twenty places none of which
+   * survive the filter is silently declined — measured, and the whole of the owner's "tapping a
+   * city does nothing". The band no longer draws a pill for an area with no matches, so a tap can
+   * only arrive with `matching.length > 0`; the fallback stays for a caller that is not the map,
+   * and anything reaching it should expect no flight.
    *
    * It recorded the area you came from until 2026-08-30, and cleared the country-group overrides.
    * Both existed for the `Elsewhere` section — the one to open the country you had just left, the
@@ -1102,13 +1104,19 @@ export function MapPageClient({
       if (!country) return;
       setScope(scopeForCountryTap(country.key));
       selectId(null);
+      // **It frames the places the filter left**, the rule writer 2 has followed since it was
+      // written, applied to the band above it (2026-09-04). Its marker now counts the matches
+      // rather than the library, so framing `country.bounds` would fly to a box drawn around
+      // places the map is not showing. The two boxes are identical when nothing is filtered, and
+      // `country.bounds` is the fallback for the case the band can no longer produce — no matches
+      // at all, which draws no marker to tap.
       camera.frameBounds({
-        bounds: country.bounds,
+        bounds: matchingBoundsInCountry(country, matchIds) ?? country.bounds,
         minZoom: COUNTRY_LANDING_ZOOM.min,
         maxZoom: COUNTRY_LANDING_ZOOM.max,
       });
     },
-    [countries, camera, selectId],
+    [countries, matchIds, camera, selectId],
   );
 
   /**
