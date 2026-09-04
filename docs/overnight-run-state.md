@@ -1,4 +1,106 @@
-# Overnight run — live state
+# Overnight run — the morning handoff
+
+> **Read this section and stop.** Everything below it is the running log, kept because it names the
+> evidence. **Last updated 2026-09-04 03:50 IDT.** The run is complete.
+
+## Where things stand
+
+**36 commits on `no-crumbs-implementation`.** Working tree clean except your three uncommitted
+import-timeout files, which are exactly as you left them. `main` untouched, nothing merged.
+
+- `npm run build` — **passes**
+- `tests/unit` — **239 files, 3896 tests, 0 failures** (it was 11 red when the night started)
+- `tsc --noEmit` — clean · `eslint` — 0 errors, 4 pre-existing warnings
+- Smoke pass, twice: 21 surface loads at 390×844 light/dark and 1280×900 — **zero page errors, zero
+  console errors, no horizontal scroll, no overflow**
+
+## Your feedback file, item by item
+
+| | item | outcome |
+|---|---|---|
+| 1.1–1.3 | geography grouping | **diagnosed, fix written, NOT applied** — needs your go |
+| 2.1 | place detail differs across surfaces | done |
+| 2.2 | place cards overloaded | done — four vocabularies removed |
+| 3.1 | share page too heavy | done — 551→436 px, 66→29 words |
+| 3.2 | friendly share message | done |
+| 4.1 | two TikToks, one place | **not the bug you saw** — see below |
+| 4.2 | stale map selection | already fixed; verified |
+| 5.1 | mobile spacing | **partly fixed** — the rest is your call |
+| 5.2 | import density | already fixed; verified |
+| 6.1 | duplicate save from one video | done |
+| 6.2 | 4 places detected as 3 | already fixed by an earlier prompt |
+| 6.3, 6.5 | address but no venue | **blocked** on a file you own |
+| 6.4 | uncertain candidate list | done |
+| 6.6 | bare `@handle` | deliberately unchanged |
+| 7.1 | UI consistency | done — profile, settings, account menu |
+| 7.2 | shorten copy | done, bounded |
+| 7.3 | location prompt after login | **built** |
+| 7.4 | natural-language search | **Stage 1 shipped** — engine, gate and surface |
+| 7.5 | password copy | done, then corrected by you |
+| §8 | seven preserve items | **all seven verified, no regressions** |
+
+## The four decisions that are yours
+
+1. **Apply the geography backfill?** `scripts/backfill-place-geography.mjs`, dry-run only. Local: 8
+   rows to change, 0 to skip, and I ran the dry run myself and re-counted afterwards to prove nothing
+   was written. **Production is a different population** — its response cache expires in ~28 days, so
+   older rows will be skipped, and **the four adapter fixes must land on `main` first** or the next
+   import recreates the defect.
+2. **The `half` stop.** `Been here` is still cut at rest on taller cards — 30 of 36 px at 390×844,
+   **13 of 36 at 390×812**. The switch removal took it from *zero* pixels to most of one, but what is
+   left costs the still, the tags, or the stop itself. Same question blocks the collection card's
+   commit pair. Not a layout decision.
+3. **The duplicate-places migration.** ~14 saves that should be 6 venues, 14% of the library, **all
+   `llm-guess`, none Google-resolved.** Needs a `SECURITY DEFINER` change plus a backfill, and the
+   failure mode if done wrong is worse than the bug — two real branches collapsing into one place.
+4. **The share panel's privacy paragraph.** I put sentences 2 and 3 behind `What people can see`,
+   against `ux-card-and-share-2026-09-03.md` §S4. The sentence that governs whether you share at all
+   still renders unconditionally. Restoring §S4 is deleting one button.
+
+## What 4.1 actually is
+
+Not the sources table and not the card — both work, and the multi-source card was **verified in a
+browser for the first time** tonight. You hit **two `places` rows for one venue**, each holding one
+TikTok, so the multi-source card never got a chance to draw. That is decision 3 above.
+
+## The morning list
+
+- The location offer card **overlaps a country pill** while it is up, at both breakpoints. Those
+  pills are tappable. Two-line change to where it anchors.
+- Prague now labels **`Czechia`** and the countryless row reads **`Other`** on this branch — still
+  wrong, but different strings from your production screenshots. Do not read them as fixed.
+- The production `1 in הרצליה` report is very likely the same family as the heading bug fixed
+  tonight. Worth re-checking there once this lands.
+- `map-page-client.tsx` documents **nine** camera movers; `06` §9.2 still says four.
+- Two test harnesses check the disabled *attribute* without the property; would misclassify a
+  disabled composite menu item. Over-inclusion only, cannot silently pass.
+- `docs/ux-when-we-ask.md:446` claims a string was already replaced. It was not.
+- NLS: flash-lite under the winning prompt was never run; free-tier requests-per-day unmeasured.
+- The category panel can show **no tick at all** when the category came from the provider.
+
+## Data, and one thing I did not do
+
+Every row this run touched: a scratch collection created and deleted; four invites on that scratch
+collection; one place moved into `London 2026` and straight back out by the verification lane, which
+**declared it as a breach of its own grant** rather than letting me find it. **Nothing was written by
+the geography backfill.**
+
+**One row I did not touch and cannot explain:** two real imports ran at **02:44–02:45 local** and
+saved `Paradiso Matcha Bar` (Praha), taking the library to 60. No lane had write permission then, and
+you were awake sending the status check. I assumed it was you and left it.
+
+## Housekeeping
+
+**Delete the scheduled task `no-crumbs-overnight-resume`** — it recurs daily and will wake up again
+tonight. Sidebar → Scheduled.
+
+The branch is pushed. Nothing is merged; `merge:pr` and CI were out of scope all night.
+
+---
+
+# The running log
+
+## Live state (log)
 
 **This file is the resume point.** If the session that started this run stops for any reason —
 usage limit, crash, closed app — the next session reads THIS file plus
