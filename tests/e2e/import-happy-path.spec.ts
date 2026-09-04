@@ -55,17 +55,26 @@ test.describe('the import core loop', () => {
     await page.getByPlaceholder('Paste a TikTok link').fill(CACHED);
     await page.getByRole('button', { name: 'Add →' }).click();
 
-    // Review screen. The heading is the honest "extraction finished" signal — the Save button is
-    // not, because it is absent whenever nothing is selected, which is a legitimate state.
-    const reviewHeading = page.getByRole('heading', { name: /\d+ places? found/ });
-    await expect(reviewHeading).toBeVisible({ timeout: 90_000 });
-
+    // The first candidate card is what "the review screen is up" means. Two weaker signals were
+    // tried first and both encode a variant rather than the state:
+    //
+    //  - the Save button is absent whenever nothing is selected, which is legitimate;
+    //  - `N places found` changes *element* between the two variants. On a first import the count
+    //    is a paragraph and the `h1` is the place name; on a re-import of a place already saved
+    //    from this video the count is itself the `h1`. A `getByRole('heading')` therefore passed
+    //    on the owner's machine, where the fixture had been saved before, and timed out in CI,
+    //    where the seed is fresh. Matching the text alone is no better: the rail narrates the same
+    //    words while extraction is still running, so it would pass too early.
+    //
+    // The checkbox exists in both variants, only after extraction, and is what the next lines act
+    // on anyway.
+    //
     // Candidates render as `role="checkbox"` (`candidate-card.tsx`). One of two things is true
     // here: this is a first import and the confident candidate is pre-selected, or the place is
     // already on the map from this same video and it is deliberately deselected. Both are correct
     // product behaviour, and both must end with exactly one candidate selected.
     const candidates = page.getByRole('checkbox');
-    await expect(candidates.first()).toBeVisible({ timeout: 30_000 });
+    await expect(candidates.first()).toBeVisible({ timeout: 90_000 });
     const selectedAlready = await page.getByRole('checkbox', { checked: true }).count();
     if (selectedAlready === 0) {
       await candidates.first().click();
@@ -74,7 +83,8 @@ test.describe('the import core loop', () => {
 
     const saveButton = page.getByRole('button', { name: /^Save (this place|\d+ places) →$/ });
     await expect(saveButton).toBeVisible({ timeout: 30_000 });
-    const reviewHeadline = await reviewHeading.innerText();
+    // Recorded, not asserted, and read by text because of the variant split described above.
+    const reviewHeadline = await page.getByText(/\d+ places? found/).first().innerText();
     const cardText = await page.locator('main').innerText();
 
     await saveButton.click();
