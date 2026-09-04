@@ -22,7 +22,7 @@
  * being there; nothing here may fill it from the pasted URL or from a timer.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 
 import { CrumbTrail } from '@/components/brand/crumb-trail';
@@ -79,11 +79,14 @@ export function RailScreen({
   rail: RailState;
   onCancel: () => void;
 }) {
-  const shownAt = useRef(Date.now());
-  const cancelIfDeliberate = () => {
-    if (Date.now() - shownAt.current < CANCEL_DEAD_MS) return;
-    onCancel();
-  };
+  // A timer rather than a `Date.now()` read: `react-hooks/purity` rejects calling an impure
+  // function during render, and it is right to — the arming moment is state, so it is held as
+  // state. One extra render at 500ms, which is nothing against a 7-34s import.
+  const [cancelArmed, setCancelArmed] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setCancelArmed(true), CANCEL_DEAD_MS);
+    return () => clearTimeout(timer);
+  }, []);
   /**
    * Two stages, not three.
    *
@@ -274,7 +277,7 @@ export function RailScreen({
       <div className="h-8 shrink-0" />
 
       <div className="flex flex-col gap-2">
-        <Button type="button" variant="ghost" onClick={cancelIfDeliberate} className="h-11 w-full rounded-lg text-sm font-bold">
+        <Button type="button" variant="ghost" onClick={() => { if (cancelArmed) onCancel(); }} className="h-11 w-full rounded-lg text-sm font-bold">
           Cancel
         </Button>
       </div>
