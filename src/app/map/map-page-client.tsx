@@ -1686,20 +1686,12 @@ export function MapPageClient({
               // user looks for it; everything it means — the permission, the fix, the flight — is
               // owned here. See camera mover 8.
               controlSlot={
-                <>
-                  {/* The offer (feedback 7.3), directly above the control it is teaching. It calls
-                      the same `nearMe.request` the button does, from its own click handler — a
-                      second control on one path, not a second path. It renders only while near-me
-                      is `idle` and the permission is still askable, so it and the notice below can
-                      never be on screen together. */}
-                  <NearMeOffer status={nearMe.state.status} onAccept={nearMe.request} />
-                  <NearMeControl
-                    status={nearMe.state.status}
-                    notice={nearMeNoticeText}
-                    onRequest={nearMe.request}
-                    onDismissNotice={nearMe.dismissNotice}
-                  />
-                </>
+                <NearMeControl
+                  status={nearMe.state.status}
+                  notice={nearMeNoticeText}
+                  onRequest={nearMe.request}
+                  onDismissNotice={nearMe.dismissNotice}
+                />
               }
               // The search's result count, which is a fact about the places list. A collections
               // view is not showing it, and a live region that speaks about a list nobody can see
@@ -1717,7 +1709,18 @@ export function MapPageClient({
                     skipped={lastImport.skipped}
                     onDismiss={() => setLastImport(null)}
                   />
-                ) : null
+                ) : (
+                  /* The offer (feedback 7.3) shares the confirmation's band, and shares it by
+                     being the *other arm of one expression* rather than a second sibling: both
+                     anchor to the same line, so mounting them together would stack one on the
+                     other. The confirmation wins while it is up — it is reporting something that
+                     just happened — and it auto-dismisses, after which the offer is still there.
+                     It calls the same `nearMe.request` the locate button does, from its own click
+                     handler: a second control on one path, not a second path. It renders only
+                     while near-me is `idle` and the permission is still askable, so it and the
+                     control's notice can never be on screen together. */
+                  <NearMeOffer status={nearMe.state.status} onAccept={nearMe.request} />
+                )
               }
               // `＋` opens the create menu, never the TikTok overlay directly — the 2026-08-29
               // ruling. The TikTok arm inside the sheet still lands in that same overlay

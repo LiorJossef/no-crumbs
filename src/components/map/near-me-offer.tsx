@@ -14,18 +14,23 @@
  * handler, one component away. This adds a second control on the existing path and no new path:
  * there is still no effect anywhere that reads a position, no `watchPosition`, and no warm-up.
  *
- * ## Why it is anchored to the control it is teaching
+ * ## Why it is anchored to the top band and not to the control it is teaching
  *
- * It renders in the map's control column, directly above the locate button, in the same card the
- * button's own notice uses. The alternative considered was a line in the sheet header, which has
- * the advantage of never floating over the map — and the disadvantage of pointing at nothing. This
- * card sits 6 px above the control it is about — the column's own `gap-1.5` — so accepting *and*
- * discovering the button for next time are the same glance.
+ * It used to render inside the map's control column, directly above the locate button, so that
+ * accepting and discovering the button for next time were one glance. That anchor put a 272×104
+ * card in the bottom-right corner — and the camera reserves exactly 48 px there, the width of one
+ * zoom button (`fitBoundsPadding`'s `markerAllowance` comment). So the fit is free to park a
+ * country summary pill under it, and it did: at 1280×900 the card covered the whole width of the
+ * `Israel 35` pill and the top 16 px of its height, and at 390×844 the top 8 px. Those pills are
+ * tappable camera controls, so the card was eating taps aimed at one.
  *
- * Measured in the browser at 390×844: the card occupies y 396–500 and the locate button y 507–551,
- * against a sheet drag handle at y 699 and a bottom nav and `＋` at y 776. Nothing overlaps, with
- * 199 px to the nearest of them. At 1280×900 it sits at x 1000–1272, y 616–720, above the same
- * control.
+ * The top band is the one strip of map the camera is *told* about — `FLOATING_TOP_CHROME_PX` /
+ * `_MOBILE_PX`, 56 and 100 px — and `ImportConfirmation` already lives there. So this takes that
+ * component's anchor verbatim rather than inventing a placement, and `map-page-client.tsx` renders
+ * the two through one `floatingSlot` expression, which is what stops them stacking.
+ *
+ * What is lost is the pointing: the card no longer sits above the button it teaches. It still names
+ * the action on its own primary control, which is the part that has to work.
  *
  * ## It is an offer, not a nag
  *
@@ -147,44 +152,53 @@ export function NearMeOffer({ status, onAccept }: NearMeOfferProps) {
       // map behind it stays entirely usable. Same card as the control's own notice, so the two
       // things that can appear in this slot read as one voice.
       role="status"
-      className={cn(
-        'flex max-w-[min(17rem,calc(100vw-2rem))] items-start gap-1.5 rounded-lg border border-border/70',
-        'bg-card/95 py-2 pl-2.5 pr-1.5 shadow-sheet backdrop-blur-md',
-        // The house entrance pair: the fade always runs, the 4 px rise only when motion is welcome.
-        'animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1',
-      )}
+      // The top band, anchored exactly where `ImportConfirmation` anchors — same slot, same offset,
+      // and the two are mutually exclusive at the call site so they can never stack. `top-4` is
+      // deliberately *not* restored at `lg`: at 1024 a centred strip on that line lands on the
+      // shell wordmark, and one line at both breakpoints is one thing to keep clear.
+      className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+4rem)] z-40 flex justify-center px-3"
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-2 pt-0.5">
-        <p className="text-xs font-medium text-muted-foreground">{NEAR_ME_OFFER_LINE}</p>
-        <Button
-          type="button"
-          size="lg"
-          onClick={() => {
-            // Ends the offer first, then asks. The native prompt is modal on a phone and the card
-            // behind it must already be gone when it closes, whatever the answer was.
-            end();
-            onAccept();
-          }}
-          // 44 px, the same floor the locate button was raised to. This is the primary action on a
-          // card that exists to be tapped once.
-          className="h-11 w-full"
-        >
-          {NEAR_ME_OFFER_ACCEPT}
-        </Button>
-      </div>
-      <button
-        type="button"
-        aria-label="Dismiss"
-        onClick={end}
+      <div
         className={cn(
-          // The notice's own dismiss, unchanged: 44 px of target around a 14 px glyph.
-          'flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none',
-          'hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
-          PRESS_CHIP,
+          'pointer-events-auto flex max-w-[min(17rem,calc(100vw-2rem))] items-start gap-1.5',
+          'rounded-lg border border-border/70 bg-card/95 py-2 pl-2.5 pr-1.5 shadow-sheet backdrop-blur-md',
+          // The house entrance pair: the fade always runs, the 4 px drop only when motion is
+          // welcome — from the top now, because that is the edge it arrives from.
+          'animate-in fade-in-0 duration-enter motion-safe:slide-in-from-top-1',
         )}
       >
-        <X className="size-3.5" aria-hidden />
-      </button>
+        <div className="flex min-w-0 flex-1 flex-col gap-2 pt-0.5">
+          <p className="text-xs font-medium text-muted-foreground">{NEAR_ME_OFFER_LINE}</p>
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => {
+              // Ends the offer first, then asks. The native prompt is modal on a phone and the card
+              // behind it must already be gone when it closes, whatever the answer was.
+              end();
+              onAccept();
+            }}
+            // 44 px, the same floor the locate button was raised to. This is the primary action on
+            // a card that exists to be tapped once.
+            className="h-11 w-full"
+          >
+            {NEAR_ME_OFFER_ACCEPT}
+          </Button>
+        </div>
+        <button
+          type="button"
+          aria-label="Dismiss"
+          onClick={end}
+          className={cn(
+            // The notice's own dismiss, unchanged: 44 px of target around a 14 px glyph.
+            'flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none',
+            'hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+            PRESS_CHIP,
+          )}
+        >
+          <X className="size-3.5" aria-hidden />
+        </button>
+      </div>
     </div>
   );
 }

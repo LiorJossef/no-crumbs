@@ -6,6 +6,8 @@
  * `near-me-offer.tsx` and is driven end to end in a real browser instead.
  */
 
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -97,5 +99,62 @@ describe('the offer’s copy and timing', () => {
     expect(NEAR_ME_OFFER_LINE).toContain('near you');
     expect(NEAR_ME_OFFER_LINE).toContain('places');
     expect(NEAR_ME_OFFER_LINE).not.toMatch(/nearby|proximity|spot|venue/i);
+  });
+});
+
+/**
+ * Where the card sits, checked in the source because there is no DOM here (`vitest.config.ts` runs
+ * `node`) and because the thing that broke is a class string, not a decision.
+ *
+ * The first anchor put the card in the map's bottom-right control column, where the camera reserves
+ * 48 px — one zoom button — and the fit duly parked a tappable country summary pill underneath it:
+ * at 1280×900 the card covered the whole width of `Israel 36` and the top 16 px of its height, at
+ * 390×844 the top 8 px. The top band is the strip the camera *is* told about
+ * (`FLOATING_TOP_CHROME_PX` / `_MOBILE_PX`), and `ImportConfirmation` already holds it.
+ */
+describe('where the offer anchors', () => {
+  const OFFER = readFileSync('src/components/map/near-me-offer.tsx', 'utf8');
+  const CONFIRMATION = readFileSync('src/components/map/import-confirmation.tsx', 'utf8');
+  const PAGE = readFileSync('src/app/map/map-page-client.tsx', 'utf8');
+
+  const TOP_BAND = 'top-[calc(env(safe-area-inset-top)+4rem)]';
+
+  it('takes the confirmation’s line rather than inventing a placement', () => {
+    expect(CONFIRMATION).toContain(TOP_BAND);
+    expect(OFFER).toContain(TOP_BAND);
+  });
+
+  it('does not restore `lg:top-4`, which at 1024 lands on the shell wordmark', () => {
+    // The confirmation moves up at `lg`; this card deliberately does not. One line at both
+    // breakpoints is one line to keep clear.
+    expect(OFFER).not.toContain('lg:top-4');
+  });
+
+  it('lets every pixel that is not the card through to the map', () => {
+    // A country pill under a transparent gap is still a tappable camera control.
+    expect(OFFER).toContain('pointer-events-none absolute inset-x-0');
+    expect(OFFER).toContain('pointer-events-auto');
+  });
+
+  it('arrives from the edge it is anchored to', () => {
+    expect(OFFER).toContain('motion-safe:slide-in-from-top-1');
+    expect(OFFER).not.toContain('slide-in-from-bottom');
+  });
+
+  it('is no longer in the map’s control column', () => {
+    const controlSlot = PAGE.slice(PAGE.indexOf('controlSlot={'), PAGE.indexOf('floatingSlot={'));
+    expect(controlSlot).not.toContain('NearMeOffer');
+  });
+
+  it('shares the band with the confirmation as one expression, so the two cannot stack', () => {
+    // Both anchor to the same line. Rendered as siblings they would sit on top of each other, so
+    // the call site makes them the two arms of one ternary — the confirmation wins while it is up,
+    // and it auto-dismisses.
+    const floatingSlot = PAGE.slice(PAGE.indexOf('floatingSlot={'));
+    const slot = floatingSlot.slice(0, floatingSlot.indexOf('onAdd='));
+    expect(slot).toContain('<ImportConfirmation');
+    expect(slot).toContain('<NearMeOffer');
+    expect(slot.indexOf('<ImportConfirmation')).toBeLessThan(slot.indexOf('<NearMeOffer'));
+    expect(PAGE.match(/<NearMeOffer/g)).toHaveLength(1);
   });
 });
