@@ -54,9 +54,9 @@
  *     and shown, which is a different (much slower) instrument.
  *  - **A ratio is only as real as the render.** If the map's tiles did not load, text over the map
  *     was scored against whatever the empty canvas painted. The caller records that.
- *  - **WCAG 1.4.3 exempts inactive controls**, so `[disabled]` / `[aria-disabled=true]` subtrees are
- *     reported `exemptInactive` rather than failed — the same call `audit-a11y.mjs` makes, and for
- *     the same reason it documents.
+ *  - **WCAG 1.4.3 exempts inactive controls**, so a subtree disabled by the `disabled` property, the
+ *     `disabled` attribute or `aria-disabled="true"` is reported `exemptInactive` rather than
+ *     failed — the same call `audit-a11y.mjs` makes, and for the same reason it documents.
  *
  * `selfTest()` is not decoration. It runs eight constructed cases whose answers are known by hand —
  * including two the old instrument provably cannot answer — and the caller is expected to refuse to
@@ -165,6 +165,34 @@ const COLLECT = () => {
     return covered >= 3 ? sample : null;
   };
 
+  /* --8<-- inactive-state (kept identical in audit-a11y.mjs; tests/harness/inactive-state-check.mjs
+     extracts both copies and runs the known-answer matrix against each) --8<-- */
+  /**
+   * WCAG 1.4.3's "inactive user interface component", read from every channel this product's own
+   * components use to say it, not from the content attribute alone.
+   *
+   *  - the DOM **property**: the state the browser and the frameworks act on. Base UI's `useButton`
+   *    mutates `element.disabled` on composite items directly (`internals/use-button/useButton.mjs`),
+   *    so on those the attribute and the property can disagree and only the property is current.
+   *  - the **attribute**: React's own output for `<button disabled>` / `<input disabled>`, which is
+   *    how every disabled control in `src/app` is written.
+   *  - **`aria-disabled="true"`**: what a *composite* item carries instead. `useFocusableWhenDisabled`
+   *    sets `aria-disabled` and withholds `disabled` whenever `focusableWhenDisabled` is on, which
+   *    is unconditional for `Menu.Item` and `Combobox.Item` — so a disabled menu row has no
+   *    `disabled` attribute and no property at all.
+   *
+   * An ancestor walk, not `closest()`, because a selector cannot ask about the property.
+   */
+  const isInactive = (el) => {
+    for (let n = el; n instanceof Element; n = n.parentElement) {
+      if (n.disabled === true) return true;
+      if (n.hasAttribute('disabled')) return true;
+      if (n.getAttribute('aria-disabled') === 'true') return true;
+    }
+    return false;
+  };
+  /* --8<-- end inactive-state --8<-- */
+
   const targets = [];
   let pseudoTextNodes = 0;
 
@@ -206,7 +234,7 @@ const COLLECT = () => {
       declaredColor: pcs.color,
       ink: ink ? { r: ink.r, g: ink.g, b: ink.b, a: ink.a * opacity } : null,
       unresolvable: ink === null,
-      inactive: el.disabled || el.closest('[disabled], [aria-disabled="true"], fieldset[disabled]') !== null,
+      inactive: isInactive(el),
       occludedBy: occlusion(el, box),
       overCanvas: false,
       paddingBox: {
@@ -259,7 +287,7 @@ const COLLECT = () => {
     };
     const size = parseFloat(cs.fontSize);
     const weight = Number(cs.fontWeight) || 400;
-    const inactive = el.closest('[disabled], [aria-disabled="true"], fieldset[disabled]') !== null;
+    const inactive = isInactive(el);
     const occludedBy = occlusion(el, box);
 
     targets.push({

@@ -162,6 +162,34 @@ const IN_PAGE = ({ aaNormal, aaLarge, minTarget }) => {
     });
   };
 
+  /* --8<-- inactive-state (kept identical in contrast-render.mjs; tests/harness/inactive-state-check.mjs
+     extracts both copies and runs the known-answer matrix against each) --8<-- */
+  /**
+   * WCAG 1.4.3's "inactive user interface component", read from every channel this product's own
+   * components use to say it, not from the content attribute alone.
+   *
+   *  - the DOM **property**: the state the browser and the frameworks act on. Base UI's `useButton`
+   *    mutates `element.disabled` on composite items directly (`internals/use-button/useButton.mjs`),
+   *    so on those the attribute and the property can disagree and only the property is current.
+   *  - the **attribute**: React's own output for `<button disabled>` / `<input disabled>`, which is
+   *    how every disabled control in `src/app` is written.
+   *  - **`aria-disabled="true"`**: what a *composite* item carries instead. `useFocusableWhenDisabled`
+   *    sets `aria-disabled` and withholds `disabled` whenever `focusableWhenDisabled` is on, which
+   *    is unconditional for `Menu.Item` and `Combobox.Item` — so a disabled menu row has no
+   *    `disabled` attribute and no property at all.
+   *
+   * An ancestor walk, not `closest()`, because a selector cannot ask about the property.
+   */
+  const isInactive = (el) => {
+    for (let n = el; n instanceof Element; n = n.parentElement) {
+      if (n.disabled === true) return true;
+      if (n.hasAttribute('disabled')) return true;
+      if (n.getAttribute('aria-disabled') === 'true') return true;
+    }
+    return false;
+  };
+  /* --8<-- end inactive-state --8<-- */
+
   const describe = (el) => {
     const id = el.id ? `#${el.id}` : '';
     const cls = typeof el.className === 'string' && el.className
@@ -204,7 +232,7 @@ const IN_PAGE = ({ aaNormal, aaLarge, minTarget }) => {
     // theme/viewport combinations, and it is `disabled={!canSubmit}` with an empty field — the only
     // state the harness can reach without typing. Scoring it would have been the single loudest
     // number in the report and it would have been wrong.
-    const inactive = el.closest('[disabled], [aria-disabled="true"], fieldset[disabled]') !== null;
+    const inactive = isInactive(el);
     if (inactive) {
       contrast.exemptInactive += 1;
       continue;
