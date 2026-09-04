@@ -121,28 +121,29 @@ describe('the two Clear controls are distinguishable', () => {
   /**
    * **A real accessibility defect, and one that cost a peer two build cycles.** Two controls could
    * be on screen at once carrying the identical accessible name `Clear search`: the search field's
-   * icon ×, and `ClearSearchEscape`. They do different things — one clears the field, the other
+   * icon ×, and the list's own escape. They did different things — one clears the field, the other
    * clears the search *and* the scope — so a screen-reader user tabbing heard the same name twice
    * with nothing to choose between them, and a Playwright locator silently resolved to whichever
    * came first.
    *
-   * Only the `aria-label` is fixed. The visible string is `product-lead`'s call and had not reached
-   * `overnight-copy-deck.md`, so it is left exactly as it is rather than invented.
+   * The `aria-label` fixed it, and 2026-09-04 removed the collision at its root: the list's escape
+   * is now `Clear all`, one control that clears every axis, so the two are not near-synonyms any
+   * more. Both halves are pinned — the field keeps its distinct label, and no control anywhere on
+   * this surface is visibly named `Clear search`.
    */
   it('does not give two different controls one name', () => {
     expect(SHEET).toContain('aria-label="Clear the search field"');
     expect(SHEET).not.toContain('aria-label="Clear search"');
-    // The visible string is untouched — this is the one the copy deck still owns.
-    expect(SHEET).toContain('Clear search');
+    expect(SHEET).not.toContain('>Clear search<');
   });
 
-  /** Both the sheet and the desktop panel render a `ClearSearchEscape`, with CSS hiding one per
+  /** Both the sheet and the desktop panel render the empty-list escape, with CSS hiding one per
    *  breakpoint. Recorded here because a locator without `:visible` resolves to the hidden node and
    *  times out looking exactly like a product bug. */
   it('renders that control on both surfaces, which a locator has to know', () => {
     const PANEL = readFileSync('src/components/sheet/place-desktop-panel.tsx', 'utf8');
-    expect(SHEET).toContain('ClearSearchEscape');
-    expect(PANEL).toContain('ClearSearchEscape');
+    expect(SHEET).toContain('NothingHereEscape');
+    expect(PANEL).toContain('NothingHereEscape');
   });
 });
 
