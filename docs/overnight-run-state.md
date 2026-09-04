@@ -63,7 +63,22 @@ Not the sources table and not the card — both work, and the multi-source card 
 browser for the first time** tonight. You hit **two `places` rows for one venue**, each holding one
 TikTok, so the multi-source card never got a chance to draw. That is decision 3 above.
 
-## The morning list
+## The morning list — worked on 2026-09-04, status below
+
+> **Closed:** the location offer's overlap (`bb64f0d`), the camera-mover doc drift (`ea2f002`), the
+> `ux-when-we-ask.md` §11 claim — which turned out to be the whole section, not one line
+> (`f79e682`) — the two disabled-attribute harnesses (`8941d11`), and the category panel's missing
+> tick (`5bf94f2`), whose diagnosis here was wrong: it fires for *every* derived category, 58 of 60
+> local rows, not for odd provider values.
+>
+> **Still open:** the production `1 in הרצליה` report (needs a merge first), the NLS flash-lite
+> measurement (costs provider quota, owner rule is to ask first), and one residual the offer fix
+> surfaced — on mobile the camera pays no marker allowance, so a country pill runs under the locate
+> and zoom buttons. That is camera padding, not card anchoring, and it is unowned.
+>
+> The original list follows, unedited.
+
+
 
 - The location offer card **overlaps a country pill** while it is up, at both breakpoints. Those
   pills are tappable. Two-line change to where it anchors.
