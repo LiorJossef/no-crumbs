@@ -1,6 +1,6 @@
 # No Crumbs — a personal map of the places your feed recommended
 
-**Live app:** <https://p-002-git-main-lior19.vercel.app> ·
+**Live app:** <https://no-crumbss.vercel.app> ·
 **Repository:** <https://github.com/LiorJossef/no-crumbs>
 
 *(`P-002` is the repository codename and the working directory name; the product is No Crumbs.)*
