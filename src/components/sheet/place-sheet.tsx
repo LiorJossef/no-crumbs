@@ -52,6 +52,7 @@ import {
 import { savedPlaceRef } from "@/components/map/saved-place-ref";
 import { DetailPanelOpenContext } from "@/ui/place/detail-panel-open";
 import {
+  use,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -96,6 +97,7 @@ import { BeenBadge } from "./visit-state";
 import { NO_BEEN_PLACES_LINE, type VisitFilter } from "@/ui/place/visit-state";
 import { BOTTOM_NAV_HEIGHT_PX } from "@/components/nav/bottom-nav";
 import {
+  AreaFilterContext,
   AxisRows,
   LibraryFilterBar,
   MenuAxis,
@@ -2067,7 +2069,7 @@ export function NothingHereEscape({
   onClear,
 }: {
   /** The live query, or `''`. Decides the sentence and nothing else — the control clears the same
-   *  four axes either way. */
+   *  axes either way. */
   searchQuery: string;
   /**
    * A more specific first line than the generic filter sentence, where one axis has earned its own
@@ -2079,6 +2081,13 @@ export function NothingHereEscape({
   line?: string;
   onClear: () => void;
 }) {
+  // **The fifth axis is read here, not passed in** — the reason `Clear all` cleared four of five
+  // until 2026-09-04. `onClear` is written by each host out of the four page handlers it holds,
+  // and neither host knows a sentence resolved an area; the filter row learns it from this same
+  // context, so the escape learns it the same way rather than growing a prop that would have to
+  // cross two hosts and the page. Outside a provider — the collections host — this is `null` and
+  // nothing changes.
+  const area = use(AreaFilterContext);
   const searching = searchQuery !== '';
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
@@ -2094,7 +2103,10 @@ export function NothingHereEscape({
       <Button
         type="button"
         variant="outline"
-        onClick={onClear}
+        onClick={() => {
+          onClear();
+          area?.onClear();
+        }}
         className="h-11 rounded-lg px-4 text-sm font-bold"
       >
         {CLEAR_EVERYTHING_LABEL}
