@@ -155,12 +155,24 @@ const CHIP_ROW = 'px-2 py-0.5 text-micro leading-4';
  * Ordering is not load-bearing this time and that is worth stating, because it was last time: the
  * new rule is `[aria-pressed="true"]:hover` at (0,3,0) against the pressed border's (0,2,0), so it
  * wins on specificity and does not depend on which is emitted first.
+ *
+ * ## The weight is 500, and that is the answer to "overwhelming"
+ *
+ * Measured on `Kohi`: band 1 of the place card held five bordered pressables, **four of them tags**,
+ * every one at `font-bold` — so the loudest objects on a place's card were its tags, outweighing
+ * `Been here`, which is the primary. That is a hierarchy inversion, not a spacing problem, and no
+ * amount of gap fixes it. Contrast is weight-independent and the chip measures 6.45:1 in light and
+ * 10.88:1 in dark, so AA holds at 500 and nothing legible is spent.
+ *
+ * The filter row does **not** share this string — it paints its triggers with `TRIGGER_PAINT` in
+ * `library-filter-bar.tsx`, which imports nothing from this file — so an active filter chip is
+ * untouched and still reads as active.
  */
 export const CHIP_PRESSABLE =
   // No `motion-safe:transition-colors`: `PRESS_CHIP` below carries `PRESS_BEAT`'s
   // `motion-safe:transition`, whose property list already contains colour. Two declarations meant
   // two durations for one fade — 90ms for pointer users and 150ms wherever the later rule won.
-  'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ' +
+  'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ' +
   'border-tag-foreground/15 bg-tag text-tag-foreground hover:border-tag-foreground/45 ' +
   'aria-pressed:border-transparent aria-pressed:bg-tag-selected aria-pressed:text-tag-selected-foreground ' +
   'aria-pressed:hover:border-tag-selected-foreground/45 ' +
@@ -186,10 +198,10 @@ export function TagChipList({ tags }: { tags: readonly string[] }) {
     // `Tags` when they are labels, `Filter by tag` when they are controls: the group's accessible
     // name is the only thing that tells a screen-reader user which of the two this list is, and it
     // has to be true in both cases rather than convenient in one.
-    <ul
-      aria-label={filter ? 'Filter by tag' : 'Tags'}
-      className={cn('flex flex-wrap', filter ? 'gap-2' : 'gap-1.5')}
-    >
+    // One gap, whichever the chips are. It used to be 8 px for controls and 6 px for labels: the
+    // same block of tags spaced two ways, and the wider one on the surface the owner called
+    // crowded. Four chips wrap to two lines on a 390 px phone, so the gap is paid twice.
+    <ul aria-label={filter ? 'Filter by tag' : 'Tags'} className="flex flex-wrap gap-1.5">
       {tags.map((tag) => (
         <li key={tag} className="flex min-w-0">
           {filter ? (
