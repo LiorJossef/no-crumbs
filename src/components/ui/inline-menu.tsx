@@ -143,6 +143,36 @@ export function InlinePanel({
     return () => document.removeEventListener('click', onDocumentClick, true);
   }, [onOutsidePress, triggerRef]);
 
+  // **Escape closes it from anywhere, not only from the trigger and from inside the panel.**
+  //
+  // Every consumer handles Escape on its own trigger and this panel handles it on itself, and both
+  // call `stopPropagation`, so this listener only ever sees the third case: the panel is open and
+  // focus is somewhere else entirely. On the library's filter bar that case is hard to reach —
+  // the panel is `order-last` in the trigger's own flex line, so `Tab` from the trigger lands
+  // inside it. On the collection screen the panel is drawn under the meta line instead, so `Tab`
+  // from the `⋯` lands on the members line and Escape there was a dead key: measured 2026-09-04 at
+  // 390×844, `aria-expanded` still `true` and the rows still on screen.
+  //
+  // It dismisses through `onOutsidePress`, not `onEscape`, for the reason that prop exists: focus
+  // has already left the trigger, and yanking it back to a control the user tabbed away from is a
+  // jump they did not ask for.
+  //
+  // **Bubble phase on `document`, and the guard is `stopPropagation`, not `defaultPrevented`.**
+  // React 19 dispatches its synthetic events from a listener on the root container, so a handler
+  // nearer the key that stops the event — the library's search field, which clears its own query on
+  // Escape — is never reached by this one. `defaultPrevented` looks like the politer test and is
+  // useless here: measured 2026-09-04 on the collection sheet, Escape arrives at `document` with
+  // `defaultPrevented` already `true`, because `NonModalDrawerScope`'s Radix `DismissableLayer`
+  // consumes it into an `onOpenChange` that is a noop. Nothing closes, and the flag says otherwise.
+  useEffect(() => {
+    function onDocumentKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      onOutsidePress();
+    }
+    document.addEventListener('keydown', onDocumentKeyDown);
+    return () => document.removeEventListener('keydown', onDocumentKeyDown);
+  }, [onOutsidePress]);
+
   return (
     <div
       id={id}
