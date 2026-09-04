@@ -72,12 +72,21 @@ describe('the area band no longer loses an area to a collision', () => {
     }
   });
 
-  it('counts every saved place at every step — the whole point of the change', () => {
+  it('draws something at every step, and a pill only ever counts its own area', () => {
+    // **This assertion was `=== TOTAL` until 2026-09-04**, and its own name was "counts every saved
+    // place at every step — the whole point of the change". The owner's ruling that day reversed
+    // it: a pill that carries a group's number is a pill that will not open that number, which is
+    // the defect he reported. The counts therefore no longer sum, and `area-band-counts.test.ts`
+    // measures exactly how far short they fall rather than leaving the gap unstated.
     const out = layoutAreaBand(areas());
     AREA_BAND_STEPS.forEach((_, index) => {
       const drawn = step(out, index);
       expect(drawn.length).toBeGreaterThan(0);
-      expect(drawn.reduce((sum, f) => sum + f.properties.count, 0)).toBe(TOTAL);
+      expect(drawn.reduce((sum, f) => sum + f.properties.count, 0)).toBeLessThanOrEqual(TOTAL);
+      for (const feature of drawn) {
+        const own = LIBRARY.find(([label]) => label === feature.properties.label);
+        expect(feature.properties.count).toBe(own?.[1]);
+      }
     });
   });
 
@@ -109,28 +118,31 @@ describe('the area band no longer loses an area to a collision', () => {
     });
   });
 
-  it('folds Herzliya into Tel Aviv rather than deleting it — the reported defect', () => {
-    // Before this change Tel Aviv drew `20` at every zoom in the band and Herzliya drew nothing at
-    // any of them, so three saved places were invisible *and* uncounted. Now the number over Tel
-    // Aviv is the number of places the user actually has there.
+  it('puts Tel Aviv in front of Herzliya, and records it without borrowing its number', () => {
+    // The layout still knows Herzliya was displaced — `groupSize` is what a `+N` affordance would
+    // read — and Tel Aviv's pill still says twenty, which is what a tap on it opens. Between
+    // 617af6e and this ruling the count was the group's, and it was the shape of the owner's
+    // report: the pill said 13 and opened 6.
     const out = layoutAreaBand(areas());
     const telAviv = step(out, 0).find((f) => f.properties.label === 'תל אביב-יפו');
     expect(telAviv).toBeDefined();
-    expect(telAviv?.properties.count).toBeGreaterThan(20);
+    expect(telAviv?.properties.count).toBe(20);
     expect(telAviv?.properties.groupSize).toBeGreaterThan(1);
     expect(step(out, 0).some((f) => f.properties.label === 'הרצליה')).toBe(false);
   });
 
   it('draws Herzliya as itself in the finest step, which is why that step is a quarter wide', () => {
-    // The other half of the report. Absorbing keeps the count honest; this is what puts the name
-    // back on the map before the band hands over to pins.
+    // The other half of the original report: this is what puts the name back on the map before the
+    // band hands over to pins.
     const out = layoutAreaBand(areas());
     const finest = step(out, AREA_BAND_STEPS.length - 1);
     expect(finest.map((f) => f.properties.label)).toContain('הרצליה');
-    // 6, not its own 3: at this zoom Herzliya has cleared Tel Aviv but Ra'anana, Hod Hasharon and
-    // Kfar Saba have not cleared *it*, so it is the absorber for its own corner of the Sharon. The
-    // hierarchy is recursive by construction, which is what keeps the counts summing.
-    expect(finest.find((f) => f.properties.label === 'הרצליה')?.properties.count).toBe(6);
+    // **3, its own** — it stands in front of Ra'anana, Hod Hasharon and Kfar Saba at this zoom, and
+    // says so through `groupSize` rather than through a number it will not open. It read `6` until
+    // the 2026-09-04 ruling.
+    const herzliya = finest.find((f) => f.properties.label === 'הרצליה');
+    expect(herzliya?.properties.count).toBe(3);
+    expect(herzliya?.properties.groupSize).toBeGreaterThan(1);
   });
 
   it('keeps an area that has room entirely to itself', () => {

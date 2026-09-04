@@ -66,16 +66,6 @@ import {
 import type { SummaryPillLabel } from './country-flag-image';
 import { useStyleReady } from './use-style-ready';
 
-/**
- * How long a grouped pill's expansion takes.
- *
- * The same 600 ms `map-surface.mapcn.tsx` gives a country tap, and for the reason written there: it
- * is answering a tap rather than reporting that something happened while the user was not looking.
- * A literal rather than an import because that constant is private to the surface, which this
- * layer must not depend on.
- */
-const EXPAND_FLIGHT_MS = 600;
-
 interface SummaryMarkerLayerProps {
   readonly countries: CountryFeatureCollection;
   readonly areas: AreaFeatureCollection;
@@ -208,47 +198,26 @@ export function SummaryMarkerLayer({
     // as its label — where a 15 px circle was a 32 px target and would have needed the query padded
     // out to compensate.
     /**
-     * **A pill that stands for one area opens it; a pill that stands for several expands.**
+     * **Every area pill opens the area it names, and there is no second class of tap.**
      *
-     * `area-band-layout.ts` absorbs a pill that does not fit into the neighbour that displaced it
-     * and adds its places to that neighbour's count, so a grouped pill's number and its id are
-     * about different sets — `תל אביב-יפו 13` opened `6 matches in תל אביב-יפו`, which from the
-     * user's side is "the pill said 13 and I got 6". Its header carries the argument for expanding
-     * rather than opening; this is where the two branches are.
+     * There was one for a day. `617af6e` gave a pill that `area-band-layout.ts` had absorbed a
+     * neighbour into a different gesture — it expanded the camera instead of opening anything —
+     * because such a pill *counted* a group while its id named one area, so it said 13 and opened
+     * 6. The owner used it and rejected it the same day: *"when you click on 'tel aviv' cluster the
+     * reposition of the map isn't good why? it was better"*, then *"like when you click on ראשון —
+     * the zoom is good"*. `ראשון לציון` is an ungrouped pill, so what they were describing as good
+     * is exactly this line: camera mover 4, a fit over the area's own matching places with the
+     * sheet's padding.
      *
-     * The camera move is issued here rather than handed up as a callback because it is not
-     * navigation: no scope changes, nothing is selected, and the only thing that happens is the
-     * zoom the user asked for by tapping a cluster. It is passed the click's own `originalEvent`
-     * as event data — the same thing MapLibre's keyboard handler does — so the surface's
-     * `userInitiated` guard reads it for what it is, a zoom a person caused, and the list follows
-     * the band exactly as it does for a pinch or the zoom buttons. Inventing a private path around
-     * that guard is how a camera mover gets to rewrite the list quietly.
-     *
-     * No `duration` branch for reduced motion: MapLibre zeroes an `easeTo`'s duration itself when
-     * the media query is set and `essential` is not passed, which is the behaviour we want.
+     * **The mismatch is fixed on the pill instead, which is the end of the problem it was always
+     * on** (owner-side ruling, 2026-09-04): a pill carries its own count and never the group's, so
+     * the number it shows is the number its tap opens. `area-band-layout.ts` holds that argument
+     * and the cost that comes with it.
      */
     const openArea = (event: MapMouseEvent) => {
       const feature = map.queryRenderedFeatures(event.point, { layers: [...areaLayerIds] })[0];
-      const properties = feature?.properties;
-      const id = properties?.id;
-      if (typeof id !== 'string') return;
-      const groupSize = properties?.groupSize;
-      const expandZoom = properties?.expandZoom;
-      if (typeof groupSize === 'number' && groupSize > 1 && typeof expandZoom === 'number') {
-        const point = feature?.geometry;
-        if (point?.type !== 'Point') return;
-        const [lng, lat] = point.coordinates;
-        map.easeTo(
-          {
-            center: [lng ?? 0, lat ?? 0],
-            zoom: expandZoom,
-            duration: EXPAND_FLIGHT_MS,
-          },
-          { originalEvent: event.originalEvent },
-        );
-        return;
-      }
-      onAreaClickRef.current?.(id);
+      const id = feature?.properties?.id;
+      if (typeof id === 'string') onAreaClickRef.current?.(id);
     };
 
     const openCountry = (event: MapMouseEvent) => {
