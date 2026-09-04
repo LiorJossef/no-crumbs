@@ -351,24 +351,68 @@ Three independent grounds, any one sufficient:
 3. **It answers the wrong question.** It can say where Kyoto is; it cannot say whether the user
    saved anything there.
 
-### 5.5 Open decision before this stage ships
+### 5.5 Answered, 2026-09-04 — **REFUSED**, and the feature does not need it
 
-Stage 2's prompt sends the user's own city names to the provider so the model can pick from them
-(`citiesShownToModel` in the dry run). That is a question about location data leaving the device and
-belongs to `security-privacy`. **Stage 1's prompt carries no city names**, so Stage 1 can proceed
-while it is answered.
+`security-privacy` ruled, and it holds the veto here. Full text and sources:
+`docs/evidence/security/nls-stage2-localities-ruling-2026-09-04.md`.
+
+**Ground one — the terms we already operate under.** The intent model is `gemma-4-26b-a4b-it` on
+the Gemini API, which is **Free Tier only** — "Not available" on the Paid Tier (VERIFIED). The
+Unpaid Services terms say human reviewers may read the input, that content is used to develop
+Google products and ML technologies, and, verbatim: *"Do not submit sensitive, confidential, or
+personal information to the Unpaid Services."* There is no scale clause, so "it is coursework"
+does not reach it. This is a different provider from extraction, whose production default is
+Anthropic, so the caption precedent does not carry.
+
+**Ground two — what it would disclose, and it is worse than a list of cities.** Today the request
+carries the sentence and a project-level key: no user id, no session, no coordinate, and the
+library vocabulary is a server-side clamp input that is never forwarded. It is an unlinkable stream
+of sentences. Fifteen to twenty-five city names across four countries is a near-unique fingerprint,
+so sending them **manufactures a pseudonymous user id at the provider** — two requests carrying the
+same set are the same person, and every sentence they ever type attaches to that cluster. It would
+also ride on every search, including `pizza`.
+
+**And it is unnecessary, which is the useful finding.** §5.1's "small he↔en alias table" is not
+missing from the codebase — `src/domain/places/region-hint.ts` has held it since the resolver was
+built, ~100 keys grouped by region, including `לונדון` → `London`, the gershayim abbreviations in
+both spellings, and Tokyo in three scripts. Grouping by region *is* the join this section
+specifies. Countries are already local via `toCountryCode()` (ICU over `en`/`he`). So every §5.6
+criterion is reachable with **no provider change at all**; the round-trip buys unbounded city
+coverage for a library spanning four countries, at the cost of a prompt change that invalidates the
+97.1%/88.6% gate and opens a false-filter class the clamp cannot catch — the model picking the
+wrong one of the user's *own* cities is in-vocabulary, and hides rows with no way to tell why.
+
+**Two constraints on the local table**, from the same ruling: build it **join-only** in
+`domain/search/`, deriving classes from `REGION_ALIASES` and carrying **no coordinate** and no
+`RegionId` — `RegionId` means "an ingest region we hold" and is bound to `poi_regions`, so adding
+`prg` there would be a lie in the resolver's vocabulary, and that file's header forbids its points
+reaching a pin. Keep its measured Hebrew lessons, including that ambiguous names (`Soho`, `Camden`)
+are absent on purpose.
+
+**Conditions for a future approval**, if this is ever revisited: a paid-tier model on a
+billing-enabled project with 7-day logs and sharing off (Gemma can never satisfy this); §4.3
+re-gated on the new prompt **and** model, since the gate is not inherited; the local join running
+first and winning; city names only — no counts, no coordinates and no country list, countries being
+solved locally already; the owner's written consent, since he is the sole data subject and signup
+is closed, with a code comment saying the ruling expires when a second account exists; and a
+user-visible statement where the feature is used.
 
 ### 5.6 Done when
 
-- All four stored Tel Aviv spellings, plus `תל אביב` and `Tel Aviv-Yafo`, each return the same 20
-  places. This is the measured defect; it closes or the stage is not done.
+- ~~All four stored Tel Aviv spellings~~ — **there are seven, and they return 25, measured
+  2026-09-04.** `תל אביב - יפו` with a spaced hyphen has appeared since this was written, and the
+  library has grown. **This criterion is MET**: all seven spellings return the identical set under
+  the label `תל אביב-יפו`.
 - `in Italy` and `באיטליה` agree, and the 3 rows with no country code are reported rather than
   silently dropped.
 - A city the user has nothing in produces no place filter and no flight.
 - Chips show the library's own spelling, verified on a Hebrew-majority area.
 - The camera flies once, respects reduced motion, and Undo returns it.
 - The mover docblock is amended in the same commit as the code.
-- `security-privacy` has signed off on sending locality names to the provider.
+- ~~`security-privacy` has signed off on sending locality names to the provider.~~ **Retired by
+  the §5.5 ruling of 2026-09-04: nothing is sent, so there is nothing to sign off.** The criterion
+  it becomes: no locality or country name of the user's leaves the device, and
+  `tests/unit/search/query-intent.test.ts` still asserts it.
 
 ---
 
