@@ -618,6 +618,21 @@ viewport after a "show everything" zoom-out, ~2 000 points.
 
 ### 9.2 Camera choreography
 
+**Who may move the camera: nine movers, and the list in the code is the canonical one.** This
+section listed four; the application grew to nine, and rather than keep two lists that drift apart,
+the authoritative enumeration now lives beside the code that implements it, in the docblock above
+`camera` in `src/app/map/map-page-client.tsx`. Read that before adding a tenth. In summary, in the
+order they run: (1) the initial framing of the whole library, (2) a finished import flying to what
+it saved, (3) selecting a place from the list, (4) tapping an `Elsewhere` row or an area marker,
+(5) tapping a country marker, (6) the sheet-occlusion offset that lives in the surface, (7)
+revealing one saved place, (8) near me, and (9) tapping a pin — a recentre at the current zoom,
+owner ruling 2026-09-02.
+
+Three movers were retired, all for one reason: **narrowing must never navigate.** Panning, zooming,
+typing and tapping a tag chip are not camera movers and must not become any.
+
+The choreography of the individual calls:
+
 - Post-import, one new place: `flyTo` zoom 16, `duration: 1200`, `curve: 1.42`, `essential: false`.
 - Post-import, N new places: `fitBounds` with `maxZoom: 15` and 48 px padding.
 - ~~Cluster tap: `getClusterExpansionZoom` → `easeTo`, 400 ms.~~ **Retired with density clustering
