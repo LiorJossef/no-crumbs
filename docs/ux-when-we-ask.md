@@ -406,6 +406,16 @@ Never hide what we found in order to render a tidier empty state.
 
 ## 11. Every string
 
+> **Status, corrected 2026-09-04: this section is a specification, not a record of what ships.**
+> It was written in the present tense and read for weeks as a description of the live copy. It is
+> not. Checked against `src/` on 2026-09-04: **none** of the strings in the table below appears in
+> the application. What the review screen actually renders comes from
+> `src/ui/import/candidate-resolution-view.ts` — `Which one is it?` where this table says
+> `Which one?`, `Is this the place?` where it says `Is this it?`, and `Matched to a place on the
+> map`, which §11.1 lists as deleted and which is still shipping. Adopting this table is real work
+> on the review screen and has not been done. Until it is, read §11 and §11.1 as the target and the
+> code as the truth.
+
 Typographic quotes and apostrophes throughout (`'`, `"` `"`). Banned-word check passed on all of
 them: no *model, AI, extraction, geocode, confidence, score, parse, API, pipeline*, no *"oops"*, no
 *"something went wrong"*.
@@ -439,7 +449,11 @@ them: no *model, AI, extraction, geocode, confidence, score, parse, API, pipelin
 than the question deserves. Omit the clause entirely below 100 m — at that range "apart" is not the
 reason we are asking.
 
-### 11.1 Strings deleted
+### 11.1 Strings to delete
+
+**Not yet deleted** — see the status note at the head of §11. This is the list of what the adoption
+of §11 would remove, and `Matched to a place on the map` and `Which one is it?` are both still on
+screen today.
 
 `Needs your pick` · `Your pick` · `Matched` · `Matched to a place on the map` ·
 `Pick a different one if this isn't it.` · `The caption doesn't say which.` as a fixed string ·
