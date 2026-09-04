@@ -342,6 +342,29 @@ export function BeenToggle({
  * effect, which would throw away half-typed text whenever the server revalidated.
  */
 
+/** The four things the category row can be set to: one of the three categories, or `Automatic`,
+ *  which is SQL `NULL` in `saved_places.category_override`. */
+export type CategoryChoice = ProductCategory | 'automatic';
+
+/**
+ * Which of the four rows carries the tick.
+ *
+ * Pulled out of the JSX so the invariant is testable without a DOM — vitest runs in `node` here.
+ * The invariant: **exactly one row is ticked**, in every state this UI can produce. The one state
+ * it cannot produce, and therefore the one `null` below, is a free-text `category_override` that
+ * `productCategoryFor` cannot read: overridden, with no category to point at. Nothing is ticked
+ * there on purpose — the alternative is inventing a value the user did not write.
+ */
+export function selectedCategoryChoice(
+  category: ProductCategory | null,
+  isOverridden: boolean,
+): CategoryChoice | null {
+  // Not overridden means the column is NULL, and NULL is what `Automatic` writes. The category on
+  // screen is derived, so no *category* row is the user's answer — `Automatic` is.
+  if (!isOverridden) return 'automatic';
+  return category;
+}
+
 /**
  * The user's own word for what this place is.
  *
@@ -373,16 +396,30 @@ export function BeenToggle({
  * the library header uses to leave multi-select. A choice commits itself, so there was nothing
  * left for it to close.
  *
- * ## "Automatic" is an option, not an absence
+ * ## "Automatic" is an option, not an absence — and it is always one of the four
  *
- * When the user has overridden the category, the row offers `Automatic` alongside the three. It
- * writes SQL `NULL`, which is a different statement from every chip on the row: it means *stop, use
- * whatever you work out*, so a better provider category tomorrow still reaches this place. Freezing
- * today's derivation into the column would opt the place out of every future improvement, silently.
+ * `Automatic` writes SQL `NULL`, which is a different statement from every other row: it means
+ * *stop, use whatever you work out*, so a better provider category tomorrow still reaches this
+ * place. Freezing today's derivation into the column would opt the place out of every future
+ * improvement, silently.
  *
  * It used to be distinguishable from picking `Place`, the old eighth value. There is no `Place`
  * any more — a place we cannot categorise simply has none — so `Automatic` is now the only way to
  * say "I have no opinion", which is what it always meant.
+ *
+ * **It used to be offered only once the user had overridden**, on the argument that there is
+ * nothing to undo otherwise — and that is what made the panel draw **no tick at all** for every
+ * place whose category came from the provider or the model. Measured on 2026-09-04 against
+ * `Gelalucci` on local: the row read `Café` (Google's `ice_cream_shop`, translated) and all three
+ * choices came back `aria-checked="false"`, which reads as a rendering fault rather than as an
+ * answer. The `radiogroup` was missing the option it was actually set to.
+ *
+ * The fix is to spell that option rather than to tick `Café`. This control edits
+ * `category_override`, whose value is either one of the three or `NULL`; ticking the derived
+ * category would say *you chose this*, would make pressing the already-ticked row a silent freeze
+ * of today's guess, and would delete the only difference between a category we worked out and one
+ * the user stands behind — the same confusion `collection-place-detail.tsx` refuses in its own
+ * comment. So `Automatic` is permanent, and it carries the tick whenever the user has not spoken.
  *
  * Not optimistic, for the same reason nothing else here is: `revalidatePath('/map')` is what
  * updates the pin colour, the pin glyph and the line under the name, so the screen can never
@@ -395,10 +432,11 @@ export function CategoryEditor({
 }: {
   savedPlaceId: string;
   /** The place's current category, `null` where nothing resolved one. A null is a legitimate
-   *  resting state, not an error: the row simply shows no row ticked. */
+   *  resting state, not an error: the trigger reads `Not set` and the panel ticks `Automatic`. */
   category: ProductCategory | null;
   /** Whether `category` came from this user's override rather than the provider or the model.
-   *  Decides only whether `Automatic` is offered — there is nothing to undo otherwise. */
+   *  Decides which row is ticked: the matching category when true, `Automatic` when false. All
+   *  four rows are always offered. */
   isOverridden: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -407,6 +445,7 @@ export function CategoryEditor({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
   const raiseSheet = useDetailPanelOpen();
+  const selected = selectedCategoryChoice(category, isOverridden);
 
   function choose(next: ProductCategory | null) {
     setError(null);
@@ -535,19 +574,15 @@ export function CategoryEditor({
         >
           <div role="radiogroup" aria-label="Category" className="flex flex-col">
             {PRODUCT_CATEGORY_ORDER.map((choice) =>
-              choiceRow(
-                choice,
-                PRODUCT_CATEGORY_LABEL[choice],
-                choice === category && isOverridden,
-                choice,
-              ),
+              choiceRow(choice, PRODUCT_CATEGORY_LABEL[choice], choice === selected, choice),
             )}
-            {isOverridden &&
-              // "Automatic" writes SQL NULL: *stop, use whatever you work out*, so a better
-              // provider category tomorrow still reaches this place. A row with an empty
-              // indicator, not an underlined word floating after the choices — it is one of the
-              // four things this control can be set to, and it is spelled like the other three.
-              choiceRow('automatic', 'Automatic', false, null)}
+            {/* Always present, and checked whenever the user has not overridden — that is the
+                state this control is genuinely in, and leaving it unspelled is what left the
+                group with nothing ticked. One exception, unreachable from this UI: a free-text
+                override `productCategoryFor` cannot parse is overridden *and* has no category, so
+                no row is checked and the trigger reads `Not set`. Ticking anything there would
+                invent a value the user did not write. */}
+            {choiceRow('automatic', 'Automatic', selected === 'automatic', null)}
           </div>
           {error && (
             <p role="alert" className="px-2 pb-1 pt-1.5 text-micro font-medium text-destructive">
