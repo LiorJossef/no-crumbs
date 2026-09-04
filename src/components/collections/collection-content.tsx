@@ -590,6 +590,23 @@ function CollectionList({
    */
   const expandForPanel = stop === 'full' || stop === undefined ? undefined : onExpand;
 
+  /**
+   * **An emptied list asks for the room to say so.** 2026-09-04, found in verification: at 390x844
+   * the sheet's list column is 75 px at `half`, and the empty state is 284 px — so a search that
+   * matched nothing rendered the top 27 px of the mascot's head and nothing else, with the sentence
+   * and `Clear all` both below the fold. It was reachable by dragging, which is the same as saying
+   * the reader had to guess it was there.
+   *
+   * It is the same channel a filter panel uses (`expandForPanel`) and the same stop, so the sheet
+   * has one rule: *something needs more room than this stop has*. Guarded on the collection having
+   * places at all — an empty collection draws `EmptyCollection`, which is a different state with
+   * its own primary and does not want the map buried behind it.
+   */
+  useEffect(() => {
+    if (collection.places.length === 0 || matches.length > 0) return;
+    expandForPanel?.();
+  }, [collection.places.length, matches.length, expandForPanel]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pb-2 pt-1">

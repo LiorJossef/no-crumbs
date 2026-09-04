@@ -218,7 +218,14 @@ export function useCollectionsScope({
         view={pane}
         {...(stop ? { stop } : {})}
         claimHeadingFocus={claimHeadingFocus}
-        onExpand={() => shell.sheet.goTo('half')}
+        // **`full`, not `half`** — 2026-09-04, and `collection-content.tsx`'s own guard comment
+        // has been asking for this: it stops at `half`, so an expander that only reaches `half`
+        // moves nothing when called *at* `half`, and the overflow it was written to fix stayed on
+        // screen. `place-sheet.tsx` has always passed `full` for the same job. It is also what
+        // makes room for an emptied list to say so — at `half` the collection's list column is
+        // 75 px and the empty state is 284 px, so the reader saw the top of the mascot's head and
+        // nothing else.
+        onExpand={() => shell.sheet.goTo('full')}
         onViewChange={(next) => {
           setPane(next);
           // Pushing a panel raises the sheet to full, from wherever it was. Measured at `half`: the
