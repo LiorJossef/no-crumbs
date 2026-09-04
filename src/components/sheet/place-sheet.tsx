@@ -206,6 +206,17 @@ export interface PlaceSheetProps {
   readonly libraryHasVisited: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
+  /**
+   * **Whatever belongs directly under the search field.** A slot rather than a component, so this
+   * file never learns what a sentence panel is.
+   *
+   * It exists because `nls-plan.md` §9 decision 1 puts the natural-language entry point *there* —
+   * deliberately not as a fifth trigger in `LibraryFilterBar`, whose grammar is one trigger per
+   * axis, each stating its current value at rest, and which the entry point has neither of. It is
+   * rendered under the same two gates as the field it sits below: nothing to search means nothing
+   * to interpret, and while picking rows the header is replaced rather than added to.
+   */
+  readonly searchAside?: ReactNode;
   /** The tags currently narrowing the library, as stored — empty when nothing is selected. Several
    *  at once since 2026-09-02, composing as AND. A filter dimension of its own rather than text
    *  written into `query`; `src/ui/place/tag-filter.ts` says why. Rendered here as the dismissible
@@ -282,6 +293,7 @@ export function PlaceSheet({
   libraryHasVisited,
   query,
   onQueryChange,
+  searchAside,
   activeTags,
   onClearTag,
   onToggleTag,
@@ -388,6 +400,7 @@ export function PlaceSheet({
       libraryHasVisited={libraryHasVisited}
       query={query}
       onQueryChange={onQueryChange}
+      searchAside={searchAside}
       activeTags={activeTags}
       onClearTag={onClearTag}
       onToggleTag={onToggleTag}
@@ -425,6 +438,7 @@ function PlaceList({
   libraryHasVisited,
   query,
   onQueryChange,
+  searchAside,
   activeTags,
   onClearTag,
   onToggleTag,
@@ -453,6 +467,8 @@ function PlaceList({
   libraryHasVisited: boolean;
   query: string;
   onQueryChange: (query: string) => void;
+  /** See `PlaceSheetProps.searchAside`. */
+  searchAside?: ReactNode;
   activeTags: readonly string[];
   onClearTag: (tag: string) => void;
   onToggleTag: (tag: string) => void;
@@ -788,6 +804,8 @@ function PlaceList({
           {!libraryIsEmpty && !selecting && (
             <PlaceSearchField value={query} onChange={onQueryChange} />
           )}
+
+          {!libraryIsEmpty && !selecting && searchAside}
 
           {/* **Two rows, not three.** Measured at 375x812 on the owner's own library, the header
               drew the visit chip and three category chips at y190, two sort chips at y248 and ten

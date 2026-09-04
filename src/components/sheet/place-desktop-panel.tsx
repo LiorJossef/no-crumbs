@@ -19,7 +19,7 @@
  * so the map underneath (and the floating account chip above it) stay reachable everywhere else.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -69,6 +69,9 @@ export interface PlaceDesktopPanelProps {
   readonly libraryHasVisited: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
+  /** See `PlaceSheetProps.searchAside` — the same slot, in the same place, on the desktop panel,
+   *  so one library never offers two different sets of controls. */
+  readonly searchAside?: ReactNode;
   /** The tags currently narrowing the library, composing as AND. Same props, same pills and same
    *  behaviour as the mobile sheet — the two surfaces present one filter, not two. */
   readonly activeTags: readonly string[];
@@ -119,6 +122,7 @@ export function PlaceDesktopPanel({
   libraryHasVisited,
   query,
   onQueryChange,
+  searchAside,
   activeTags,
   onClearTag,
   onToggleTag,
@@ -258,6 +262,9 @@ export function PlaceDesktopPanel({
             the list already say. The screen-reader announcement is a separate live region in
             `map-shell.tsx` and is untouched. */}
         {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
+        {/* The natural-language entry point sits directly under the field, on both surfaces —
+            `nls-plan.md` §9 decision 1. See `PlaceSheetProps.searchAside`. */}
+        {!libraryIsEmpty && !selecting && searchAside}
         {/* **Two rows, not three walls of chips**, exactly as on the phone — the same component,
             so the two surfaces cannot offer different controls over one library. Row 1 narrows,
             row 2 sorts; the sort control rides in `belowRow`. */}

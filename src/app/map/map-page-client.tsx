@@ -129,12 +129,19 @@ import {
   type PlaceOrder,
 } from '@/components/sheet/place-order';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
+import {
+  SentenceApplied,
+  SentencePanel,
+  type LibraryFacets,
+  type SentenceApplication,
+} from '@/components/sheet/sentence-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
 import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import { categoryFacets, filterByCategory, toggleCategory } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
-import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
+import { TagFilterContext, isSameTag, tagFacets, type TagFilter } from '@/ui/place/tag-filter';
+import { enrichmentOf } from '@/ui/place/enrichment';
 import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/place/announce';
 import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
 import { buildAreas, mapAccessibleName } from '@/ui/place/active-area';
@@ -776,6 +783,83 @@ export function MapPageClient({
       categoryFacets(filterPlaces(visitMatches, query), (place) => place.category, activeCategory),
     [visitMatches, query, activeCategory],
   );
+
+  /**
+   * **The library's own vocabulary, for the sentence panel's second clamp** (`nls-plan.md` §2.1).
+   *
+   * Counted over the **whole** library and not over `matches`, and that is the point: the clamp
+   * asks "does this user have any rows carrying this value", which is a fact about the library
+   * rather than about the filters currently on. Counting it over the narrowed set would make a
+   * correct interpretation drop chips because of a filter the sentence is about to replace.
+   *
+   * The tag list asks `tagFacets` for **every** tag at a floor of one: the two-place floor exists
+   * so a chip row does not fill with singletons, and this is not a row — it is the answer to "can
+   * this value be executed", where a tag carried by one place can.
+   */
+  const sentenceFacets = useMemo<LibraryFacets>(
+    () => ({
+      categories: categoryFacets(places, (place) => place.category).map((facet) => facet.category),
+      tags: tagFacets(
+        places,
+        (place) => enrichmentOf(place.detail).tags,
+        null,
+        Number.MAX_SAFE_INTEGER,
+        1,
+      ).map((facet) => facet.tag),
+      visit: [
+        ...(places.some((place) => place.visited) ? (['been'] as const) : []),
+        ...(places.some((place) => !place.visited) ? (['not-been'] as const) : []),
+      ],
+    }),
+    [places],
+  );
+
+  /**
+   * **What `Undo` restores, captured the moment a sentence is applied.**
+   *
+   * The four filter cells plus the scope, held as one object so the restore is one `setState`
+   * batch — one transaction, which is what `nls-plan.md` §3.1 step 5 requires. Non-null is also
+   * what puts `Filtered from what you typed.` on screen, so the notice and the ability to undo it
+   * can never disagree.
+   *
+   * **The camera is not in here, and Stage 1 is why.** The intent shape carries no city and no
+   * country, so applying a sentence moves nothing — `map-page-client.tsx`'s own rule is that
+   * typing is not a camera mover, and there is no geography here for one to frame. Stage 2 adds
+   * movers 4 and 5 on apply and amends the enumeration in the same commit (§5.2).
+   */
+  const [sentenceUndo, setSentenceUndo] = useState<{
+    readonly query: string;
+    readonly activeTags: readonly string[];
+    readonly visitFilter: VisitFilter;
+    readonly activeCategory: ProductCategory | null;
+    readonly scope: ListScope | null;
+  } | null>(null);
+
+  /** Writes the four cells the panel interpreted into, having first recorded what was there. The
+   *  panel closes itself; the page's existing results live region announces the new count, which
+   *  is why nothing here announces anything. */
+  const applySentence = useCallback(
+    (application: SentenceApplication) => {
+      setSentenceUndo({ query, activeTags, visitFilter, activeCategory, scope });
+      setQuery(application.query);
+      setActiveTags(application.tags);
+      setVisitFilter(application.visit);
+      setActiveCategory(application.category);
+    },
+    [query, activeTags, visitFilter, activeCategory, scope],
+  );
+
+  /** Back to exactly what was there. Five writes in one event handler, so React commits them as
+   *  one render — the transaction, not five steps a user can watch happen. */
+  const undoSentence = useCallback(() => {
+    if (sentenceUndo === null) return;
+    setQuery(sentenceUndo.query);
+    setActiveTags(sentenceUndo.activeTags);
+    setVisitFilter(sentenceUndo.visitFilter);
+    setActiveCategory(sentenceUndo.activeCategory);
+    setScope(sentenceUndo.scope);
+    setSentenceUndo(null);
+  }, [sentenceUndo]);
 
   /** The same set, as ids — read by the `Elsewhere` counts and by the camera, which must frame what
    *  the filter left rather than what the area holds. */
@@ -1675,6 +1759,25 @@ export function MapPageClient({
                       libraryHasVisited={libraryHasVisited}
                       query={query}
                       onQueryChange={setQuery}
+                      /* **The natural-language entry point, under the field rather than in the
+                         filter row** — `nls-plan.md` §9 decision 1. `LibraryFilterBar`'s grammar is
+                         one trigger per axis, each stating its current value at rest, and a
+                         sentence has neither an axis nor a resting value.
+
+                         The applied notice rides with it so `Undo` is on screen wherever the
+                         filters it undid are. */
+                      searchAside={
+                        <>
+                          <SentencePanel
+                            surface="inline"
+                            {...(stop === 'full' ? {} : { onPanelOpen: () => shell.sheet.goTo('full') })}
+                            places={places}
+                            facets={sentenceFacets}
+                            onApply={applySentence}
+                          />
+                          {sentenceUndo !== null && <SentenceApplied onUndo={undoSentence} />}
+                        </>
+                      }
                       activeTags={activeTags}
                       onClearTag={clearTag}
                       onToggleTag={toggleTag}
@@ -1722,6 +1825,19 @@ export function MapPageClient({
                       libraryHasVisited={libraryHasVisited}
                       query={query}
                       onQueryChange={setQuery}
+                      /* The same slot, the same place, the anchored-popover surface — see the
+                         sheet's copy above. */
+                      searchAside={
+                        <>
+                          <SentencePanel
+                            surface="popover"
+                            places={places}
+                            facets={sentenceFacets}
+                            onApply={applySentence}
+                          />
+                          {sentenceUndo !== null && <SentenceApplied onUndo={undoSentence} />}
+                        </>
+                      }
                       activeTags={activeTags}
                       onClearTag={clearTag}
                       onToggleTag={toggleTag}
