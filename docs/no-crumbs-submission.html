@@ -1372,8 +1372,21 @@ ul.bare { list-style:none; margin:0; padding:0; }
         <p><strong>The database can take a hundred users. The budget cannot.</strong> It is a billing
           setting, not a code problem &mdash; but it is the real ceiling.</p>
       </div>
+      <div class="note" style="margin-top:18px">
+        <h4>The one external service that does <em>not</em> get more expensive</h4>
+        <p>The map. <strong>MapLibre GL</strong> is an open&#8209;source renderer running in the
+          browser, and the <strong>CARTO</strong> basemap it draws is a keyless vector style &mdash;
+          so map views cost nothing per user, carry no quota to exhaust and no key to rotate, and
+          the tiles never touch our server. A thousand people panning the map is a thousand people
+          talking to a tile CDN, not to us.</p>
+        <p>That is worth stating because it is the opposite of the two ceilings above, and it was a
+          deliberate choice: a per&#8209;view&#8209;billed map would have put a meter on the
+          product&rsquo;s <em>main</em> surface, the one people open every time, rather than on the
+          import they do occasionally.</p>
+      </div>
+
       <div class="grid g3" style="margin-top:18px">
-        <div class="card"><h3>Two more shared ceilings</h3><p>The model allowance is <strong>500 calls a day</strong>, and natural&#8209;language search spends one every time someone submits a sentence &mdash; so <strong>search competes with importing for the same budget</strong>, and nothing in the code counts what has been spent.</p></div>
+        <div class="card"><h3>Two more shared ceilings</h3><p>Our <strong>Gemini</strong> allowance is <strong>500 calls a day</strong>, and it pays for two different things: the extraction on every import, and natural&#8209;language search, which spends one every time someone submits a sentence. So <strong>search competes with importing for the same budget</strong>, and nothing in the code counts what has been spent.</p></div>
         <div class="card"><h3>The import is one long request</h3><p>Fetch the post, call the model, look up as many as eight places one after another &mdash; all inside a single web request, with <strong>no maximum duration set or measured</strong>. A slow chain fails with nothing saved.</p></div>
         <div class="card"><h3>The limiters are in memory</h3><p>The two rate limiters we do have <strong>reset on deploy and do not span server instances</strong>. There is no caching on the read path at all, and the profile page reads the library twice in one render.</p></div>
       </div>
