@@ -50,6 +50,15 @@ function contextsProvidedByRoutes(): ReadonlySet<string> {
   return found;
 }
 
+/**
+ * **The one context a route provides that the seam deliberately does not carry.**
+ *
+ * **There are no exemptions, deliberately.** `AreaFilterContext` (2026-09-04) is read only inside
+ * the route subtree today, and it was proposed as an allow-listed exception policed by a second
+ * test. An allow-list inside the one gate that exists to catch this seam is a weaker gate, and the
+ * bridge is four lines — so the rule stayed absolute and the context is carried like the rest.
+ */
+
 describe('the context bridge across the persistent map seam', () => {
   it('carries every context a route provides above the shell', () => {
     const provided = contextsProvidedByRoutes();
@@ -66,16 +75,18 @@ describe('the context bridge across the persistent map seam', () => {
     }
   });
 
-  it('names the four it carries today, so a deletion is as visible as an addition', () => {
+  it('names the five a route provides, so a deletion is as visible as an addition', () => {
     // The list is spelled out rather than derived, because the test above only catches contexts
     // being *added*. Dropping one from the bridge while the route still provides it would pass it.
     expect([...contextsProvidedByRoutes()].sort()).toEqual([
       'AnnounceContext',
+      'AreaFilterContext',
       'CollectionsContext',
       'NearMeDistancesContext',
       'TagFilterContext',
     ]);
   });
+
 });
 
 describe('the shell no longer owns the map', () => {

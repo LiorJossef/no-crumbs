@@ -13,7 +13,11 @@
  *
  * What replaces it:
  *
- *     [ Been ▾ ]  [ Category ▾ ]  [ Tags ▾ ]  [ Clear ]   [ Sort: Recently saved ▾ ]
+ *     [ Been ▾ ]  [ Category ▾ ]  [ Tags ▾ ]  [ 📍 תל אביב-יפו × ]  [ Clear ]
+ *     [ Sort: Recently saved ▾ ]
+ *
+ * The fourth chip is the **area** a sentence resolved (`AreaFilterContext`, added 2026-09-04). It
+ * is the one control here that opens nothing: a chevron opens, an × removes.
  *
  * ## One trigger per axis, not one `Filter`
  *
@@ -86,7 +90,7 @@ import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox';
 import { Menu } from '@base-ui/react/menu';
 import { Radio } from '@base-ui/react/radio';
 import { RadioGroup } from '@base-ui/react/radio-group';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, MapPin, X } from 'lucide-react';
 
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
@@ -94,6 +98,7 @@ import { cn } from '@/lib/utils';
 import { PRESS_CHIP } from '@/lib/interaction';
 import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
+import { isolate } from '@/ui/place/active-area';
 import { isTagActive, type TagFacet } from '@/ui/place/tag-filter';
 import {
   ComboboxChip,
@@ -154,6 +159,29 @@ const InlineMenuGroup = createContext<{
 /** How a row tells the axis it was chosen. Single-choice axes close on choose — RULED — and the
  *  row should not have to know which surface it is on to do it. */
 const AxisCloseContext = createContext<() => void>(() => {});
+
+/**
+ * **The fifth filter, handed to the row through context rather than through props.**
+ *
+ * The area is one of the user's own localities, resolved from a sentence and held on
+ * `map-page-client.tsx`. It reaches this row the way `TagFilterContext` reaches a chip inside a
+ * place's detail, and for the same reason: the two hosts that render this bar — the sheet and the
+ * desktop panel — are two presentations of one library, and neither has any business learning that
+ * a sentence exists in order to thread a prop through to a control it does not own.
+ *
+ * A bar rendered **outside** a provider has no area chip and behaves exactly as it did before,
+ * which is what keeps the axis optional rather than a fifth required prop on both hosts.
+ */
+export interface AreaFilterChip {
+  /** The library's own plurality spelling — `areaLabel(area)` — never a canonical name this
+   *  product picked (`nls-plan.md` §5.3). */
+  readonly label: string;
+  /** Clears **only** the area. Every other axis is left exactly where it is: this row's grammar is
+   *  one clear per axis, and the area is now an axis. */
+  readonly onClear: () => void;
+}
+
+export const AreaFilterContext = createContext<AreaFilterChip | null>(null);
 
 /**
  * **The 44 px hit area, painted at 32.** `min-h-11` is the documented touch floor and it stays on
@@ -299,6 +327,9 @@ export function LibraryFilterBar({
   // would push the list off a phone screen entirely. On the popover surface this is unused — Base
   // UI's outside-press already closes one menu when another trigger is pressed.
   const [openPanel, setOpenPanel] = useState<string | null>(null);
+  // The fifth axis, or `null` outside a provider. Read before every early return, because it is a
+  // hook and this component has one.
+  const area = useContext(AreaFilterContext);
   const group = useMemo(
     () => ({
       open: openPanel,
@@ -319,13 +350,15 @@ export function LibraryFilterBar({
   const showCategories = facets.length > 1 || activeCategory !== null;
   const showVisit = anyVisited || visitFilter !== 'all';
   const showTags = tagFacets.length > 0 || activeTags.length > 0;
-  const anythingActive = activeCategory !== null || visitFilter !== 'all' || activeTags.length > 0;
+  const anythingActive =
+    activeCategory !== null || visitFilter !== 'all' || activeTags.length > 0 || area !== null;
 
   // Nothing to offer means nothing to draw — an empty flex row is invisible but not free: it is a
   // `gap` child in the sheet's column, so it opens a hole under the search field. The gate is per
   // axis, deliberately not on `facets.length`: a library of one kind of place can still have tags
   // and been marks, and an earlier version of this line hid the tag list of exactly that library.
-  if (!showCategories && !showVisit && !showTags && belowRow === undefined) return null;
+  if (!showCategories && !showVisit && !showTags && area === null && belowRow === undefined)
+    return null;
 
   const categoryLabel = activeCategory === null ? null : categoryDisplay(activeCategory).label;
   const categoryCount =
@@ -422,9 +455,44 @@ export function LibraryFilterBar({
           />
         )}
 
+        {/* **The fifth axis: the area a sentence resolved**, and the only chip in this row that is
+            not a menu.
+
+            It is here rather than beside the `Tagged` pills below the row because it *is* a
+            narrowing of the library, and this row is the answer to "what is narrowing this". Until
+            2026-09-04 it had no control at all: the area could only be seen through the applied
+            notice, so every route that cleared any filter had to clear the area as well or leave a
+            narrowing with no cause on screen. With a chip of its own that rule is retired and the
+            axes compose — see `map-page-client.tsx`'s `areaFilter`.
+
+            A chevron opens something and an × removes something: that is the whole difference
+            between this chip and the three triggers beside it, and it needs no new material. */}
+        {area !== null && (
+          <button
+            type="button"
+            data-vaul-no-drag
+            // Named for what pressing it does, not for the axis — the label is already on screen.
+            // `isolate` because a Hebrew city name with English words after it renders reversed.
+            aria-label={`Clear the ${isolate(area.label)} area filter`}
+            onClick={area.onClear}
+            className={cn(TRIGGER_TARGET, PRESS_CHIP)}
+          >
+            <span className={cn(TRIGGER_PAINT, TRIGGER_PAINT_ACTIVE)}>
+              <MapPin aria-hidden className="size-3 shrink-0 opacity-80" />
+              {/* `dir="auto"` on the text and not the pill, so the icon and the × keep their
+                  logical edges while the untrusted name gets its own bidi run. */}
+              <span dir="auto" className="truncate whitespace-nowrap">
+                {area.label}
+              </span>
+              <X aria-hidden className="size-3 shrink-0 opacity-80" />
+            </span>
+          </button>
+        )}
+
         {/* **Only while something is on.** A permanently visible `Clear` is a dead control eating the
-            width this row exists to save. It clears all three filter axes and deliberately does not
-            touch the sort — a sort is not a filter and has no cleared state. */}
+            width this row exists to save. It clears all four filter axes — the area included, which
+            is what keeps this the one control that empties the row — and deliberately does not
+            touch the sort: a sort is not a filter and has no cleared state. */}
         {anythingActive && (
           <button
             type="button"
@@ -434,6 +502,7 @@ export function LibraryFilterBar({
               if (activeCategory !== null) onToggleCategory(activeCategory);
               if (visitFilter !== 'all') onChangeVisitFilter('all');
               if (activeTags.length > 0) onClearTags();
+              area?.onClear();
             }}
             className={cn(TRIGGER_TARGET, PRESS_CHIP)}
           >

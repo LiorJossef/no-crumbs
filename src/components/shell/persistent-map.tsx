@@ -104,6 +104,7 @@ import { NearMeDistancesContext, type NearMeDistances } from '@/components/map/n
 import { AnnounceContext, type Announcer } from '@/ui/place/announce';
 import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
 import { TagFilterContext, type TagFilter } from '@/ui/place/tag-filter';
+import { AreaFilterContext, type AreaFilterChip } from '@/components/sheet/library-filter-bar';
 
 /**
  * `ssr: false` is not a preference — see the header. The chunk is fetched the first time a slot
@@ -137,6 +138,11 @@ export interface SurfaceContexts {
   readonly tagFilter: TagFilter | null;
   readonly announcer: Announcer | null;
   readonly nearMeDistances: NearMeDistances | null;
+  /** The area a sentence resolved (2026-09-04). Nothing across the seam reads it *today* — the
+   *  filter row is drawn inside the route subtree — so this is bridged on the rule rather than on
+   *  a consumer: the alternative offered was an allow-list policed by a second test, and an
+   *  allow-list inside the gate that exists to catch this seam is a weaker gate than four lines. */
+  readonly areaFilter: AreaFilterChip | null;
 }
 
 interface SurfaceState {
@@ -265,13 +271,15 @@ export function MapCanvasHost() {
 
   if (surface === null || release) return null;
 
-  const { collections, tagFilter, announcer, nearMeDistances } = surface.contexts;
+  const { collections, tagFilter, announcer, nearMeDistances, areaFilter } = surface.contexts;
   return createPortal(
     <CollectionsContext value={collections}>
       <TagFilterContext value={tagFilter}>
         <AnnounceContext value={announcer}>
           <NearMeDistancesContext value={nearMeDistances}>
-            <MapSurface {...surface.props} />
+            <AreaFilterContext value={areaFilter}>
+              <MapSurface {...surface.props} />
+            </AreaFilterContext>
           </NearMeDistancesContext>
         </AnnounceContext>
       </TagFilterContext>
@@ -311,13 +319,14 @@ export function PersistentMapSlot({
   const tagFilter = use(TagFilterContext);
   const announcer = use(AnnounceContext);
   const nearMeDistances = use(NearMeDistancesContext);
+  const areaFilter = use(AreaFilterContext);
 
   const placeIds = useMemo(() => surface.places.map((place) => place.id), [surface.places]);
 
   useIsomorphicLayoutEffect(() => {
     publish({
       props: surface,
-      contexts: { collections, tagFilter, announcer, nearMeDistances },
+      contexts: { collections, tagFilter, announcer, nearMeDistances, areaFilter },
       placeIds,
       framingBudget,
     });

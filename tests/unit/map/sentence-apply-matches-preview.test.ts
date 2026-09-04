@@ -146,15 +146,20 @@ describe('what the camera is pointed at after an apply', () => {
 
 /**
  * **The area is only ever written in three places, and the raw query setter never leaves the
- * page.** A source-level guard, and it exists because the failure it guards against is invisible:
- * an area filter left behind by a route that cleared the others is a narrowing with no cause on
- * screen — the bug the `Undo` notice's staleness rule fixed, one cell over.
+ * page.** A source-level guard over `map-page-client.tsx`.
  *
- * Deliberately two cheap assertions rather than a parser. The one that matters is the second:
- * `onQueryChange={setQuery}` was the shape of the original defect, and it is the shape any new
- * surface will reach for first.
+ * Its subject changed on 2026-09-04 and the assertions did not, which is worth stating. It was
+ * written to hold *"every route that clears a filter clears the area"* — necessary while the area
+ * had no control of its own, because an area left behind by a route that cleared the others was a
+ * narrowing with no cause on screen. The area now has a chip in the filter row
+ * (`library-filter-bar.tsx`, `tests/unit/sheet/area-filter-chip.test.ts`), so that rule is retired
+ * and the axes compose. What survives is the narrower, permanent claim: **the cell has exactly
+ * three writers** — apply, undo, and the one shared clear the chip and `Clear` both call — so a
+ * new surface cannot start writing the area from somewhere nobody is looking, and no surface is
+ * ever handed the raw query setter. `onQueryChange={setQuery}` was the literal shape of the `Undo`
+ * staleness bug and it is the shape the next surface will reach for first.
  */
-describe('the page cannot leave an area behind', () => {
+describe('the page keeps the area cell to three writers', () => {
   const source = readFileSync(
     new URL('../../../src/app/map/map-page-client.tsx', import.meta.url),
     'utf8',
@@ -167,5 +172,23 @@ describe('the page cannot leave an area behind', () => {
   it('never hands the raw query setter to a surface — every route goes through `changeQuery`', () => {
     expect(source).not.toContain('onQueryChange={setQuery}');
     expect(source).toContain('onQueryChange={changeQuery}');
+  });
+
+  /**
+   * **The composing rule, as the only two callers of the shared clear.**
+   *
+   * The axes narrow independently: adding a tag, a category, a visit state or a word must not drop
+   * the city, which is the whole point of giving the area a chip. So `clearAreaFilter()` is called
+   * as a statement by exactly the two routes that mean *leave this narrowing entirely* —
+   * `openImport` and `revealSavedPlace`, both of which already blank every other cell — plus once
+   * as the chip's own handler, which is a reference rather than a call.
+   *
+   * A regex over the source and not a claim about behaviour: it cannot see what a press does, and
+   * it is not asked to. It sees a filter handler quietly growing a sixth `clearAreaFilter()`,
+   * which is the regression this rule has.
+   */
+  it('calls the shared clear from the two whole-narrowing exits, and hands it to the chip', () => {
+    expect(source.match(/^ *clearAreaFilter\(\);$/gm) ?? []).toHaveLength(2);
+    expect(source.match(/onClear: clearAreaFilter/g) ?? []).toHaveLength(1);
   });
 });
