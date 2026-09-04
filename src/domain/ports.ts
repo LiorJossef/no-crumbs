@@ -145,6 +145,20 @@ export interface PlaceExtractor {
      * `candidates` rather than folded into them precisely so that nothing has to trust it.
      */
     readonly postIntent: PostIntent | null;
+    /**
+     * The model that **actually answered**, when that is not `version`.
+     *
+     * `version` is a static property, read as a cache key *before* the call and as the recorded
+     * model *after* it. That was true while one extraction meant one model. Since the Gemini
+     * adapter gained a fallback — a second model tried when the first is overloaded — it is not:
+     * the row would say the primary answered when it did not, which is the one thing
+     * `extractions.model` exists to make answerable.
+     *
+     * `undefined` means "the primary answered", so every adapter that cannot fall back says
+     * nothing and every existing caller keeps working. A caller that records the model must
+     * prefer this over `version`.
+     */
+    readonly modelUsed?: string;
   }>;
 }
 

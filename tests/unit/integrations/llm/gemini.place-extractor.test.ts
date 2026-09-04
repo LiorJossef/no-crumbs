@@ -4,7 +4,13 @@ import { MAX_CANDIDATES } from '@/domain/import/pipeline';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
 import { EXTRACTION_JSON_SCHEMA, MAX_OUTPUT_TOKENS } from '@/integrations/llm/json-schema';
-import { geminiPlaceExtractor, geminiExtractorVersion } from '@/integrations/llm/gemini.place-extractor';
+import {
+  geminiPlaceExtractor,
+  geminiExtractorVersion,
+  GEMINI_FALLBACK_MODEL_DEFAULT,
+  GEMINI_OVERALL_BUDGET_MS,
+  GEMINI_RETRY_POLICY,
+} from '@/integrations/llm/gemini.place-extractor';
 
 function ctx(events: { name: string; fields: Record<string, unknown> }[] = []): OpCtx {
   return {
@@ -214,7 +220,13 @@ describe('geminiPlaceExtractor', () => {
 
   it('throws EXTRACTOR_UNAVAILABLE on a non-OK HTTP response that is not a quota refusal', async () => {
     const fetchImpl = async () => jsonResponse({ error: 'upstream is unwell' }, 500);
-    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+    // 500 is now retried and then handed to the fallback model, so the sleeps are shortened here
+    // to keep the suite fast. `transient provider failures` below is where that policy is asserted.
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: fetchImpl as typeof fetch,
+      retry: FAST_BACKOFF,
+    });
 
     await expect(
       extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx()),
@@ -492,5 +504,321 @@ describe('geminiPlaceExtractor — postIntent', () => {
     expect(sent.nullable).toBe(true);
     expect(sent.enum).toEqual(['place_recommendation', 'place_question', 'not_a_place']);
     expect(body.generationConfig.responseSchema.required).toContain('postIntent');
+  });
+});
+
+/** Only the sleeps are shortened: attempt counts, the status policy, the model fall-through and
+ *  the deadline arithmetic are all the production ones. `http-retry.test.ts` asserts the timing
+ *  itself against a fake clock. */
+const FAST_BACKOFF = { baseDelayMs: 2, maxDelayMs: 4 };
+
+/** Which model each call went to, in order — the whole point of the fallback is *which* pool.
+ *  Parsed rather than substring-matched: `gemini-3.5-flash-lite` contains `gemini-3.5-flash`, and
+ *  a naive `url.includes(fallback)` reads every primary call as a fallback call. */
+function modelOf(url: string): string {
+  return url.replace('https://generativelanguage.googleapis.com/v1beta/models/', '').replace(':generateContent', '');
+}
+
+function modelsCalled(urls: string[]): string[] {
+  return urls.map(modelOf);
+}
+
+describe('geminiPlaceExtractor — transient provider failures', () => {
+  // Production, 2026-09-04: every TikTok import failed with
+  // `{"stage":"extract","code":"EXTRACTOR_UNAVAILABLE","message":"Gemini returned HTTP 503"}`,
+  // 14.2s per attempt, two failed `imports` rows and no `extractions` row at all — the model never
+  // answered. The adapter threw on the first non-OK response, so one overloaded moment killed the
+  // import. These are the behaviours that fix has to hold.
+
+  it('retries an overloaded 503 on the primary and returns the response that finally succeeds', async () => {
+    const urls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      urls.push(url);
+      return urls.length < 3
+        ? jsonResponse({ error: { status: 'UNAVAILABLE' } }, 503)
+        : generateContentResponse({ candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')], cityHint: null });
+    };
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+    });
+
+    const result = await extractor.extract(
+      [{ kind: 'caption', text: 'Cafe Fiori was great', origin: 'tiktok-oembed-title' }],
+      ctx(),
+    );
+
+    expect(result.candidates).toHaveLength(1);
+    // All three on the primary: retrying the model we asked for is the first line of defence, and
+    // the fallback is not reached while the primary still has attempts left.
+    expect(modelsCalled(urls)).toEqual([
+      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash-lite',
+    ]);
+  });
+
+  it('reports how many calls a retried extraction actually made', async () => {
+    // Token usage describes only the response that arrived, so a retried extraction bills for one
+    // call but spends three against the shared daily request budget. Under-reporting that is the
+    // specific failure the cost line exists to prevent.
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      return calls < 3
+        ? jsonResponse({ error: 'overloaded' }, 503)
+        : generateContentResponse({ candidates: [], cityHint: null }, { promptTokenCount: 300, candidatesTokenCount: 10 });
+    };
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: fetchImpl as typeof fetch,
+      retry: FAST_BACKOFF,
+    });
+
+    await extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx(events));
+
+    const cost = events.find((e) => e.name === 'extraction.cost');
+    expect(cost?.fields.attempts).toBe(3);
+    expect(events.filter((e) => e.name === 'extraction.retry')).toHaveLength(2);
+    expect(events.find((e) => e.name === 'extraction.retry')?.fields.status).toBe(503);
+  });
+
+  it('falls through to the second model only after the primary’s retries are spent', async () => {
+    const urls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      urls.push(url);
+      return modelOf(url) === GEMINI_FALLBACK_MODEL_DEFAULT
+        ? generateContentResponse({ candidates: [candidate('Container', 'Container in Jaffa')], cityHint: null })
+        : jsonResponse({ error: 'overloaded' }, 503);
+    };
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+    });
+
+    const result = await extractor.extract(
+      [{ kind: 'caption', text: 'Container in Jaffa', origin: 'tiktok-oembed-title' }],
+      ctx(),
+    );
+
+    expect(result.candidates).toHaveLength(1);
+    expect(modelsCalled(urls)).toEqual([
+      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash-lite',
+      GEMINI_FALLBACK_MODEL_DEFAULT,
+    ]);
+  });
+
+  it('records the fallback as the model that answered, and says so as a cost of four calls', async () => {
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const fetchImpl = async (url: string) =>
+      modelOf(url) === GEMINI_FALLBACK_MODEL_DEFAULT
+        ? generateContentResponse({ candidates: [], cityHint: null })
+        : jsonResponse({ error: 'overloaded' }, 503);
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+    });
+
+    await extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx(events));
+
+    const cost = events.find((e) => e.name === 'extraction.cost');
+    expect(cost?.fields.extractorVersion).toBe(geminiExtractorVersion(GEMINI_FALLBACK_MODEL_DEFAULT));
+    expect(cost?.fields.extractorVersion).not.toBe(geminiExtractorVersion('gemini-3.5-flash-lite'));
+    expect(cost?.fields.attempts).toBe(4);
+
+    // The event carries both names side by side, which is what made the gap visible before
+    // `modelUsed` existed. `recordedVersion` is still the primary because that is what the static
+    // `version` property says; what reaches `extractions.model` is asserted in the test below.
+    const used = events.find((e) => e.name === 'extraction.fallback_used');
+    expect(used?.fields.answeredBy).toBe(GEMINI_FALLBACK_MODEL_DEFAULT);
+    expect(used?.fields.primaryModel).toBe('gemini-3.5-flash-lite');
+    expect(used?.fields.recordedVersion).toBe(geminiExtractorVersion('gemini-3.5-flash-lite'));
+    expect(used?.fields.qualityMeasured).toBe(false);
+  });
+
+  /**
+   * **The column has to name the model that replied.** `extractions.model` exists to answer "which
+   * model found this place", and `PlaceExtractor.version` is a static property that cannot know a
+   * fallback happened mid-call. So `extract` returns `modelUsed` when — and only when — the
+   * fallback answered, and `pipeline.ts` records `modelUsed ?? version`.
+   *
+   * `undefined` on the primary path is the load-bearing half: it is what every adapter that cannot
+   * fall back says by saying nothing, so the port stays optional and no existing caller changes.
+   */
+  it('reports the fallback as the model that answered, and says nothing when the primary did', async () => {
+    const overloadedPrimary = async (url: string) =>
+      modelOf(url) === GEMINI_FALLBACK_MODEL_DEFAULT
+        ? generateContentResponse({ candidates: [], cityHint: null })
+        : jsonResponse({ error: 'overloaded' }, 503);
+    const viaFallback = await geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: overloadedPrimary as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+    }).extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx());
+    expect(viaFallback.modelUsed).toBe(GEMINI_FALLBACK_MODEL_DEFAULT);
+
+    const healthyPrimary = async () => generateContentResponse({ candidates: [], cityHint: null });
+    const viaPrimary = await geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: healthyPrimary as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+    }).extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx());
+    expect(viaPrimary.modelUsed).toBeUndefined();
+  });
+
+  it('honours a configured fallback model rather than a literal', async () => {
+    const urls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      urls.push(url);
+      return modelOf(url) === 'gemini-3.5-pro'
+        ? generateContentResponse({ candidates: [], cityHint: null })
+        : jsonResponse({ error: 'overloaded' }, 503);
+    };
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fallbackModel: 'gemini-3.5-pro',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+    });
+
+    await extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx());
+
+    expect(modelsCalled(urls).at(-1)).toBe('gemini-3.5-pro');
+  });
+
+  it('sends the fallback the byte-identical request, so the two models stay comparable', async () => {
+    const bodies: string[] = [];
+    const fetchImpl = async (url: string, init?: RequestInit) => {
+      bodies.push(init?.body as string);
+      return modelOf(url) === GEMINI_FALLBACK_MODEL_DEFAULT
+        ? generateContentResponse({ candidates: [], cityHint: null })
+        : jsonResponse({ error: 'overloaded' }, 503);
+    };
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+    });
+
+    await extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx());
+
+    expect(new Set(bodies).size).toBe(1);
+  });
+
+  it('gives up cleanly on a persistent 503 — bounded calls, EXTRACTOR_UNAVAILABLE, both models named', async () => {
+    const urls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      urls.push(url);
+      return jsonResponse({ error: 'overloaded' }, 503);
+    };
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+    });
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx()),
+    ).rejects.toMatchObject({
+      code: 'EXTRACTOR_UNAVAILABLE',
+      message: expect.stringContaining(GEMINI_FALLBACK_MODEL_DEFAULT),
+    });
+    expect(urls).toHaveLength(4);
+  });
+
+  it('never retries or falls back on a 429 — Gemini’s is the day’s budget, which no second call can clear', async () => {
+    // `anthropic.place-extractor.ts` must not copy this: its 429 is a short per-minute limit a
+    // retry genuinely clears. Same status, opposite meaning. And a second Gemini model on the same
+    // key shares the same daily budget, so falling over there buys a guaranteed second failure.
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      return jsonResponse({ error: 'rate limited' }, 429);
+    };
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx()),
+    ).rejects.toMatchObject({ code: 'EXTRACTOR_QUOTA_EXHAUSTED' });
+    expect(calls).toBe(1);
+  });
+
+  it('never retries or falls back on a 4xx we sent wrong', async () => {
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      return jsonResponse({ error: 'INVALID_ARGUMENT' }, 400);
+    };
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx()),
+    ).rejects.toMatchObject({ code: 'EXTRACTOR_UNAVAILABLE' });
+    expect(calls).toBe(1);
+  });
+
+  it('skips the fallback when the deadline is spent, rather than risking a gateway timeout', async () => {
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const urls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      urls.push(url);
+      return jsonResponse({ error: 'overloaded' }, 503);
+    };
+    const extractor = geminiPlaceExtractor({
+      apiKey: 'test-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      retry: FAST_BACKOFF,
+      // The whole extraction's wall clock is already gone by the time the primary gives up.
+      overallBudgetMs: 1,
+    });
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx(events)),
+    ).rejects.toMatchObject({ code: 'EXTRACTOR_UNAVAILABLE' });
+
+    expect(modelsCalled(urls).every((m) => m === 'gemini-3.5-flash-lite')).toBe(true);
+    expect(events.find((e) => e.name === 'extraction.fallback_skipped')?.fields.reason).toBe('deadline');
+  });
+
+  it('aborts rather than retries or falls back when the caller cancels', async () => {
+    const controller = new AbortController();
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      controller.abort();
+      throw new DOMException('aborted', 'AbortError');
+    };
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+    const cancellable: OpCtx = { ...ctx(), signal: controller.signal };
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], cancellable),
+    ).rejects.toMatchObject({ code: 'EXTRACTOR_UNAVAILABLE' });
+    expect(calls).toBe(1);
+  });
+
+  it('keeps every call inside a wall clock production has already survived', () => {
+    // The failing call took 14.2s and the function returned at 14.22s, so 15s is a ceiling the
+    // platform has demonstrably tolerated. No `maxDuration` is exported anywhere in `src/app/`, so
+    // this is the only measured bound available.
+    expect(GEMINI_OVERALL_BUDGET_MS).toBe(15_000);
+    // The primary may not spend the whole budget, or the fallback could never run.
+    expect(GEMINI_RETRY_POLICY.totalBudgetMs).toBeLessThan(GEMINI_OVERALL_BUDGET_MS);
+    expect(GEMINI_OVERALL_BUDGET_MS - GEMINI_RETRY_POLICY.totalBudgetMs).toBeGreaterThanOrEqual(
+      GEMINI_RETRY_POLICY.minAttemptMs,
+    );
+    // Slowest observed success was 2.2s: never start an attempt that could not finish at that pace.
+    expect(GEMINI_RETRY_POLICY.minAttemptMs).toBeGreaterThan(2_200);
+    // Two full-length attempts and the first backoff still fit in the primary's share, so the retry
+    // is real rather than a number the deadline always vetoes.
+    expect(GEMINI_RETRY_POLICY.perAttemptMs * 2 + GEMINI_RETRY_POLICY.baseDelayMs).toBeLessThanOrEqual(
+      GEMINI_RETRY_POLICY.totalBudgetMs,
+    );
   });
 });
