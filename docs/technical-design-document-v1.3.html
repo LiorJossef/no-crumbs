@@ -690,9 +690,6 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <p class="prose">Most captions name no venue, so &ldquo;no places found&rdquo; is the ordinary end of this flow rather than a failure of it. Its screen shows the post and the caption that was read, so the claim can be checked rather than believed, and offers two ways on: search for the place by name, or say in one sentence what the caption did not and let that be read instead. There is deliberately no retry button, because re-reading the same caption returns the same nothing.</p>
 
-<h3>5.4 &nbsp;Phone and desktop</h3>
-
-<p class="prose">The map fills the screen at every size. On a phone the library is a draggable bottom sheet; on a wide screen it is a panel beside the map, with detail in the map&rsquo;s own popover. Both are always rendered and swapped by a CSS breakpoint rather than by measuring the window in JavaScript, so there is nothing to mismatch when the page hydrates.</p>
   </div>
 </section>
 
@@ -708,7 +705,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <p class="prose">This is the one real modelling decision in the product. <code>places</code> is a shared, de-duplicated record of a real venue &mdash; its name, category and coordinates. <code>saved_places</code> is one person&rsquo;s entry pointing at it, holding their own name for it, their note, their tags and whether they have been.</p>
 
-<p class="prose">So one venue is one row, however many videos mention it. Three TikToks recommending the same bakery produce one place, one save, and three links back to the videos. It also settles where an edit lands: renaming a place writes to your own row and never the shared one, so nobody can change the map underneath anyone else. A uniqueness rule on <code>(user_id, place_id)</code> makes saving the same place twice impossible rather than merely unlikely.</p>
+<p class="prose">So one venue is one row, however many videos mention it. Three TikToks recommending the same bakery produce one place, one save, and three links back to the videos. It also settles where an edit lands: your note, your tags and your own category write to your own row and never the shared one, so nobody can change the map underneath anyone else. A uniqueness rule on <code>(user_id, place_id)</code> makes saving the same place twice impossible rather than merely unlikely.</p>
 
       <figure class="figblock">
         <svg viewBox="0 0 442 296" aria-hidden="true" focusable="false">
@@ -793,7 +790,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <tr><td>Create</td><td>Save places from a TikTok</td><td><code>POST /api/imports/confirm</code> calls <code>resolve_place()</code> to find or create the shared place, then <code>save_place()</code> for the user&rsquo;s own row (section 7.3)</td></tr>
       <tr><td>Create</td><td>Add a place by hand</td><td>A server action, through the same two functions, with no video attached</td></tr>
       <tr><td>Read</td><td>The map and the list</td><td>One query joining saves to places, run on the server</td></tr>
-      <tr><td>Update</td><td>Rename, re-categorise, note, tag, mark visited</td><td>A server action updating the user&rsquo;s own row</td></tr>
+      <tr><td>Update</td><td>Re-categorise, note, tag, mark visited</td><td>A server action updating the user&rsquo;s own row</td></tr>
       <tr><td>Delete</td><td>Remove a save, or an account</td><td>Deleting a save removes that row and its links to videos; the shared place stays for everyone else. Deleting an account cascades from <code>profiles</code></td></tr>
     </tbody>
   </table>
@@ -837,13 +834,13 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <h3>7.3 &nbsp;Server actions, and the one request worth tracing</h3>
 
-<p class="prose">Server actions cover every ordinary change to a user&rsquo;s own rows: renaming, re-categorising, noting, tagging and marking a place visited, deleting one, adding one by hand, collections, profile, account and sign-out. There is no REST layer over our own database: row-level security is already the authorisation layer, and a hand-written one would be a second place for the same rules to drift.</p>
+<p class="prose">Server actions cover every ordinary change to a user&rsquo;s own rows: re-categorising, noting, tagging and marking a place visited, deleting one, adding one by hand, collections, profile, account and sign-out. There is no REST layer over our own database: row-level security is already the authorisation layer, and a hand-written one would be a second place for the same rules to drift.</p>
 
 <p class="prose">Confirm is worth following, because the trust boundary is there. The browser sends an extraction id and, per item, two numbers and an optional note &mdash; no place facts at all. The route validates that against a schema, then checks on the <em>user&rsquo;s</em> own client whether they have an import for that post, so the database answers the ownership question. The stored candidates are read back and re-validated, and the name, coordinates and category come from the row the server itself wrote.</p>
 
 <p class="prose">Two database functions then run. <code>resolve_place()</code> runs with the service role and is the only thing in the system that may create a row in <code>places</code>. <code>save_place()</code> runs as the user and can write only their own row in <code>saved_places</code>.</p>
 
-<p class="prose">That split closes a real hole. An earlier version let the browser supply the place, and the resolve step refreshed provider-owned columns on whichever row it matched &mdash; so one user could rename and move a venue other people had saved.</p>
+<p class="prose">That split closes a real hole. An earlier version let the browser supply the place, and the resolve step refreshed provider-owned columns on whichever row it matched &mdash; so one user could overwrite and move a venue other people had saved.</p>
   </div>
 </section>
 
