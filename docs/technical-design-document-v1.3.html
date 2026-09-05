@@ -111,16 +111,22 @@ header.top {
 .top-in { display:flex; align-items:center; gap:16px; min-height:58px; }
 .brand { display:flex; align-items:center; gap:9px; font-family:var(--display); font-weight:800; letter-spacing:-.02em; font-size:16px; flex:none; }
 .brand .rig svg { filter:drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
-.brand .tiny { font-family:var(--mono); letter-spacing:.1em; text-transform:uppercase; margin-left:2px; }
+.brand .tiny { font-family:var(--mono); font-size:11px; letter-spacing:.07em; text-transform:uppercase; margin-left:2px; }
 
-.tocbar { display:flex; gap:3px; margin-left:auto; flex-wrap:wrap; }
+/* Nine sections here, where the other documents have five or six, so the chip row
+   is the one that does not fit the prose column: it needs 907px and the header
+   leaves it 749px. The chips are therefore tighter than the other documents', and
+   the row may never wrap — a two-row sticky header pushes the whole page down and
+   reads as broken. If it ever does run out of room it scrolls on one row instead. */
+.tocbar { display:flex; gap:1px; margin-left:auto; flex-wrap:nowrap; min-width:0; overflow-x:auto; scrollbar-width:none; }
+.tocbar::-webkit-scrollbar { display:none; }
 .tocbar a {
-  display:flex; align-items:center; gap:7px;
-  font-family:var(--body); font-size:12.5px; font-weight:600; color:var(--ink-2);
-  padding:7px 12px; border-radius:999px; border:1px solid transparent; background:none;
+  display:flex; align-items:center; gap:4px; flex:none;
+  font-family:var(--body); font-size:12px; font-weight:600; color:var(--ink-2);
+  padding:6px 8px; border-radius:999px; border:1px solid transparent; background:none;
   transition:background .18s,color .18s,border-color .18s; white-space:nowrap;
 }
-.tocbar a b { font-family:var(--mono); font-size:10px; font-weight:500; color:var(--ink-3); letter-spacing:.06em; }
+.tocbar a b { font-family:var(--mono); font-size:9.5px; font-weight:500; color:var(--ink-3); letter-spacing:.04em; }
 .tocbar a:hover { background:var(--glow); color:var(--ink); text-decoration:none; }
 .tocbar a[aria-current="true"] { background:var(--mint-deep); color:#fff; }
 .tocbar a[aria-current="true"] b { color:rgba(255,255,255,.92); }
@@ -130,7 +136,10 @@ header.top {
   display:grid; place-items:center; flex:none; transition:border-color .18s,color .18s;
 }
 .theme-btn:hover { border-color:var(--mint-mid); color:var(--ink); }
-@media (max-width:1040px) {
+/* Raised from 1040px for this document: with nine chips the row needs the full
+   1140px column, so between 1040 and 1184 it would scroll rather than fit. Dropping
+   it to its own line earlier is better than a nav that has to be scrolled. */
+@media (max-width:1184px) {
   /* the chip row drops to its own line, so the header row must be allowed to wrap.
      The brand takes the remaining space so the theme button stays beside it
      rather than claiming a third row. */
@@ -148,9 +157,9 @@ header.top {
 .progress { position:sticky; top:59px; z-index:59; height:2px; background:transparent; }
 .progress i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--mint-deep),var(--mint-mid)); }
 /* Must come after the base rule, not inside the earlier header block: equal
-   specificity, so source order decides. The header is two rows below 1041px
+   specificity, so source order decides. The header is two rows below 1185px
    and would otherwise sit on top of the bar. */
-@media (max-width:1040px) { .progress { top:78px; } }
+@media (max-width:1184px) { .progress { top:78px; } }
 
 /* ============================================================================
    COVER
