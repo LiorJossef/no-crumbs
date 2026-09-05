@@ -31,7 +31,7 @@ try {
   --display:"Fraunces","Iowan Old Style",Georgia,serif;
   --body:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --page:1140px; --prose:72ch;
+  --page:1140px; --prose:66ch;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
@@ -61,7 +61,7 @@ try {
 * { box-sizing:border-box; }
 body {
   margin:0; background:var(--bg); color:var(--ink); font-family:var(--body);
-  font-size:16px; line-height:1.62; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  font-size:17px; line-height:1.7; -webkit-font-smoothing:antialiased; overflow-x:hidden;
 }
 h1,h2 {
   font-family:var(--display); font-optical-sizing:auto;
@@ -81,15 +81,16 @@ a:hover { text-decoration:underline; }
 
 .eyebrow { font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:var(--mint-mid); }
 .eyebrow.dim { color:var(--ink-3); }
-.lede { font-size:clamp(17px,1.5vw,19px); color:var(--ink-2); line-height:1.6; }
-.small { font-size:14px; color:var(--ink-2); }
-.tiny { font-size:12.5px; color:var(--ink-3); }
+.lede { font-size:clamp(18px,1.6vw,21px); color:var(--ink-2); line-height:1.55; }
+.sec-head .lede { color:var(--ink); max-width:54ch; }
+.small { font-size:15.5px; color:var(--ink-2); line-height:1.68; }
+.tiny { font-size:13px; color:var(--ink-3); }
 .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
 
 section { padding-block:clamp(56px,7vw,96px); position:relative; scroll-margin-top:74px; }
 section + section { border-top:1px solid var(--line-soft); }
 section.deep { background:var(--bg-deep); }
-.sec-head { display:flex; flex-direction:column; gap:14px; margin-bottom:38px; }
+.sec-head { display:flex; flex-direction:column; gap:16px; margin-bottom:44px; }
 .sec-head h2 { font-size:clamp(26px,3.6vw,42px); }
 .sec-head .lede { max-width:64ch; }
 
@@ -169,10 +170,10 @@ header.top {
 @media (max-width:940px) { .g3,.g4 { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:620px) { .g2,.g3,.g4 { grid-template-columns:1fr; } }
 
-.card { background:var(--raised); border:1px solid var(--line); border-radius:16px; padding:20px 22px; }
+.card { background:var(--raised); border:1px solid var(--line-soft); border-radius:14px; padding:22px 24px; }
 .card h3 { font-size:16px; }
 .card h4 { font-size:14.5px; }
-.card p { margin-top:8px; font-size:14.5px; color:var(--ink-2); line-height:1.58; }
+.card p { margin-top:9px; font-size:15.5px; color:var(--ink-2); line-height:1.65; }
 .card.accent { border-color:color-mix(in srgb, var(--mint-mid) 40%, var(--line)); background:linear-gradient(180deg,var(--glow-2),transparent 70%),var(--raised); }
 
 .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
@@ -182,7 +183,7 @@ header.top {
 @media (max-width:780px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
 .tbl-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:16px; scroll-snap-type:x proximity; }
-table { width:100%; border-collapse:collapse; font-size:14px; min-width:640px; }
+table { width:100%; border-collapse:collapse; font-size:15px; min-width:640px; }
 th,td { text-align:left; padding:12px 15px; border-bottom:1px solid var(--line-soft); vertical-align:top; scroll-snap-align:start; }
 th { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:500; background:var(--card-2); }
 tr:last-child td { border-bottom:0; }
@@ -201,7 +202,7 @@ table.reflow td, table.reflow th { width:50%; }
 .note { border-left:3px solid var(--mint-mid); background:var(--glow-2); border-radius:0 12px 12px 0; padding:15px 18px; }
 .note.warn { border-left-color:var(--warn); background:color-mix(in srgb, var(--warn) 7%, transparent); }
 .note h4 { font-size:14px; margin-bottom:5px; }
-.note p { font-size:14px; color:var(--ink-2); }
+.note p { font-size:15.5px; color:var(--ink-2); line-height:1.66; }
 .note p + p { margin-top:8px; }
 
 .rows { border:1px solid var(--line); border-radius:16px; overflow:hidden; }
@@ -210,14 +211,14 @@ table.reflow td, table.reflow th { width:50%; }
 .row + .row { border-top:1px solid var(--line-soft); }
 .row .idx { font-family:var(--mono); font-size:11px; color:var(--ink-3); padding-top:3px; }
 .row h4 { font-size:15px; letter-spacing:-.01em; }
-.row p { margin-top:5px; font-size:14px; color:var(--ink-2); line-height:1.55; }
+.row p { margin-top:6px; font-size:15.5px; color:var(--ink-2); line-height:1.65; }
 @media (max-width:620px) { .row, .rows.plain .row { grid-template-columns:1fr; gap:7px; } .row .st { justify-self:start; } }
 
 ul.clean, ol.clean { margin:0; padding-left:1.15em; }
-ul.clean li, ol.clean li { margin-top:7px; color:var(--ink-2); font-size:15px; line-height:1.6; }
+ul.clean li, ol.clean li { margin-top:11px; color:var(--ink-2); font-size:16px; line-height:1.68; }
 ul.clean li strong, ol.clean li strong { color:var(--ink); font-weight:700; }
 ul.bare { list-style:none; margin:0; padding:0; }
-ul.bare li { position:relative; padding-left:20px; margin-top:10px; font-size:14.5px; color:var(--ink-2); line-height:1.55; }
+ul.bare li { position:relative; padding-left:20px; margin-top:12px; font-size:15.5px; color:var(--ink-2); line-height:1.65; }
 ul.bare li::before { content:"\2192"; position:absolute; left:0; color:var(--mint-mid); }
 ul.bare li strong { color:var(--ink); }
 
@@ -355,10 +356,9 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       <h1 class="cover-t">People save the video.<br>What they wanted was <em>the place</em>.</h1>
     </div>
     <p class="cover-b">No Crumbs turns the places you find on TikTok into pins on your own private
-      map, so you can find them again by <strong>where they are</strong> instead of
-      <strong>when you saved them</strong>. This document describes the product as a business:
-      the problem it exists to end, who it is for, what it promises, and how a person moves
-      through it.</p>
+      map, so you can find them again by where they are instead of when you saved them. This
+      document describes the product as a business: the problem it exists to end, who it is for,
+      what it promises, and how a person moves through it.</p>
     <div class="hero-meta">
       <span class="pill on">Live &middot; no-crumbss.vercel.app</span>
       <span class="pill">Built and shipped</span>
@@ -380,79 +380,44 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <div class="sec-head">
       <p class="eyebrow">Section 01 &middot; what this is</p>
       <h2 id="s1h">Product Overview</h2>
-      <p class="lede">A private map of the places you chose, built from links you already save,
-        organised by where those places are.</p>
+      <p class="lede">No Crumbs is a private map of the places you chose, built from links you
+        already save.</p>
     </div>
 
-    <div class="prose stack" style="--gap:16px">
-      <p class="lede">You paste one link. The app reads the post, finds the places the caption
-        names, gives each one real coordinates and a real identity, and shows you what it found.
-        You confirm what you want. It lands on your map, with the video that convinced you always
-        one tap away.</p>
-      <p>Everything else in this document follows from that exchange being small enough to be
-        worth making. The product is not trying to be a better place to keep things. It is trying
-        to make the things you already kept reachable at the one moment they are worth anything —
-        when you are standing somewhere, deciding where to go.</p>
+    <div class="prose stack" style="--gap:20px">
+      <p>You paste one link. The app reads the post, finds the places the caption names, gives each
+        one real coordinates and a real identity, and shows you what it found. You confirm what you
+        want. It lands on your map, with the video that convinced you one tap away.</p>
+      <p>The map is not a feature of this product; it is how you get things back. Location replaces
+        search as the way a person reaches their own saved places, and everything else &mdash; what
+        is stored, what is shown, what is refused &mdash; follows from that.</p>
     </div>
 
-    <div class="stats" style="margin-top:34px">
+    <div class="stats" style="margin-top:36px">
       <div><p class="n">One paste</p><p class="k">The whole of the user's side of the exchange</p></div>
-      <div><p class="n">TikTok</p><p class="k">The one source we read today, and we say so up front</p></div>
+      <div><p class="n">TikTok</p><p class="k">The one source we read, and we say so up front</p></div>
       <div><p class="n">Private</p><p class="k">No feed, no followers, nothing public to set up</p></div>
       <div><p class="n">Yours</p><p class="k">Only what can be kept forever is stored</p></div>
     </div>
 
-    <div class="grid g2" style="margin-top:34px;align-items:start">
-      <div class="prose stack" style="--gap:14px">
-        <h3>What it does, end to end</h3>
-        <p class="small">A signed-in person pastes a TikTok link into one field. The post is read
-          server-side. The caption is examined for the places it names. Each candidate is matched
-          against a places directory so it gains real coordinates and a real identity.</p>
-        <p class="small">Nothing is written until the person confirms. What they confirm lands on
-          their map as pins — one pin per place, however many videos pointed at it — each keeping
-          a permanent link back to the post that recommended it.</p>
-      </div>
-      <div class="card accent">
-        <h3>The map is not a feature of this product. The map is how you get things back.</h3>
-        <p>Location replaces search as the way a person finds their own saved places. Every other
-          decision in the product — what is stored, what is shown, what is refused — is downstream
-          of the map being the retrieval interface rather than a view of a list.</p>
-      </div>
-    </div>
-
-    <div class="note" style="margin-top:26px">
-      <h4>The boundary we hold, stated up front</h4>
+    <h3 style="margin-top:44px">The boundary we hold, stated once</h3>
+    <div class="note" style="margin-top:14px">
       <p>We read what a post says <strong>in words</strong>. A great many TikTok videos name the
-        place only on screen or only out loud, and those we cannot read. So a link that yields no
-        place is not a breakage — it is an ordinary result, it has its own designed screen, and it
-        offers three ways forward.</p>
-      <p>What we will never do is ask you to type the caption in. The moment the product asks a
-        person for text they could have typed into any notes app, it has stopped being worth
-        having. The boundary is narrow on purpose, and holding it is what keeps the promise
-        honest.</p>
+        place only on screen or only out loud, and those we cannot read &mdash; so a link that yields
+        no place is not a breakage. It is an ordinary result, it has a screen of its own, and it
+        offers three ways forward. What we will never do is <strong>ask you to type the caption
+        in</strong>. The moment the product asks a person for text they could have typed into any
+        notes app, it has stopped being worth having.</p>
     </div>
 
-    <h3 style="margin-top:40px">Where this sits</h3>
-    <p class="small prose" style="margin-top:10px">The category is crowded. Turning a social link
-      into a pin on a personal map is a well-populated idea, and No Crumbs does not win on having
-      more of it. Three things are defended instead.</p>
-    <div class="grid g3" style="margin-top:18px">
-      <div class="card">
-        <h4>Honesty about what the app worked out</h4>
-        <p>What the post said, what the app inferred, and what you wrote stay separable. An
-          uncertain result is shown as uncertain, never dressed up as settled.</p>
-      </div>
-      <div class="card">
-        <h4>The common failure is designed, not patched</h4>
-        <p>The result where nothing is found has its own screen, its own words and its own ways
-          forward — because it is a result, not an accident.</p>
-      </div>
-      <div class="card">
-        <h4>The library is genuinely yours</h4>
-        <p>Only what can be kept forever is stored, and privacy is enforced where the data lives
-          rather than by each screen remembering to check.</p>
-      </div>
-    </div>
+    <h3 style="margin-top:44px">Where this sits</h3>
+    <p class="prose" style="margin-top:14px">Turning a social link into a pin on a personal map is a
+      well-populated idea, and No Crumbs does not win by having more of it. It defends three things
+      instead. Honesty about what the app worked out, so what the post said, what the app inferred
+      and what you wrote stay separable, and an uncertain result is shown as uncertain. A common
+      failure that is designed rather than patched, because finding nothing is a result and deserves
+      its own screen. And a library that is genuinely yours, because only what can be kept forever is
+      stored, and privacy is enforced where the data lives.</p>
   </div>
 </section>
 
@@ -462,36 +427,33 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <div class="sec-head">
       <p class="eyebrow">Section 02 &middot; the problem</p>
       <h2 id="s2h">Problem Statement &amp; Business Value</h2>
-      <p class="lede">Collecting works perfectly. Getting it back is broken — and getting it back
-        is the only moment that matters.</p>
+      <p class="lede">Collecting works perfectly. Getting it back is broken &mdash; and getting it
+        back is the only moment that matters.</p>
     </div>
 
-    <div class="prose stack" style="--gap:16px">
-      <p>Recommendations for real places — restaurants, cafés, bars, viewpoints, shops —
-        increasingly arrive as social video. The natural response is to save the post. TikTok
-        stores that save as a <strong>video</strong>, in the order you saved it. It does not store
-        where the place is, what kind of place it is, or what it is called.</p>
-      <p>So the collecting half works and the retrieval half does not. Every question a person
-        actually asks of a saved collection is a question about location:</p>
-    </div>
+    <p class="prose">Recommendations for real places &mdash; restaurants, cafés, bars, viewpoints,
+      shops &mdash; increasingly arrive as social video, and the natural response is to save the
+      post. TikTok stores that save as a video, in the order you saved it. It does not store where
+      the place is, what kind of place it is, or what it is called. So the collecting half works,
+      the retrieval half does not, and every question a person actually asks of a saved collection
+      is a question about location:</p>
 
-    <ol class="questions prose" style="margin-top:22px">
+    <ol class="questions prose" style="margin-top:26px">
       <li>I'm in this neighbourhood right now — what did I save near me?</li>
       <li>I land in Tokyo on Thursday — what do I already have there?</li>
       <li>I want dinner tonight and I don't want to scroll.</li>
     </ol>
 
-    <p class="prose small" style="margin-top:26px">A thumbnail in a saved folder rarely shows the
-      name or the city, so answering any of those means opening posts one at a time and reading
-      them — work you do standing up, at the worst possible moment, with a decision waiting on
-      it.</p>
+    <p class="prose" style="margin-top:30px">A thumbnail in a saved folder rarely shows the name or
+      the city, so answering any of those means opening posts one at a time and reading them &mdash;
+      work you do standing up, at the worst possible moment, with a decision waiting on it.</p>
 
     <figure class="quote">
       <blockquote>The recommendation they deliberately kept had <em>no effect</em> on the decision
         they made.</blockquote>
       <figcaption>The realistic outcome is worse than slow. The person gives up and goes somewhere
-        they never saved. That is the loss this product exists to end — not storage, not seconds,
-        but a choice made without information the person already owned.</figcaption>
+        they never saved. That is the loss this product exists to end &mdash; not storage, not
+        seconds, but a choice made without information the person already owned.</figcaption>
     </figure>
 
     <h3>The platform will not fix this</h3>
@@ -503,47 +465,29 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
           <tr><td>A geographic index — <em>near me</em>, <em>in Tokyo</em></td><td>The order you saved things in</td></tr>
           <tr><td>One entry per place</td><td>One entry per video; the same place may appear in several</td></tr>
           <tr><td>A category — coffee, bar, bakery</td><td>None</td></tr>
-          <tr><td>Search over <strong>place names</strong></td><td>Search over the platform's signals, not over your saves as places</td></tr>
+          <tr><td>Search over place names</td><td>Search over the platform's signals, not your saves as places</td></tr>
           <tr><td>Something that outlives the app it sits in</td><td>Data inside one app, on someone else's terms</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="prose small" style="margin-top:16px">Turning a post into a place is work the platform
-      has no reason to do. Today the person does it in their own head, from a grid of thumbnails,
-      at exactly the wrong time.</p>
+    <p class="prose" style="margin-top:18px">Turning a post into a place is work the platform has no
+      reason to do, so today the person does it in their own head, from a grid of thumbnails, at
+      exactly the wrong time.</p>
 
-    <h3 style="margin-top:40px">Why this is worth building rather than tolerating</h3>
-    <div class="grid g4" style="margin-top:18px">
-      <div class="card">
-        <h4>The expensive half is already paid for</h4>
-        <p>People have done the hard part — the scrolling, the judgement, the decision that a place
-          is worth remembering. This is not a new habit to learn. It is a collection they already
-          have, unlocked.</p>
-      </div>
-      <div class="card">
-        <h4>What comes out lasts longer than what went in</h4>
-        <p>A real name, real coordinates, a category, your note and a link back — organised by
-          location, in your own account, not dependent on a saved folder keeping its current
-          design or its current mind.</p>
-      </div>
-      <div class="card">
-        <h4>The cost to the user is a single paste</h4>
-        <p>Every competing way to solve this asks a person to type something. That is the
-          difference between a product and a chore.</p>
-      </div>
-      <div class="card">
-        <h4>The decision improves, not just the search</h4>
-        <p>A collection that cannot be reached at the moment of choosing has an effective value of
-          zero, whatever its size. Reaching it is the entire return.</p>
-      </div>
-    </div>
+    <h3 style="margin-top:44px">Why this is worth building rather than tolerating</h3>
+    <p class="prose" style="margin-top:14px">The expensive half is already paid for: people have done
+      the scrolling, the judgement and the decision that a place is worth remembering, so this is not
+      a new habit to learn but a collection they already have, unlocked. What comes out lasts longer
+      than what went in &mdash; a real name, real coordinates, a category, your note and a link back,
+      in your own account. And the improvement is to the decision, not merely to the search. A
+      collection that cannot be reached at the moment of choosing has an effective value of zero,
+      whatever its size.</p>
 
     <div class="note" style="margin-top:26px">
       <h4>One clause we keep honest</h4>
-      <p>What you keep is yours — the name, the category, the coordinates, your note and your
-        Been marks all survive independently of the platform. The <strong>link back to the
-        original post is the exception</strong>: it works for as long as TikTok continues to serve
-        that post. We say so rather than implying otherwise.</p>
+      <p>The name, the category, the coordinates, your note and your Been marks all survive
+        independently of the platform, but <strong>the link back to the original post is the
+        exception</strong> &mdash; it works for as long as TikTok continues to serve that post.</p>
     </div>
   </div>
 </section>
@@ -554,95 +498,59 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <div class="sec-head">
       <p class="eyebrow">Section 03 &middot; who it is for</p>
       <h2 id="s3h">Target Audience</h2>
-      <p class="lede">One person with two retrieval questions — and no second party buying access
-        to them.</p>
+      <p class="lede">One person with two retrieval questions, who is also the customer &mdash;
+        nobody else is buying access to them.</p>
     </div>
 
     <div class="grid g2">
       <div class="card">
         <p class="eyebrow dim">Everyday</p>
         <h3 style="margin-top:10px">&ldquo;What did I save around here?&rdquo;</h3>
-        <p><strong>The trigger.</strong> Standing in a neighbourhood, deciding where to eat.</p>
-        <p><strong>How it is answered.</strong> Places near you, nearest first, offered on
-          permission and never demanded.</p>
+        <p>The trigger is standing in a neighbourhood, deciding where to eat. It is answered by
+          places near you, nearest first, offered on permission and never demanded.</p>
       </div>
       <div class="card">
         <p class="eyebrow dim">Trips</p>
         <h3 style="margin-top:10px">&ldquo;What do I already have in this city?&rdquo;</h3>
-        <p><strong>The trigger.</strong> Planning a trip, or landing somewhere.</p>
-        <p><strong>How it is answered.</strong> The whole library on one map, anywhere in the
-          world, with no location permission needed.</p>
-      </div>
-    </div>
-    <div class="note" style="margin-top:16px">
-      <p><strong>This is one profile, not two segments.</strong> The same person saves places in
-        the city they live in and banks places for a trip they have not taken yet. Designing for
-        two audiences here would produce two half-products.</p>
-    </div>
-
-    <h3 style="margin-top:40px">Two facts that shape every decision in the product</h3>
-    <div class="rows plain" style="margin-top:16px">
-      <div class="row">
-        <span class="idx">01</span>
-        <div>
-          <h4>This happens on a phone, standing up, mid-scroll</h4>
-          <p>Mobile is not the smaller version of this product; it is the product. Sheets you can
-            drag, actions inside thumb reach, nothing important stranded at the top of a tall
-            screen. Desktop is supported and secondary.</p>
-        </div>
-      </div>
-      <div class="row">
-        <span class="idx">02</span>
-        <div>
-          <h4>Adding is the cost; finding is the reward</h4>
-          <p>Every tap it takes to add a place is paid <em>before</em> any value arrives. That is
-            why the quality budget is spent there, and why the person's side of the exchange is
-            held to exactly one paste.</p>
-        </div>
+        <p>The trigger is planning a trip, or landing somewhere. It is answered by the whole library
+          on one map, anywhere in the world, with no location permission needed.</p>
       </div>
     </div>
 
-    <h3 style="margin-top:40px">Who this is not for</h3>
-    <p class="small prose" style="margin-top:8px">Stated plainly, so the boundary can be argued
+    <p class="prose" style="margin-top:26px">This is <strong>one profile, not two segments</strong>.
+      The same person saves places in the city they live in and banks places for a trip they have not
+      taken yet; designing for two audiences here would produce two half-products.</p>
+
+    <h3 style="margin-top:44px">Two facts that shape every decision</h3>
+    <p class="prose" style="margin-top:14px">This happens on a phone, standing up, mid-scroll, so
+      <strong>mobile is not the smaller version of this product &mdash; it is the product</strong>:
+      sheets you can drag, actions inside thumb reach, nothing important stranded at the top of a
+      tall screen, and desktop supported but secondary. And adding is the cost while finding is the
+      reward. Every tap it takes to add a place is paid before any value arrives, which is why the
+      quality budget is spent there and why the person's side of the exchange is held to one
+      paste.</p>
+
+    <h3 style="margin-top:44px">Who this is not for</h3>
+    <p class="prose small" style="margin-top:10px">Stated plainly, so the boundary can be argued
       with.</p>
     <ul class="clean prose" style="margin-top:12px">
-      <li><strong>People looking for somewhere new.</strong> There is no feed, no ranking, no
-        &ldquo;places you might like&rdquo;. No Crumbs never suggests a place you did not save.</li>
-      <li><strong>Trip planners</strong> who want day-by-day routing, bookings or opening hours.
-        Different product, different data.</li>
-      <li><strong>Creators and businesses</strong> who want an audience. There is no follower graph
-        and no public profile.</li>
-      <li><strong>Anyone with a handful of places.</strong> Below a certain size a plain list beats
-        a map. The product is worth nothing at zero places — which is a real constraint on the
-        first session, not a footnote.</li>
+      <li>People looking for somewhere new. There is no feed, no ranking, and the app never suggests
+        a place you did not save.</li>
+      <li>Trip planners who want day-by-day routing, bookings or opening hours. Different product,
+        different data.</li>
+      <li>Creators and businesses who want an audience. No follower graph, no public profile.</li>
+      <li>Anyone with a handful of places. Below a certain size a plain list beats a map &mdash;
+        which makes the first session a real constraint, not a footnote.</li>
     </ul>
 
-    <div class="grid g2" style="margin-top:40px;align-items:start">
-      <div class="prose stack" style="--gap:14px">
-        <h3>The user and the customer are the same person</h3>
-        <p class="small">There is no advertiser, no business account, and nobody buying access to
-          anyone's data or attention. The product's only obligation is to the person whose map it
-          is.</p>
-        <p class="small">That is not a positioning flourish — it is why privacy works the way it
-          does. A private map, ownership enforced where the data lives, and your live location
-          never kept on our side.</p>
-        <p class="small">No price is proposed and nothing in this version was built to make money.
-          If it ever were, the natural direction is a paid tier for the heaviest savers, because
-          they feel the problem most — but that is a direction, not a plan, and nobody has been
-          asked to pay for anything.</p>
-      </div>
-      <div class="card accent">
-        <h3>What we defend instead of feature count</h3>
-        <ul class="bare">
-          <li><strong>Honesty about what the app worked out.</strong> Said, inferred and yours stay
-            separable.</li>
-          <li><strong>The common failure is designed.</strong> Finding nothing has its own screen,
-            not an error message.</li>
-          <li><strong>Ownership is real.</strong> Only what can be kept forever is stored, and
-            permission is enforced where the data lives.</li>
-        </ul>
-      </div>
-    </div>
+    <h3 style="margin-top:44px">The user and the customer are the same person</h3>
+    <p class="prose" style="margin-top:14px">There is no advertiser, no business account and nobody
+      buying access to anyone's data or attention, so the product's only obligation is to the person
+      whose map it is. That is why privacy works the way it does: a private map, ownership enforced
+      where the data lives, and your live location never kept on our side. No price is proposed and
+      nothing in this version was built to make money. If it ever were, the natural direction is a
+      paid tier for the heaviest savers, because they feel the problem most &mdash; but that is a
+      direction, not a plan.</p>
   </div>
 </section>
 
@@ -652,22 +560,22 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <div class="sec-head">
       <p class="eyebrow">Section 04 &middot; what we are trying to achieve</p>
       <h2 id="s4h">Business Goals</h2>
-      <p class="lede">Five goals, one of which carries the other four.</p>
+      <p class="lede">Five goals, all delivered, and the fifth is the one that carries the other
+        four.</p>
     </div>
 
     <div class="rows">
       <div class="row">
         <span class="idx">01</span>
         <div><h4>Getting a place back takes a glance, not a search</h4>
-          <p><em>What did I save near here</em> is answered by looking at a map, not by working
-            through a folder.</p></div>
+          <p>Answered by looking at a map, not by working through a folder.</p></div>
         <span class="st yes">delivered</span>
       </div>
       <div class="row">
         <span class="idx">02</span>
         <div><h4>Loose social saves become structured places you own</h4>
-          <p>A video becomes a place: real name, real coordinates, a category, tags, your note, and
-            a link back to the post.</p></div>
+          <p>Real name, real coordinates, a category, tags, your note, and a link back to the
+            post.</p></div>
         <span class="st yes">delivered</span>
       </div>
       <div class="row">
@@ -680,69 +588,58 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       <div class="row">
         <span class="idx">04</span>
         <div><h4>A library that outlives the saved folder</h4>
-          <p>Organised by location rather than by date, and held in your own account.</p></div>
+          <p>Organised by location rather than date, held in your own account.</p></div>
         <span class="st yes">delivered</span>
       </div>
       <div class="row">
         <span class="idx">05</span>
         <div><h4>The conversion costs the user nothing</h4>
-          <p>The app does the work of turning a video into a place. You supply one thing: a
-            link.</p></div>
+          <p>The app turns the video into a place; you supply a link.</p></div>
         <span class="st yes">delivered</span>
       </div>
     </div>
-    <div class="note" style="margin-top:16px">
-      <p><strong>Goal 5 carries the other four.</strong> If the product asked you to type in what
-        the post said, it would be a manual map with extra steps — and goals 1 to 4 are things a
-        notes app already gives you. Every scope decision in this product exists to keep the
-        user's side of the exchange down to one paste.</p>
-    </div>
+
+    <p class="prose" style="margin-top:26px"><strong>Goal 5 carries the other four.</strong> Goals 1
+      to 4 describe things a notes app already gives you if you are willing to type; every scope
+      decision in this product exists to keep the user's side of the exchange down to one paste.</p>
 
     <figure class="quote">
       <dl class="exchange">
         <dt>You give</dt>
         <dd>One paste, and a confirmation tap.</dd>
         <dt>You get</dt>
-        <dd>A permanent, private, location-indexed library of places you chose — retrievable in
+        <dd>A permanent, private, location-indexed library of places you chose, retrievable in
           seconds, with the post that recommended each one still attached.</dd>
       </dl>
     </figure>
 
     <h3>What success looks like</h3>
-    <div class="prose stack" style="--gap:14px;margin-top:12px">
-      <p><strong>Not</strong> &ldquo;the search was faster&rdquo;. The outcome that matters is
-        <strong>the saved recommendation was actually used</strong> — that the place someone kept
-        months ago is the place they walk into tonight.</p>
-      <p class="small"><strong>Adding and finding are separated cleanly.</strong> Adding is a batch
-        activity — a person clears a backlog in one sitting. Finding is an in-the-moment activity.
-        Each gets its own surface instead of compromising to share one.</p>
-      <p class="small"><strong>The first session ends with places on the map.</strong> The product
-        is worthless empty, so onboarding is not education — it is getting the first few places
-        in.</p>
-    </div>
+    <p class="prose" style="margin-top:14px">Not &ldquo;the search was faster&rdquo;. The outcome
+      that matters is that <strong>the saved recommendation was actually used</strong> &mdash; that
+      the place someone kept months ago is the place they walk into tonight. Two things follow.
+      Adding is a batch activity and finding is an in-the-moment one, so each gets its own surface
+      instead of compromising to share one. And the first session has to end with places on the map,
+      because the product is worthless empty: onboarding is not education, it is getting the first
+      few places in.</p>
+    <p class="prose" style="margin-top:18px">Everything kept is restricted to what can be held
+      forever &mdash; name, category, coordinates, the link to the post, and your own note. No
+      opening hours, no photos, no ratings, no reviews; those come with expiry dates attached, and a
+      library assembled from them is rented rather than owned. That restriction is the reason goal 4
+      can be said out loud.</p>
 
-    <div class="note" style="margin-top:26px">
-      <h4>What we store, and why that is a business decision</h4>
-      <p>Everything kept is restricted to what can be held <strong>forever</strong>: name,
-        category, coordinates, the link to the post, and your own note. No opening hours, no
-        photos, no ratings, no reviews — those come with expiry dates attached, and a library
-        assembled from them is rented, not owned. That restriction is the reason goal 4 can be
-        said out loud.</p>
-    </div>
-
-    <h3 style="margin-top:40px">Deliberately not built</h3>
+    <h3 style="margin-top:44px">Deliberately not built</h3>
     <p class="tiny scrollhint" style="margin-top:8px">Scroll the table sideways &rarr;</p>
     <div class="tbl-wrap" style="margin-top:14px">
       <table class="tight">
         <thead><tr><th style="width:38%">Not built</th><th>Why</th></tr></thead>
         <tbody>
-          <tr><td>Discovery, feeds, suggestions</td><td>You already have too many recommendations. What you cannot do is reach the ones you chose</td></tr>
-          <tr><td>Trip planning, routing, bookings</td><td>A different product with different data and different obligations</td></tr>
-          <tr><td>Follower graph, public profiles, creator discovery</td><td>The customer is the user. An audience product answers to somebody else</td></tr>
-          <tr><td>Reading audio or on-screen text</td><td>Cost and speed, not principle. It is the single change that would most widen what the product can read, and it is deferred rather than refused</td></tr>
+          <tr><td>Discovery, feeds, suggestions</td><td>You have too many recommendations already; you cannot reach the ones you chose</td></tr>
+          <tr><td>Trip planning, routing, bookings</td><td>A different product, with different data and obligations</td></tr>
+          <tr><td>Follower graph, public profiles</td><td>The customer is the user; an audience product answers to somebody else</td></tr>
+          <tr><td>Reading audio or on-screen text</td><td>Cost and speed, not principle. Deferred, not refused</td></tr>
           <tr><td>Typing in what the post said</td><td>It would destroy goal 5, which carries the rest</td></tr>
-          <tr><td>Native apps and offline use</td><td>A web app cannot appear in a phone's share sheet. Designing a flow that cannot exist is worse than not having one</td></tr>
-          <tr><td><strong>Data export</strong></td><td>Named as a known gap rather than described as planned. For a version with real users it is the most obvious thing missing from an ownership claim</td></tr>
+          <tr><td>Native apps, offline use</td><td>A web app cannot appear in a phone's share sheet</td></tr>
+          <tr><td>Data export</td><td>A known gap, not a plan. The most obvious thing missing from an ownership claim</td></tr>
         </tbody>
       </table>
     </div>
@@ -755,85 +652,115 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <div class="sec-head">
       <p class="eyebrow">Section 05 &middot; what it can do</p>
       <h2 id="s5h">Product Capabilities</h2>
-      <p class="lede">The complete set, grouped by the three things a person does: get it in,
-        decide and keep, get it back.</p>
+      <p class="lede">Twenty-two capabilities, all built, and they amount to six things a person can
+        do.</p>
     </div>
 
-    <p class="tiny scrollhint">Scroll the table sideways &rarr;</p>
-    <div class="tbl-wrap">
-      <table class="tight">
-        <thead><tr><th style="width:48px">#</th><th style="width:30%">Capability</th><th>What it means for the person using it</th><th style="width:96px">Status</th></tr></thead>
+    <div class="prose stack" style="--gap:32px">
+      <div>
+        <h3>Get a post in without tidying anything up</h3>
+        <p style="margin-top:12px">Any shape of TikTok link works &mdash; a short link, a link with
+          tracking attached, a regional variant, or the whole block of text the share button
+          produces. A link we do not support, such as Instagram or YouTube, is recognised by name
+          before any work starts and handed straight to adding a place by name, so a wrong link costs
+          nothing. Pasting the same link twice gives the same answer rather than a fresh roll of the
+          dice.</p>
+      </div>
+      <div>
+        <h3>Have the post read for you</h3>
+        <p style="margin-top:12px">No typing, no pasting text, no screenshots: the app fetches the
+          post and reads the caption for the places it names. Finding none is a legitimate answer
+          with a screen built for it, and given what captions are like, it is a common one.</p>
+      </div>
+      <div>
+        <h3>Get real places, not just names</h3>
+        <p style="margin-top:12px">A name is not a location, so every candidate is matched against a
+          places directory until it has real coordinates and a real identity. When a name cannot be
+          matched, the place is still kept &mdash; using the position the caption implies &mdash; but
+          it is <strong>marked as approximate</strong>, drawn differently, and never presented as
+          confirmed. One name that cannot be matched never costs you the rest of the post.</p>
+      </div>
+      <div>
+        <h3>Decide before anything is saved</h3>
+        <p style="margin-top:12px">Nothing is written until you confirm; the review screen says so
+          and every place on your map was put there by a person. Confident matches arrive already
+          ticked and uncertain ones arrive as a short choice with nothing ticked. No score or
+          percentage is ever shown &mdash; each card links out to a public map instead, because
+          something you can check beats something you have to interpret. If some places could not be
+          saved you are told how many.</p>
+      </div>
+      <div>
+        <h3>Get it back by looking</h3>
+        <p style="margin-top:12px">The map is the home surface and opens framed around your own
+          places. Zoomed far out it shows countries, then areas with a name and a count, then
+          individual pins coloured by category. A list sits beside it and can never disagree with the
+          pins, because they are the same places: search by text, filter by category, tap a tag, or
+          show only what you have Been to. Places near you are offered shortly after opening and only
+          once. And you can ask for what you want in a sentence &mdash; it sets filters and moves the
+          map, never returns places of its own, and one tap undoes it.</p>
+      </div>
+      <div>
+        <h3>Keep it yours, and be able to leave</h3>
+        <p style="margin-top:12px">However many videos pointed at the same place, it is one pin, and
+          every save keeps its own link back to the post that recommended it, so <em>why did I save
+          this?</em> is always answerable. Mark a place Been, or not yet. Group places into
+          collections and share one by link, as an editor or a viewer. See your library summarised
+          &mdash; how many places, in how many cities and countries. And delete everything in one
+          action.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:48px">The full set</h3>
+    <p class="tiny scrollhint" style="margin-top:8px">Scroll the table sideways &rarr;</p>
+    <div class="tbl-wrap" style="margin-top:14px;max-width:720px">
+      <table class="tight capset">
+        <thead><tr><th style="width:52px">#</th><th>Capability</th></tr></thead>
         <tbody>
-          <tr class="grp"><td colspan="4">Get it in</td></tr>
-          <tr><td class="mono">01</td><td><strong>One field, one paste</strong></td><td>Any shape of TikTok link works — a short link, a link with tracking attached, a regional variant, or the whole block of text the share button produces. Nobody has to tidy a link up</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">02</td><td><strong>An unsupported link is answered by name, not by a failure</strong></td><td>An Instagram or YouTube link is recognised as exactly that and handed straight to adding a place by name. Both are settled before any work starts, so a wrong link costs nothing</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">03</td><td><strong>The app reads the post itself</strong></td><td>No typing, no pasting text, no screenshots. This is the whole proposition, and every other capability is downstream of it</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">04</td><td><strong>Finding no place is a real answer</strong></td><td>Zero places is a legitimate result rather than a breakage, and it has a screen built for it</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">05</td><td><strong>The same link twice gives the same answer</strong></td><td>Repeating a link is the natural thing to try, so repeating it is cheap and stable rather than a fresh roll of the dice</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">06</td><td><strong>Every place gets real coordinates and a real identity</strong></td><td>A name is not a location. Matching a found name against a places directory is what turns a list into a map</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">07</td><td><strong>Nothing is passed off as certain</strong></td><td>When a name cannot be matched to the directory, the place is still kept — using the position the caption implies — but it is marked as approximate and drawn differently, and it is never presented as a confirmed location. The choice is to keep it honestly rather than to drop it or to dress it up</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">08</td><td><strong>An uncertain result stays visibly uncertain</strong></td><td>Confident matches arrive already ticked; uncertain ones arrive as a short choice with nothing ticked. No score or percentage is ever shown — every card links out to a public map instead, because something you can check beats something you have to interpret</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">09</td><td><strong>A bad name never costs you the rest</strong></td><td>If one place cannot be matched it still lands, honestly marked as taken from what the post said. You keep everything else</td><td><span class="st yes">delivered</span></td></tr>
-
-          <tr class="grp"><td colspan="4">Decide and keep</td></tr>
-          <tr><td class="mono">10</td><td><strong>Nothing is saved until you say so</strong></td><td>The review screen carries a standing line saying exactly that. Every place on your map was put there by a person</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">11</td><td><strong>One place is one pin</strong></td><td>However many videos pointed at the same place, it is one pin — and each save keeps its own link back to the post it came from</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">12</td><td><strong>Partial results are told as partial results</strong></td><td><em>Saved 2 of 3 places</em> is a normal thing for the product to say. Nothing is quietly dropped</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">13</td><td><strong>The link back cannot be lost</strong></td><td>A place added from a video always keeps at least one link to a post. <em>Why did I save this?</em> is always answerable</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">14</td><td><strong>Been, or not been yet</strong></td><td>So the library can shrink as well as grow, and a filter can hide what you have already done</td><td><span class="st yes">delivered</span></td></tr>
-
-          <tr class="grp"><td colspan="4">Get it back</td></tr>
-          <tr><td class="mono">15</td><td><strong>The map is the home surface</strong></td><td>It opens framed around your own places rather than at some default point on the globe. Zoomed out it shows countries, then areas with a name and a count, then individual pins coloured by category</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">16</td><td><strong>A list beside the map, always in agreement with it</strong></td><td>Search by text, filter by category, tap a tag, or show only what you have Been to. The list and the pins can never disagree, because they are the same places</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">17</td><td><strong>Places near you</strong></td><td>Offered shortly after opening and only if you have not already settled the question; decline once and you are not asked again. Distances appear only when the fix is accurate enough to be worth showing. Your live location is never kept on our side</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">18</td><td><strong>Ask for what you want in a sentence</strong></td><td>A typed sentence becomes filters and moves the map to match. It never returns places of its own and cannot invent a tag you do not have; it narrows what is already yours, and one tap undoes it</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">19</td><td><strong>Add a place by name</strong></td><td>For the place you already know. From the create menu, where you are sure of the name, it saves in one step; reached from the no-places screen, where you are recovering, it shows you what it found and asks you to pick. Typing something you already saved finds it instead of duplicating it</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">20</td><td><strong>Collections, including sharing</strong></td><td>A collection is your map with a different set of pins. Share by link, as an editor or a viewer, with one live invite at a time</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">21</td><td><strong>Your library, summarised back to you</strong></td><td>How many places, in how many cities and countries, split by Been and Not been yet, and what kinds of places you tend to keep</td><td><span class="st yes">delivered</span></td></tr>
-          <tr><td class="mono">22</td><td><strong>Delete my data</strong></td><td>One action removes the account and everything in it — and it stops and explains itself when doing so would take a shared collection away from other people</td><td><span class="st yes">delivered</span></td></tr>
+          <tr class="grp"><td colspan="2">Get it in</td></tr>
+          <tr><td class="mono">01</td><td>One field, one paste — any link shape</td></tr>
+          <tr><td class="mono">02</td><td>Unsupported link answered by name, before any work</td></tr>
+          <tr><td class="mono">03</td><td>The app reads the post itself</td></tr>
+          <tr><td class="mono">04</td><td>No places found is a real answer</td></tr>
+          <tr><td class="mono">05</td><td>The same link twice gives the same answer</td></tr>
+          <tr><td class="mono">06</td><td>Real coordinates and a real identity per place</td></tr>
+          <tr><td class="mono">07</td><td>Unmatched places kept, marked approximate</td></tr>
+          <tr><td class="mono">08</td><td>Uncertain results stay visibly uncertain; no scores</td></tr>
+          <tr><td class="mono">09</td><td>One bad name never costs you the rest</td></tr>
+          <tr class="grp"><td colspan="2">Decide and keep</td></tr>
+          <tr><td class="mono">10</td><td>Nothing saved until you confirm</td></tr>
+          <tr><td class="mono">11</td><td>One place, one pin</td></tr>
+          <tr><td class="mono">12</td><td>Partial results told as partial</td></tr>
+          <tr><td class="mono">13</td><td>The link back cannot be lost</td></tr>
+          <tr><td class="mono">14</td><td>Been, or not been yet</td></tr>
+          <tr class="grp"><td colspan="2">Get it back</td></tr>
+          <tr><td class="mono">15</td><td>The map is the home surface; three zoom tiers</td></tr>
+          <tr><td class="mono">16</td><td>A list beside the map, always in agreement</td></tr>
+          <tr><td class="mono">17</td><td>Places near you, offered once, never stored</td></tr>
+          <tr><td class="mono">18</td><td>Ask in a sentence; it filters, never invents</td></tr>
+          <tr><td class="mono">19</td><td>Add a place by name, with or without a post</td></tr>
+          <tr><td class="mono">20</td><td>Collections, and sharing by link</td></tr>
+          <tr><td class="mono">21</td><td>Your library summarised back to you</td></tr>
+          <tr><td class="mono">22</td><td>Delete my data</td></tr>
         </tbody>
       </table>
     </div>
 
-    <h3 style="margin-top:40px">Three guarantees behind the set</h3>
-    <div class="grid g3" style="margin-top:18px">
-      <div class="card accent">
-        <h4>Privacy is enforced where the data lives</h4>
-        <p>Not by each screen remembering to check. Your map is private because the data itself
-          refuses to be read by anyone else, which is a stronger promise than a policy page.</p>
-      </div>
-      <div class="card accent">
-        <h4>A post can never tell the app what to do</h4>
-        <p>What a caption says is treated as words to read, never as instructions to follow. The
-          content we ingest is somebody else's, and it is handled that way throughout.</p>
-      </div>
-      <div class="card accent">
-        <h4>Your notes stay yours, even when you share</h4>
-        <p>People you share a collection with see the places, their categories and who added what.
-          They do not see your note, your tags, whether you have Been, or which video you saved it
-          from.</p>
-      </div>
-    </div>
+    <h3 style="margin-top:48px">Three guarantees behind the set</h3>
+    <p class="prose" style="margin-top:14px">Privacy is enforced where the data lives, not by each
+      screen remembering to check &mdash; your map is private because the data itself refuses to be
+      read by anyone else. A caption is treated as words to read and never as instructions to follow;
+      the content we ingest is somebody else's, and it is handled that way throughout. And your notes
+      stay yours when you share: people see the places, their categories and who added what, not your
+      note, your tags, your Been marks or the video you saved it from.</p>
 
-    <h3 style="margin-top:40px">What the product deliberately cannot do</h3>
-    <div class="rows plain" style="margin-top:16px">
-      <div class="row"><span class="idx"><span class="st na">gap</span></span>
-        <div><h4>Read audio or on-screen text</h4>
-          <p>The single change that would most widen what the product can read. Deferred on cost
-            and speed, not refused on principle.</p></div></div>
-      <div class="row"><span class="idx"><span class="st na">gap</span></span>
-        <div><h4>Export your library</h4>
-          <p>No export surface exists. For a version with real users this is the most obvious thing
-            missing from an ownership claim, and it is named rather than hidden.</p></div></div>
-      <div class="row"><span class="idx"><span class="st na">gap</span></span>
-        <div><h4>Keep a place it cannot map</h4>
-          <p>A post can name something we cannot place. Today that mention is not kept, which means
-            a small amount of what a caption offered is lost rather than parked.</p></div></div>
-      <div class="row"><span class="idx"><span class="st na">gap</span></span>
-        <div><h4>Work offline, or appear in the phone's share sheet</h4>
-          <p>A web app cannot enter the native share sheet. Designing a flow that cannot exist is
-            worse than not having one.</p></div></div>
-    </div>
+    <h3 style="margin-top:44px">What it deliberately cannot do</h3>
+    <p class="prose" style="margin-top:14px">Four gaps, named rather than left to be discovered. It
+      cannot read audio or on-screen text, which is the single change that would most widen what it
+      can read &mdash; deferred on cost and speed, not refused on principle. There is <strong>no way
+      to export your library</strong>, which is the most obvious thing missing from a product that
+      says what you keep is yours. A place it cannot map at all is not parked anywhere, so a small
+      amount of what a caption offered is lost. And it cannot work offline or appear in the phone's
+      share sheet, because a web app cannot enter it.</p>
   </div>
 </section>
 
@@ -843,48 +770,38 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <div class="sec-head">
       <p class="eyebrow">Section 06 &middot; how it is used</p>
       <h2 id="s6h">Core User Flows</h2>
-      <p class="lede">Six flows, in the order a person meets them. Three are drawn, because their
-        shape is the argument; three are sequential and are told as steps.</p>
+      <p class="lede">Six flows, in the order a person meets them; two are drawn, because their shape
+        is the argument.</p>
     </div>
 
     <!-- 6.1 -->
     <div class="flowblock">
       <h3>01 &middot; Your first places</h3>
-      <p class="lede">The product is worth nothing at zero places, so the first session has exactly
-        one job: end with places on the map.</p>
+      <p class="lede">The product is worth nothing at zero places, so the first session has one job:
+        end with places on the map.</p>
       <div class="prose" style="margin-top:20px">
         <ol class="clean">
-          <li>A visitor lands on a page that says what this does in three steps — <strong>paste a
-            TikTok link &rarr; check what we found &rarr; it lands on your map</strong> — and states
-            the boundary right there: <em>works with TikTok links today</em>.</li>
-          <li>They create an account. It is private from the first second; there is nothing public
-            to set up.</li>
-          <li>The first thing they see is an empty map, and it is designed rather than blank: one
-            line, one clear action, and a map already looking at a sensible part of the world
-            rather than at the middle of the ocean.</li>
+          <li>A visitor lands on a page that says what this does in three steps — paste a TikTok
+            link, check what we found, it lands on your map — and states the boundary right
+            there.</li>
+          <li>They create an account. It is private from the first second; there is nothing public to
+            set up.</li>
+          <li>They see an empty map that is designed rather than blank: one line, one button, and a
+            map already looking at a sensible part of the world.</li>
         </ol>
       </div>
-      <p class="small" style="margin-top:22px"><strong>The empty state is one line and one
-        button</strong>, and the restraint is deliberate: no checklist, no progress meter, no
-        illustration, no permission prompt. The one action is the one that matters.</p>
-      <div class="grid g2" style="margin-top:14px">
-        <div class="card"><h4>Add a TikTok link</h4><p>The single button on the empty map. The screen
-          it opens carries real example videos, for someone who has nothing of their own to hand
-          yet.</p></div>
-        <div class="card"><h4>Add a place by name</h4><p>Available from the create menu on any tab,
-          for the person who already knows where they want to start and does not need a post at
-          all.</p></div>
-      </div>
-      <div class="note" style="margin-top:18px">
-        <p>The bar for this flow is not comprehension. It is <strong>places on the map before the
-          person closes the tab</strong>.</p>
-      </div>
+      <p class="prose" style="margin-top:20px">No checklist, no progress meter, no illustration, no
+        permission prompt. The one button adds a TikTok link, and the screen it opens carries real
+        example videos for someone who has nothing of their own to hand; the create menu on any tab
+        also offers adding a place by name, for the person who does not need a post at all. The bar
+        for this flow is not comprehension. It is <strong>places on the map before the person closes
+        the tab</strong>.</p>
     </div>
 
     <!-- 6.2 -->
     <div class="flowblock">
       <h3>02 &middot; Add a TikTok link</h3>
-      <p class="lede">The flagship. Eight stages, four places it can legitimately diverge, and one
+      <p class="lede">The flagship: eight stages, four places it can legitimately diverge, and one
         genuine hard stop.</p>
       <div class="flow">
         <figure>
@@ -985,28 +902,23 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
             product.</figcaption>
         </figure>
         <div class="narr">
-          <ol class="clean">
-            <li><strong>Paste.</strong> Copy a link in TikTok, come back, paste it into the one
-              field. Any shape works.</li>
-            <li><strong>It is checked before anything is sent.</strong> A link that is not a TikTok
-              video is recognised immediately and handed to adding by name, so a wrong link costs
-              nothing.</li>
-            <li><strong>See the post.</strong> The post you just pasted appears almost immediately
-              — its picture, the handle and its caption — while the slower work runs underneath.
-              You are looking at something the whole time.</li>
-            <li><strong>The caption is read for the places it names.</strong> Finding none is a
-              legitimate answer, and it leads to its own screen rather than to an error.</li>
-            <li><strong>Each name is matched to a real place</strong>, so it gains coordinates and
-              an identity. A name alone is not something you can put on a map.</li>
-            <li><strong>Review, with nothing saved yet.</strong> One card per place. Confident
-              matches arrive ticked; uncertain ones arrive as a choice. You can change any of it,
-              add a note, and untick anything you do not want.</li>
-            <li><strong>Confirm.</strong> The places land on your map, one pin per place, each
-              keeping its link back to the post. If some could not be saved, you are told how many
-              — nothing is quietly dropped.</li>
-            <li><strong>Find it again, weeks later.</strong> This is the step the other seven exist
-              for.</li>
-          </ol>
+          <p class="small">The drawing shows the shape. What it cannot show is the timing, which is
+            most of the experience. The post you pasted appears almost immediately &mdash; its
+            picture, the handle, the caption &mdash; and stays in front of you while the slower work
+            runs underneath, so you are looking at something the whole time rather than at a
+            spinner.</p>
+          <p class="small">Two of the diverges cost nothing at all, because they are settled in the
+            browser before a single request goes out: a link that is not a TikTok video is recognised
+            on the spot and handed to adding by name. The gold outlines are the other normal endings,
+            and there are three of them. Only the dashed red box is a real failure &mdash; the post
+            itself could not be read &mdash; and it is the only one in the product.</p>
+          <p class="small">The review step is where the whole design lands. One card per place,
+            confident matches already ticked, uncertain ones offered as a short choice with nothing
+            chosen for you. You can change any of it, add a note, and untick whatever you do not
+            want, and <strong>nothing above that dashed line has been written down</strong>. Pasting
+            the same link again gets you the same answer, so re-trying is cheap.</p>
+          <p class="small">The last node is the point of the other seven. A pin per place, each
+            keeping its link back to the post, waiting for a day that is usually weeks away.</p>
         </div>
       </div>
     </div>
@@ -1014,163 +926,40 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <!-- 6.3 -->
     <div class="flowblock">
       <h3>03 &middot; When a post names no place</h3>
-      <p class="lede">Not an error. A screen with its own words, its own picture and its own ways
-        forward — and the one this product shows most often.</p>
-      <div class="flow">
-        <figure>
-          <svg viewBox="0 0 420 556" role="img" aria-hidden="true" focusable="false">
-            <defs>
-              <marker id="ah-ink-2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
-              <marker id="ah-mint-2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-mint"/></marker>
-            </defs>
-
-            <rect class="fd-node alt" x="10" y="10" width="400" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="36">We read the post and found no place</text>
-            <text class="fd-s" x="24" y="58">AN ORDINARY RESULT, NOT AN ERROR</text>
-
-            <path class="fd-edge" d="M210,70 V92 M107,92 H313 M107,92 V110 M313,92 V110 M210,92 V198"/>
-
-            <rect class="fd-node" x="10" y="110" width="194" height="70" rx="12"/>
-            <text class="fd-s" x="24" y="132">NO CAPTION</text>
-            <text class="fd-t sm" x="24" y="152">The post has</text>
-            <text class="fd-t sm" x="24" y="168">no caption</text>
-
-            <rect class="fd-node" x="216" y="110" width="194" height="70" rx="12"/>
-            <text class="fd-s" x="230" y="132">NAMED NOTHING</text>
-            <text class="fd-t sm" x="230" y="152">The caption names</text>
-            <text class="fd-t sm" x="230" y="168">no place</text>
-
-            <rect class="fd-node" x="113" y="198" width="194" height="70" rx="12"/>
-            <text class="fd-s" x="127" y="220">NAMED AN AREA</text>
-            <text class="fd-t sm" x="127" y="240">A city, not</text>
-            <text class="fd-t sm" x="127" y="256">a venue</text>
-
-            <path class="fd-edge" d="M107,180 V288 M313,180 V288 M210,268 V288 M107,288 H313 M210,288 V306" marker-end="url(#ah-ink-2)"/>
-
-            <rect class="fd-node act" x="10" y="306" width="400" height="64" rx="12"/>
-            <text class="fd-t" x="24" y="334">Add it by name</text>
-            <text class="fd-s" x="24" y="356">STRONGEST ROUTE &mdash; YOU WATCHED THE VIDEO</text>
-
-            <path class="fd-edge" d="M210,370 V386" marker-end="url(#ah-ink-2)"/>
-            <rect class="fd-node reveal" x="10" y="386" width="400" height="64" rx="12"/>
-            <text class="fd-t" x="24" y="414">Tell us what you remember</text>
-            <text class="fd-s" x="24" y="436">REVEALED WHEN WANTED, NEVER A FORM</text>
-
-            <path class="fd-edge" d="M210,450 V466" marker-end="url(#ah-ink-2)"/>
-            <rect class="fd-node" x="10" y="466" width="400" height="64" rx="12"/>
-            <text class="fd-t" x="24" y="494">Open the original post</text>
-            <text class="fd-s" x="24" y="516">ALWAYS AVAILABLE</text>
-
-            <path class="fd-edge" d="M10,534 H410" stroke-dasharray="3 4"/>
-            <text class="fd-s" x="10" y="550">ORDERED BY STRENGTH OF OUTCOME</text>
-          </svg>
-          <figcaption><strong>Reading the drawing.</strong> Three different things can have happened
-            here, and the screen says which. A fourth case &mdash; places found but none saveable &mdash;
-            never reaches this screen and is handled on its own. A dashed mint outline means <em>revealed when you want it</em>
-            — it is not on screen by default, because two open text fields in the thumb zone is a
-            form, and this screen must never be a form.</figcaption>
-        </figure>
-        <div class="narr">
-          <p class="small">It tells the truth about which case it is, because these are not the
-            same problem and do not have the same answer. The last row is the case that goes
-            somewhere else entirely.</p>
-          <div class="tbl-wrap">
-            <table class="tight reflow">
-              <thead><tr><th>What happened</th><th>What you are told</th></tr></thead>
-              <tbody>
-                <tr><td>The post has no caption at all</td><td><em>There is no caption on this one</em> — the post's boundary, not yours</td></tr>
-                <tr><td>The caption named nothing we can put on a map</td><td><em>No places in this one</em></td></tr>
-                <tr><td>The caption named a city or an area, but no place in it</td><td>The same, and the city is used to narrow the search offered below</td></tr>
-                <tr><td>Places were found but none could be saved</td><td>A different screen, with what to do about it</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="small"><strong>Two ways forward, strongest first.</strong> <em>Add it by
-            name</em> — you watched the video, you know the place; type the name, pick it from what
-            comes back, done, in fewer steps than the flow you just came from. Or <em>tell us what
-            you remember</em> — a single sentence, folded into the results, which carries the detail
-            a bare name loses and lets someone offer a name they are not sure is a name.</p>
-          <p class="small">A third route is always there: open the original post.</p>
-          <div class="note">
-            <p><strong>What never appears anywhere in this flow:</strong> a request to type the
-              caption in.</p>
-          </div>
-        </div>
+      <p class="lede">Not an error, and the screen this product shows most often. It says which of
+        three things happened, because they are not the same problem.</p>
+      <p class="tiny scrollhint" style="margin-top:18px">Scroll the table sideways &rarr;</p>
+      <div class="tbl-wrap" style="margin-top:14px;max-width:860px">
+        <table class="tight">
+          <thead><tr><th>What happened</th><th>What you are told</th></tr></thead>
+          <tbody>
+            <tr><td>The post has no caption at all</td><td><em>There is no caption on this one</em> — the post's boundary, not yours</td></tr>
+            <tr><td>The caption named nothing mappable</td><td><em>No places in this one</em></td></tr>
+            <tr><td>The caption named a city, not a venue</td><td>The same, and the city narrows the search offered below</td></tr>
+            <tr><td>Places found, none saveable</td><td>A different screen entirely, with what to do about it</td></tr>
+          </tbody>
+        </table>
       </div>
-
-      <p class="small" style="margin-top:30px"><strong>Adding a place by name also stands on its
-        own.</strong> From the create menu on any tab, one field takes either a link or a name —
-        and what you typed decides what happens, without you having to choose a mode first.</p>
-      <div class="flow" style="margin-top:16px">
-        <figure>
-          <svg viewBox="0 0 420 434" role="img" aria-hidden="true" focusable="false">
-            <defs>
-              <marker id="ah-ink-4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
-              <marker id="ah-mint-4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-mint"/></marker>
-            </defs>
-
-            <rect class="fd-node act" x="10" y="10" width="400" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="36">You type into the one field</text>
-            <text class="fd-s" x="24" y="58">THE CREATE MENU, ON EVERY TAB</text>
-
-            <path class="fd-edge" d="M40,70 V378"/>
-
-            <text class="fd-lab" x="54" y="104">A TIKTOK LINK</text>
-            <path class="fd-edge main" d="M40,134 H176" marker-end="url(#ah-mint-4)"/>
-            <rect class="fd-node act" x="176" y="106" width="234" height="56" rx="12"/>
-            <text class="fd-t sm" x="190" y="139">Hands off to the import</text>
-
-            <text class="fd-lab" x="54" y="170">A LINK WE</text>
-            <text class="fd-lab" x="54" y="184">DON'T SUPPORT</text>
-            <path class="fd-edge" d="M40,214 H176" marker-end="url(#ah-ink-4)"/>
-            <rect class="fd-node" x="176" y="186" width="234" height="56" rx="12"/>
-            <text class="fd-t sm" x="190" y="211">Falls through to</text>
-            <text class="fd-t sm" x="190" y="228">add by name</text>
-
-            <text class="fd-lab" x="54" y="250">TEXT THAT</text>
-            <text class="fd-lab" x="54" y="264">MATCHES A SAVE</text>
-            <path class="fd-edge" d="M40,294 H176" marker-end="url(#ah-ink-4)"/>
-            <rect class="fd-node" x="176" y="266" width="234" height="56" rx="12"/>
-            <text class="fd-t sm" x="190" y="291">Reveals that place</text>
-            <text class="fd-t sm" x="190" y="308">on your map</text>
-
-            <text class="fd-lab" x="54" y="330">TEXT WITH</text>
-            <text class="fd-lab" x="54" y="344">NO MATCH</text>
-            <path class="fd-edge main" d="M40,374 H176" marker-end="url(#ah-mint-4)"/>
-            <rect class="fd-node act" x="176" y="346" width="234" height="56" rx="12"/>
-            <text class="fd-t sm" x="190" y="371">Saves the top result,</text>
-            <text class="fd-t sm" x="190" y="388">no extra confirm</text>
-
-            <text class="fd-s" x="10" y="424">SURE OF THE NAME? ONE STEP. OTHERWISE, PICK.</text>
-          </svg>
-          <figcaption><strong>Reading the drawing.</strong> One field, four meanings, and the
-            person never picks a mode. The asymmetry at the bottom is deliberate: a name you are
-            sure of saves in one step, while the same action reached from the no-places screen shows
-            you what it found and asks you to choose.</figcaption>
-        </figure>
-        <div class="narr">
-          <ol class="clean">
-            <li><strong>For the place you already know.</strong> Type a name, pick the right one,
-              and it is on your map. No post required.</li>
-            <li><strong>Two ways in, deliberately different.</strong> From the create menu, where
-              you are typing a name you are sure of, it saves in one shot. From the no-places
-              screen, where you are recovering, it shows you what it found and asks you to pick —
-              and links the save to the post that prompted it.</li>
-            <li><strong>Typing something you already saved finds it instead of duplicating
-              it.</strong> &ldquo;I already have this&rdquo; is the more likely intention than
-              &ldquo;make me a second one&rdquo;.</li>
-            <li><strong>It lands exactly like a place added from a post</strong> — same pin, same
-              detail, same map — with its origin recorded honestly.</li>
-          </ol>
-        </div>
-      </div>
+      <p class="prose" style="margin-top:22px">Two ways forward are offered, strongest first.
+        <em>Add it by name</em> &mdash; you watched the video, so type the name, pick it from what
+        comes back, and you are done in fewer steps than the flow you just left. Or <em>tell us what
+        you remember</em>, one sentence, revealed only when you want it, never on screen as a form.
+        Opening the original post is always available as a third. What never appears is a request to
+        type the caption in.</p>
+      <p class="prose" style="margin-top:18px">Adding a place by name also stands on its own, from
+        the create menu on any tab. One field takes either a link or a name, and what you typed
+        decides what happens: a TikTok link hands off to the import, an unsupported link falls
+        through to adding by name, text matching something you already saved reveals that place
+        instead of duplicating it, and text with no match saves the top result in one step. Reached
+        from the no-places screen, where you are recovering rather than sure, it shows you what it
+        found and asks you to pick &mdash; and links the save to the post that prompted it.</p>
     </div>
 
     <!-- 6.4 -->
     <div class="flowblock">
       <h3>04 &middot; Find it again</h3>
-      <p class="lede">The payoff. It is listed fourth because it happens on the second day, not
-        because it matters least — everything above is the price of this.</p>
+      <p class="lede">The payoff. Listed fourth because it happens on the second day, not because it
+        matters least &mdash; everything above is the price of this.</p>
       <div class="flow">
         <figure>
           <svg viewBox="0 0 420 486" role="img" aria-hidden="true" focusable="false">
@@ -1219,20 +1008,22 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
             are free to refuse.</figcaption>
         </figure>
         <div class="narr">
-          <ol class="clean">
-            <li>You open your map and your places are already on it.</li>
-            <li>It opens framed around what you have, so you are looking at somewhere useful
-              straight away rather than at a default point on the globe.</li>
-            <li>Zoom out for countries, in for areas with names and counts, in again for individual
-              pins, coloured by what kind of place they are.</li>
-            <li><strong>Near you</strong>, offered rather than demanded, moves the map to what you
-              have around you, nearest first.</li>
-            <li>Or use the list beside it — search a name, filter by category, tap a tag, hide the
-              ones you have already Been to.</li>
-            <li>Or type what you want as a sentence and let it set the filters for you.</li>
-            <li>Tap a pin and the whole record is there, including the TikTok video that made you
-              save it in the first place.</li>
-          </ol>
+          <p class="small">This is the one flow that is not a sequence. The three tiers in the
+            drawing are the same library rendered at three distances, and you move between them by
+            pinching, not by taking steps. The map opens framed around your own places, so the first
+            thing you see is somewhere you have been thinking about rather than a default point on
+            the globe.</p>
+          <p class="small">Two things the drawing cannot tell you. Area pills are thinned as you zoom
+            so their names stay readable, and pin labels are allowed to overlap rather than disappear
+            &mdash; a label you can read at an angle beats a pin that silently drops out. And
+            <em>near me</em> is genuinely optional: it is offered once, a refusal is remembered,
+            distances appear only when the fix is accurate enough to be worth showing, and your live
+            location is never kept on our side.</p>
+          <p class="small">The list beside the map is the other half of this, and can never disagree
+            with the pins because they are the same places. Search a name, filter by category, tap a
+            tag, hide what you have Been to, or type what you want as a sentence and let it set the
+            filters. Tap a pin and the whole record is there, including the video that made you save
+            it.</p>
         </div>
       </div>
     </div>
@@ -1240,81 +1031,56 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <!-- 6.5 -->
     <div class="flowblock">
       <h3>05 &middot; Share a collection</h3>
-      <p class="lede">A collection is your map with a different set of pins — which is why it did
-        not widen what this product is.</p>
+      <p class="lede">A collection is your map with a different set of pins &mdash; which is why it
+        did not widen what this product is.</p>
       <div class="prose" style="margin-top:20px">
         <ol class="clean">
           <li>Make a collection, name it, and put places from your library in it.</li>
-          <li>Generate a link, and choose whether the person joins as an <strong>editor</strong> or
-            a <strong>viewer</strong>. There is only ever one live invite per collection; making a
-            new one plainly retires the last.</li>
-          <li><strong>Before you share, the access fact is stated outright</strong> — anyone with
-            the link who signs in can open this collection. The detail of which fields they see and
-            which stay yours sits one tap away, under a control that names what is behind it, and
-            the two halves are always shown together so neither can be read without the other.</li>
-          <li>They open the link. Signed out, they get a real explanation of what a collection is
-            before being asked to make an account. Signed in, they see who invited them and what
-            they will be able to do.</li>
-          <li>Someone joining is asked what to call them first, because joining makes them visible
-            to other people as <em>who added what</em>.</li>
-          <li>Both people now see the collection on their own map. A viewer can copy a shared place
-            into their own library.</li>
+          <li>Generate a link and choose whether the person joins as an editor or a viewer. One live
+            invite per collection; making a new one plainly retires the last.</li>
+          <li><strong>Before you share, the access fact is stated outright</strong> — anyone with the
+            link who signs in can open this collection. Which fields they see sits one tap away,
+            under a control that names what is behind it, and the two halves are always shown
+            together.</li>
+          <li>They open the link. Signed out, they get a real explanation before being asked to make
+            an account; signed in, they see who invited them and what they will be able to do.</li>
+          <li>Joining asks what to call them first, because it makes them visible to others as
+            <em>who added what</em>.</li>
+          <li>Both now see the collection on their own map, and a viewer can copy a shared place into
+            their own library.</li>
         </ol>
       </div>
-      <p class="small" style="margin-top:24px"><strong>The disclosure, stated at the moment of the
-        decision</strong> rather than buried in a settings page.</p>
-      <div class="tbl-wrap" style="margin-top:12px;max-width:820px">
+      <div class="tbl-wrap" style="margin-top:24px;max-width:820px">
         <table class="tight reflow">
           <thead><tr><th>What someone you share with sees</th><th>What stays yours</th></tr></thead>
           <tbody>
             <tr><td>The places in the collection</td><td>Your own private note</td></tr>
             <tr><td>What kind of place each one is</td><td>Your tags</td></tr>
             <tr><td>Where each one is</td><td>Whether you have Been there</td></tr>
-            <tr><td>Notes added for everyone in the collection</td><td>Which video you saved it from</td></tr>
+            <tr><td>Notes added for everyone</td><td>Which video you saved it from</td></tr>
             <tr><td>Who added what</td><td>Everything else on your map</td></tr>
             <tr><td>The name you chose to be known by</td><td></td></tr>
           </tbody>
         </table>
       </div>
-      <div class="note" style="margin-top:18px;max-width:820px">
-        <p>Where you intend to go in future is a different thing from a restaurant recommendation,
-          and it is not shared.</p>
-      </div>
+      <p class="prose" style="margin-top:20px">Where you intend to go in future is a different thing
+        from a restaurant recommendation, and it is not shared.</p>
     </div>
 
     <!-- 6.6 -->
     <div class="flowblock">
       <h3>06 &middot; Leave, and take nothing with you by accident</h3>
-      <p class="lede">Rules rather than a flow. The interesting part is the one case where deleting
-        is refused, and the one thing that survives.</p>
-      <div class="prose" style="margin-top:20px">
-        <ol class="clean">
-          <li><strong>Delete my data</strong> removes the account and everything in it. One action,
-            no negotiation.</li>
-          <li><strong>Deleting one place is always available</strong>, separately, whenever you want
-            it.</li>
-        </ol>
-      </div>
-      <div class="note warn" style="margin-top:20px;max-width:820px">
-        <h4>It refuses, and explains, when deleting would take something away from other people</h4>
-        <p>If you own a collection other people are in, deletion stops and names those collections,
-          with a way to go and sort it out. A refusal that tells you what to do is a different thing
-          from a refusal.</p>
-      </div>
-      <div class="note" style="margin-top:14px;max-width:820px">
-        <h4>One thing survives, and the product says so</h4>
-        <p>A note you wrote inside someone else's shared collection stays with them, with your name
-          taken off it. No screen claims everything you wrote is gone.</p>
-      </div>
-    </div>
-
-    <div class="note warn" style="margin-top:48px">
-      <h4>Where this document ends is a limit, not a flourish</h4>
-      <p>Two things a reader will look for and not find. The product <strong>reads words, not
-        audio or on-screen text</strong>, which is the single change that would most widen what it
-        can do. And there is <strong>no way to export your library</strong>, which is the most
-        obvious thing missing from a product that says what you keep is yours. Both are named here
-        rather than left to be discovered.</p>
+      <p class="lede">Rules rather than a flow.</p>
+      <p class="prose" style="margin-top:20px">Delete my data removes the account and everything in
+        it, in one action, and deleting a single place is separately available whenever you want
+        it.</p>
+      <p class="prose" style="margin-top:18px"><strong>It refuses, and explains, when deleting would
+        take something away from other people.</strong> If you own a collection other people are in,
+        deletion stops and names those collections, with a way to go and sort it out. A refusal that
+        tells you what to do is a different thing from a refusal.</p>
+      <p class="prose" style="margin-top:18px">One thing survives, and the product says so: a note
+        you wrote inside someone else's shared collection stays with them, with your name taken off
+        it. No screen claims everything you wrote is gone.</p>
     </div>
   </div>
 </section>
