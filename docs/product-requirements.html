@@ -78,6 +78,9 @@ a:hover { text-decoration:underline; }
 .wrap { width:min(100% - 44px, var(--page)); margin-inline:auto; }
 .prose { max-width:var(--prose); }
 .stack > * + * { margin-top:var(--gap,18px); }
+/* the six capability groups get the hairline rhythm section 06 already uses, so a
+   reader can see where one ends and count the six the lede promises */
+#s5 > .wrap > .stack > * + * { margin-top:36px; padding-top:36px; border-top:1px solid var(--line-soft); }
 
 .eyebrow { font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:var(--mint-mid); }
 .eyebrow.dim { color:var(--ink-3); }
@@ -87,12 +90,16 @@ a:hover { text-decoration:underline; }
 .tiny { font-size:13px; color:var(--ink-3); }
 .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
 
-section { padding-block:clamp(56px,7vw,96px); position:relative; scroll-margin-top:74px; }
+section { padding-block:clamp(72px,7vw,96px); position:relative; scroll-margin-top:74px; }
+section > .wrap > h3 { font-size:clamp(21px,2vw,25px); letter-spacing:-.02em; margin-top:clamp(34px,4.5vw,52px); }
+section > .wrap > h3:first-child { margin-top:0; }
+section > .wrap > h3 + * { margin-top:12px; }
 section + section { border-top:1px solid var(--line-soft); }
 section.deep { background:var(--bg-deep); }
-.sec-head { display:flex; flex-direction:column; gap:16px; margin-bottom:44px; }
+.sec-head { display:flex; flex-direction:column; gap:10px; margin-bottom:clamp(30px,3.5vw,44px); }
+.sec-head .lede { margin-top:6px; }
 .sec-head h2 { font-size:clamp(26px,3.6vw,42px); }
-.sec-head .lede { max-width:64ch; }
+
 
 /* ============================================================================
    HEADER · TOC · PROGRESS
@@ -165,8 +172,6 @@ header.top {
    ========================================================================= */
 .grid { display:grid; gap:16px; }
 .g2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
-.g3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
-.g4 { grid-template-columns:repeat(4,minmax(0,1fr)); }
 @media (max-width:940px) { .g3,.g4 { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:620px) { .g2,.g3,.g4 { grid-template-columns:1fr; } }
 
@@ -174,7 +179,6 @@ header.top {
 .card h3 { font-size:16px; }
 .card h4 { font-size:14.5px; }
 .card p { margin-top:9px; font-size:15.5px; color:var(--ink-2); line-height:1.65; }
-.card.accent { border-color:color-mix(in srgb, var(--mint-mid) 40%, var(--line)); background:linear-gradient(180deg,var(--glow-2),transparent 70%),var(--raised); }
 
 .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
 .stats > div { background:var(--raised); padding:18px; }
@@ -200,7 +204,6 @@ table.reflow td, table.reflow th { width:50%; }
 .st.na  { color:var(--ink-3); background:var(--card-2); }
 
 .note { border-left:3px solid var(--mint-mid); background:var(--glow-2); border-radius:0 12px 12px 0; padding:15px 18px; }
-.note.warn { border-left-color:var(--warn); background:color-mix(in srgb, var(--warn) 7%, transparent); }
 .note h4 { font-size:14px; margin-bottom:5px; }
 .note p { font-size:15.5px; color:var(--ink-2); line-height:1.66; }
 .note p + p { margin-top:8px; }
@@ -208,6 +211,8 @@ table.reflow td, table.reflow th { width:50%; }
 .rows { border:1px solid var(--line); border-radius:16px; overflow:hidden; }
 .row { display:grid; grid-template-columns:38px 1fr auto; gap:15px; padding:15px 18px; background:var(--raised); align-items:start; }
 .rows.plain .row { grid-template-columns:38px 1fr; }
+.rows .grp { background:var(--card-2); font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); padding:9px 18px; }
+.rows .grp + .row { border-top:0; }
 .row + .row { border-top:1px solid var(--line-soft); }
 .row .idx { font-family:var(--mono); font-size:11px; color:var(--ink-3); padding-top:3px; }
 .row h4 { font-size:15px; letter-spacing:-.01em; }
@@ -217,7 +222,6 @@ table.reflow td, table.reflow th { width:50%; }
 ul.clean, ol.clean { margin:0; padding-left:1.15em; }
 ul.clean li, ol.clean li { margin-top:11px; color:var(--ink-2); font-size:16px; line-height:1.68; }
 ul.clean li strong, ol.clean li strong { color:var(--ink); font-weight:700; }
-ul.bare { list-style:none; margin:0; padding:0; }
 ul.bare li { position:relative; padding-left:20px; margin-top:12px; font-size:15.5px; color:var(--ink-2); line-height:1.65; }
 ul.bare li::before { content:"\2192"; position:absolute; left:0; color:var(--mint-mid); }
 ul.bare li strong { color:var(--ink); }
@@ -251,7 +255,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
 /* flow layout: diagram beside its narration */
 .flowblock + .flowblock { margin-top:clamp(40px,5vw,64px); padding-top:clamp(40px,5vw,64px); border-top:1px solid var(--line-soft); }
 .flowblock > h3 { font-size:clamp(18px,2vw,22px); }
-.flowblock > .lede { margin-top:8px; max-width:64ch; font-size:16px; }
+.flowblock > .lede { margin-top:8px; max-width:64ch; font-size:17.5px; color:var(--ink); }
 .flow { display:grid; grid-template-columns:420px minmax(0,1fr); gap:clamp(22px,3vw,44px); align-items:start; margin-top:24px; }
 @media (max-width:960px) { .flow { grid-template-columns:1fr; } }
 .flow figure { margin:0; max-width:448px; border:1px solid var(--line); border-radius:16px; background:var(--raised); padding:14px; }
@@ -268,8 +272,6 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
 .fd-node.reveal { fill:var(--card-2); stroke:var(--mint-mid); stroke-width:1.6; stroke-dasharray:4 4; }
 .fd-node.stop { fill:color-mix(in srgb, var(--crit) 8%, transparent); stroke:var(--crit); stroke-width:1.6; stroke-dasharray:6 4; }
 .fd-edge      { fill:none; stroke:var(--ink-3);  stroke-width:1.6; }
-.fd-edge.main { stroke:var(--mint-mid); stroke-width:2; }
-.fd-edge.alt  { stroke:var(--gold); stroke-width:1.8; }
 .fd-edge.stop { stroke:var(--crit); stroke-width:1.5; stroke-dasharray:6 4; }
 /* --ink-3 is a hairline colour only. It fails AA as text in the light theme,
    so no diagram label ever uses it. */
@@ -278,9 +280,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
 .fd-s   { fill:var(--ink-2); font-family:var(--mono); font-size:14px; font-weight:500; letter-spacing:.04em; }
 .fd-lab { fill:var(--ink-2); font-family:var(--mono); font-size:14px; font-weight:500; }
 .ah-ink  { fill:var(--ink-3); }
-.ah-mint { fill:var(--mint-mid); }
 .ah-gold { fill:var(--gold); }
-.ah-crit { fill:var(--crit); }
 
 /* ============================================================================
    PRINT — this document is submitted as a PDF, so a dark reader must not
@@ -297,10 +297,16 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
   }
   header.top, .progress, .theme-btn, .tocbar, .scrollhint { display:none !important; }
   body { background:#fff; color:#000; }
-  section { padding-block:22px; break-inside:avoid; break-before:page; }
+    section { padding-block:22px; break-before:page; }
+  h3, h4, .sec-head, .flowblock > h3, .flowblock > .lede { break-after:avoid; }
+  p, li { orphans:2; widows:2; }
+  tr { break-inside:avoid; }
+  tr.grp { break-after:avoid; }
   section.deep { background:#fff; }
   .cover { break-after:page; }
-  .flow { grid-template-columns:400px 1fr; }
+    .flow { grid-template-columns:1fr; }
+  .flow figure { max-width:420px; break-inside:avoid; }
+  .flow .narr { break-inside:avoid; }
   .flowblock { break-inside:avoid; }
   .tbl-wrap { overflow:visible; }
   table { min-width:0; }
@@ -399,7 +405,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       <div><p class="n">Yours</p><p class="k">Only what can be kept forever is stored</p></div>
     </div>
 
-    <h3 style="margin-top:44px">The boundary we hold, stated once</h3>
+    <h3>The boundary we hold, stated once</h3>
     <div class="note" style="margin-top:14px">
       <p>We read what a post says <strong>in words</strong>. A great many TikTok videos name the
         place only on screen or only out loud, and those we cannot read &mdash; so a link that turns up no place is not a fault. It is an ordinary result, it has a screen of its own, and it
@@ -408,7 +414,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
         notes app, it has stopped being worth having.</p>
     </div>
 
-    <h3 style="margin-top:44px">What makes it different</h3>
+    <h3>What makes it different</h3>
     <p class="prose" style="margin-top:14px">Plenty of apps turn a social link into a pin on a map.
       No Crumbs is not trying to do more of that than anyone else. It does three things they
       generally do not.</p>
@@ -476,7 +482,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       reason to do, so today the person does it in their own head, from a grid of thumbnails, at
       exactly the wrong time.</p>
 
-    <h3 style="margin-top:44px">Why this is worth building</h3>
+    <h3>Why this is worth building</h3>
     <p class="prose" style="margin-top:14px">The hard part is already done. People have already
       scrolled, judged, and decided that a place is worth remembering. Nothing here asks them to
       start a new habit &mdash; it takes a collection they already have and makes it reachable.</p>
@@ -525,7 +531,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       The same person saves places in the city they live in and banks places for a trip they have not
       taken yet; designing for two audiences here would produce two half-products.</p>
 
-    <h3 style="margin-top:44px">Two facts that shape every decision</h3>
+    <h3>Two facts that shape every decision</h3>
     <p class="prose" style="margin-top:14px">The first is where this happens: on a phone,
       standing up, mid-scroll. <strong>Mobile is not the smaller version of this product &mdash; it
       is the product.</strong> Sheets you can drag, actions within thumb reach, nothing important
@@ -534,7 +540,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       tap spent adding a place is spent before the person has got anything back at all. That is why
       the effort goes there, and why we hold their side of it to one paste.</p>
 
-    <h3 style="margin-top:44px">Who this is not for</h3>
+    <h3>Who this is not for</h3>
     
     <ul class="clean prose" style="margin-top:12px">
       <li>People looking for somewhere new. There is no feed, no ranking, and the app never suggests
@@ -546,7 +552,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
         which is why the first session has to end with several places saved.</li>
     </ul>
 
-    <h3 style="margin-top:44px">The customer: the same person as the user, and nobody else</h3>
+    <h3>The customer: the same person as the user, and nobody else</h3>
     <p class="prose" style="margin-top:14px">There is no advertiser, no business account and nobody
       buying access to anyone's data or attention, so the product's only obligation is to the person
       whose map it is. That is why privacy works the way it does: a private map, ownership enforced
@@ -625,13 +631,13 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <p class="prose" style="margin-top:18px">And the first session has to end with places on the
       map, because an empty map is worth nothing. Onboarding here is not teaching people how the
       product works. It is getting their first few places in.</p>
-    <h3 style="margin-top:44px">What we store, and why that is a business decision</h3>
+    <h3>What we store, and why that is a business decision</h3>
     <p class="prose" style="margin-top:14px">Everything kept is restricted to what can be held
       forever &mdash; name, category, coordinates, the link to the video, and your own note. No
       opening hours, no photos, no ratings, no reviews; those come with expiry dates attached, and a
       library assembled from them is rented rather than owned. That limit is what makes goal 4 true rather than a hope.</p>
 
-    <h3 style="margin-top:44px">Deliberately not built</h3>
+    <h3>Deliberately not built</h3>
     <p class="tiny scrollhint" style="margin-top:8px">Scroll the table sideways &rarr;</p>
     <div class="tbl-wrap" style="margin-top:14px">
       <table class="tight">
@@ -662,7 +668,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
 
     <div class="prose stack" style="--gap:32px">
       <div>
-        <h3>Get a post in without tidying anything up</h3>
+        <h3>01 &middot; Get a post in without tidying anything up</h3>
         <p style="margin-top:12px">Any shape of TikTok link works &mdash; a short link, a link with
           tracking attached, a regional variant, or the whole block of text the share button
           produces. A link we do not support, such as Instagram or YouTube, is recognised by name
@@ -671,13 +677,13 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
           dice.</p>
       </div>
       <div>
-        <h3>Have the post read for you</h3>
+        <h3>02 &middot; Have the post read for you</h3>
         <p style="margin-top:12px">No typing, no pasting text, no screenshots: the app fetches the
           post and reads the caption for the places it names. Finding none is a legitimate answer
           with a screen built for it, and given what captions are like, it is a common one.</p>
       </div>
       <div>
-        <h3>Get real places, not just names</h3>
+        <h3>03 &middot; Get real places, not just names</h3>
         <p style="margin-top:12px">A name is not a location, so every name found in a caption is
           looked up in a places directory until it has real coordinates and a real identity of its
           own.</p>
@@ -687,7 +693,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
           cannot be matched never costs you the other places in the same video.</p>
       </div>
       <div>
-        <h3>Decide before anything is saved</h3>
+        <h3>04 &middot; Decide before anything is saved</h3>
         <p style="margin-top:12px">Nothing is saved until you confirm it, and the review screen says
           so. Every place on your map was put there by a person. Confident matches arrive already
           ticked and uncertain ones arrive as a short choice with nothing ticked. No score or
@@ -696,7 +702,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
           be saved, you are told how many.</p>
       </div>
       <div>
-        <h3>Get it back by looking</h3>
+        <h3>05 &middot; Get it back by looking</h3>
         <p style="margin-top:12px">The map is the home surface, and it opens framed around your own
           places. Zoomed far out it shows countries; closer in, areas with a name and a count; closer
           still, individual pins coloured by category.</p>
@@ -709,7 +715,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
           back.</p>
       </div>
       <div>
-        <h3>Keep it yours, and be able to leave</h3>
+        <h3>06 &middot; Keep it yours, and be able to leave</h3>
         <p style="margin-top:12px">However many videos pointed at the same place, it is one pin. Each
           save keeps its own link back to the video it came from, so <em>why did I save this?</em>
           always has an answer. Mark a place Been, or not yet. Group places into
@@ -719,42 +725,36 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       </div>
     </div>
 
-    <h3 style="margin-top:48px">The full set</h3>
-    <p class="tiny scrollhint" style="margin-top:8px">Scroll the table sideways &rarr;</p>
-    <div class="tbl-wrap" style="margin-top:14px;max-width:720px">
-      <table class="tight capset">
-        <thead><tr><th style="width:52px">#</th><th>Capability</th></tr></thead>
-        <tbody>
-          <tr class="grp"><td colspan="2">Get it in</td></tr>
-          <tr><td class="mono">01</td><td>One field, one paste — any link shape</td></tr>
-          <tr><td class="mono">02</td><td>Unsupported link answered by name, before any work</td></tr>
-          <tr><td class="mono">03</td><td>The app reads the post itself</td></tr>
-          <tr><td class="mono">04</td><td>No places found is a real answer</td></tr>
-          <tr><td class="mono">05</td><td>The same link twice gives the same answer</td></tr>
-          <tr><td class="mono">06</td><td>Real coordinates and a real identity per place</td></tr>
-          <tr><td class="mono">07</td><td>Unmatched places kept, marked approximate</td></tr>
-          <tr><td class="mono">08</td><td>Uncertain results stay visibly uncertain; no scores</td></tr>
-          <tr><td class="mono">09</td><td>One bad name never costs you the rest</td></tr>
-          <tr class="grp"><td colspan="2">Decide and keep</td></tr>
-          <tr><td class="mono">10</td><td>Nothing saved until you confirm</td></tr>
-          <tr><td class="mono">11</td><td>One place, one pin</td></tr>
-          <tr><td class="mono">12</td><td>Partial results told as partial</td></tr>
-          <tr><td class="mono">13</td><td>The link back cannot be lost</td></tr>
-          <tr><td class="mono">14</td><td>Been, or not been yet</td></tr>
-          <tr class="grp"><td colspan="2">Get it back</td></tr>
-          <tr><td class="mono">15</td><td>The map is the home surface; three zoom tiers</td></tr>
-          <tr><td class="mono">16</td><td>A list beside the map, always in agreement</td></tr>
-          <tr><td class="mono">17</td><td>Places near you, offered once, never stored</td></tr>
-          <tr><td class="mono">18</td><td>Ask in a sentence; it filters, never invents</td></tr>
-          <tr><td class="mono">19</td><td>Add a place by name, with or without a post</td></tr>
-          <tr><td class="mono">20</td><td>Collections, and sharing by link</td></tr>
-          <tr><td class="mono">21</td><td>Your library summarised back to you</td></tr>
-          <tr><td class="mono">22</td><td>Delete my data</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <h3>The full set</h3>
+    <div class="rows plain" style="margin-top:16px;max-width:720px">
+        <div class="grp">Get it in</div>
+        <div class="row"><span class="idx">01</span><div><h4>One field, one paste — any link shape</h4></div></div>
+        <div class="row"><span class="idx">02</span><div><h4>Unsupported link answered by name, before any work</h4></div></div>
+        <div class="row"><span class="idx">03</span><div><h4>The app reads the post itself</h4></div></div>
+        <div class="row"><span class="idx">04</span><div><h4>No places found is a real answer</h4></div></div>
+        <div class="row"><span class="idx">05</span><div><h4>The same link twice gives the same answer</h4></div></div>
+        <div class="row"><span class="idx">06</span><div><h4>Real coordinates and a real identity per place</h4></div></div>
+        <div class="row"><span class="idx">07</span><div><h4>Unmatched places kept, marked approximate</h4></div></div>
+        <div class="row"><span class="idx">08</span><div><h4>Uncertain results stay visibly uncertain; no scores</h4></div></div>
+        <div class="row"><span class="idx">09</span><div><h4>One bad name never costs you the rest</h4></div></div>
+        <div class="grp">Decide and keep</div>
+        <div class="row"><span class="idx">10</span><div><h4>Nothing saved until you confirm</h4></div></div>
+        <div class="row"><span class="idx">11</span><div><h4>One place, one pin</h4></div></div>
+        <div class="row"><span class="idx">12</span><div><h4>Partial results told as partial</h4></div></div>
+        <div class="row"><span class="idx">13</span><div><h4>The link back cannot be lost</h4></div></div>
+        <div class="row"><span class="idx">14</span><div><h4>Been, or not been yet</h4></div></div>
+        <div class="grp">Get it back</div>
+        <div class="row"><span class="idx">15</span><div><h4>The map is the home surface; three zoom tiers</h4></div></div>
+        <div class="row"><span class="idx">16</span><div><h4>A list beside the map, always in agreement</h4></div></div>
+        <div class="row"><span class="idx">17</span><div><h4>Places near you, offered once, never stored</h4></div></div>
+        <div class="row"><span class="idx">18</span><div><h4>Ask in a sentence; it filters, never invents</h4></div></div>
+        <div class="row"><span class="idx">19</span><div><h4>Add a place by name, with or without a post</h4></div></div>
+        <div class="row"><span class="idx">20</span><div><h4>Collections, and sharing by link</h4></div></div>
+        <div class="row"><span class="idx">21</span><div><h4>Your library summarised back to you</h4></div></div>
+        <div class="row"><span class="idx">22</span><div><h4>Delete my data</h4></div></div>
+      </div>
 
-    <h3 style="margin-top:48px">How these answer the goals</h3>
+    <h3>How these answer the goals</h3>
     <p class="prose" style="margin-top:14px">Each group answers a goal. <em>Get it in</em> exists
       for goal 5 &mdash; the app does the conversion, so the user's half stays one paste.
       <em>Decide and keep</em> exists for goal 2, because a place is only structured if it has a
@@ -763,7 +763,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       &mdash; name, category, coordinates, note, link &mdash; is goal 4, present in every capability
       by what it refuses to store.</p>
 
-    <h3 style="margin-top:44px">Three guarantees behind the set</h3>
+    <h3>Three guarantees behind the set</h3>
     <ul class="clean prose" style="margin-top:16px">
       <li><strong>Privacy is enforced where the data lives</strong>, not by each screen remembering
         to check. Your map is private because the data itself refuses to be read by anyone else.</li>
@@ -774,7 +774,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
         video you saved a place from.</li>
     </ul>
 
-    <h3 style="margin-top:44px">What it deliberately cannot do</h3>
+    <h3>What it deliberately cannot do</h3>
     <p class="prose" style="margin-top:14px">Four gaps, named here rather than left to be
       discovered.</p>
     <ul class="clean prose" style="margin-top:14px">
@@ -830,20 +830,20 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
       <p class="lede">The flagship, and the one flow the whole product is built around.</p>
       <div class="flow">
         <figure>
-          <svg viewBox="0 0 420 428" role="img" aria-hidden="true" focusable="false">
+          <svg viewBox="0 0 420 428" aria-hidden="true" focusable="false">
             <defs>
               <marker id="ah-ink-1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
             </defs>
 
             <path class="fd-edge" d="M210,66 V92" marker-end="url(#ah-ink-1)"/>
             <path class="fd-edge" d="M210,148 V174" marker-end="url(#ah-ink-1)"/>
-            <path class="fd-edge" d="M210,230 V248 M107,248 H313"/>
-            <path class="fd-edge" d="M107,248 V266" marker-end="url(#ah-ink-1)"/>
-            <path class="fd-edge" d="M313,248 V266" marker-end="url(#ah-ink-1)"/>
+            <path class="fd-edge" d="M210,230 V252 M107,252 H313"/>
+            <path class="fd-edge" d="M107,252 V266" marker-end="url(#ah-ink-1)"/>
+            <path class="fd-edge" d="M313,252 V266" marker-end="url(#ah-ink-1)"/>
             <path class="fd-edge" d="M107,330 V354" marker-end="url(#ah-ink-1)"/>
 
-            <text class="fd-lab" x="107" y="240" text-anchor="middle">places found</text>
-            <text class="fd-lab" x="313" y="240" text-anchor="middle">none named</text>
+            <text class="fd-lab" x="107" y="246" text-anchor="middle">places found</text>
+            <text class="fd-lab" x="313" y="246" text-anchor="middle">none named</text>
 
             <rect class="fd-node" x="10" y="10" width="400" height="56" rx="12"/>
             <text class="fd-t" x="24" y="44">Paste one TikTok link</text>
@@ -858,7 +858,7 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
             <text class="fd-t sm" x="24" y="292">You review &mdash;</text>
             <text class="fd-t sm" x="24" y="311">nothing is saved yet</text>
 
-            <rect class="fd-node alt" x="216" y="266" width="194" height="64" rx="12"/>
+            <rect class="fd-node sys" x="216" y="266" width="194" height="64" rx="12"/>
             <text class="fd-t sm" x="230" y="292">No places in</text>
             <text class="fd-t sm" x="230" y="311">this one</text>
 
@@ -938,10 +938,9 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
         it matters least. Everything above is the price of this.</p>
       <div class="flow">
         <figure>
-          <svg viewBox="0 0 420 486" role="img" aria-hidden="true" focusable="false">
+          <svg viewBox="0 0 420 486" aria-hidden="true" focusable="false">
             <defs>
               <marker id="ah-ink-3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
-              <marker id="ah-gold-3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-gold"/></marker>
             </defs>
 
             <path class="fd-edge" d="M24,26 V320" marker-end="url(#ah-ink-3)"/>
@@ -950,9 +949,9 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
             <rect class="fd-node sys" x="56" y="20" width="354" height="84" rx="14"/>
             <text class="fd-t" x="72" y="54">Country discs</text>
             <text class="fd-s" x="72" y="76">FARTHEST OUT</text>
-            <circle cx="330" cy="62" r="9"  fill="var(--mint-deep)"/>
-            <circle cx="356" cy="74" r="12" fill="var(--mint-deep)"/>
-            <circle cx="382" cy="58" r="7"  fill="var(--mint-deep)"/>
+            <circle cx="330" cy="62" r="9" fill="var(--mint-mid)"/>
+            <circle cx="356" cy="74" r="12" fill="var(--mint-mid)"/>
+            <circle cx="382" cy="58" r="7" fill="var(--mint-mid)"/>
 
             <rect class="fd-node sys" x="56" y="128" width="354" height="84" rx="14"/>
             <text class="fd-t" x="72" y="162">Area pills &mdash; name and count</text>
@@ -960,12 +959,11 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
             <rect x="336" y="146" width="46" height="18" rx="9" fill="var(--glow)" stroke="var(--mint-mid)"/>
             <rect x="356" y="172" width="46" height="18" rx="9" fill="var(--glow)" stroke="var(--mint-mid)"/>
 
-            <rect class="fd-node act" x="56" y="236" width="354" height="84" rx="14"/>
+            <rect class="fd-node sys" x="56" y="236" width="354" height="84" rx="14"/>
             <text class="fd-t" x="72" y="270">Individual pins</text>
             <text class="fd-s" x="72" y="292">COLOUR MEANS WHAT A PLACE IS</text>
-            <rect x="316" y="258" width="10" height="14" rx="5" fill="var(--mint-mid)"/>
             <rect x="340" y="258" width="10" height="14" rx="5" fill="var(--gold)"/>
-            <rect x="364" y="258" width="10" height="14" rx="5" fill="var(--mint-deep)"/>
+            <rect x="364" y="258" width="10" height="14" rx="5" fill="var(--mint-mid)"/>
             <rect x="388" y="258" width="10" height="14" rx="5" fill="var(--ok)"/>
 
             <path class="fd-edge" d="M126,320 V344" marker-end="url(#ah-ink-3)"/>
