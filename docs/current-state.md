@@ -44,8 +44,8 @@ is under one pixel at every size the mark ships at, so at chrome sizes **it is a
 with a rendering bug ruled out first. §3.1 rule 1 forbids changing the outline, so rule 2's *face on
 chrome* carries the mark instead. See the run report, §4 decision 1.
 
-**Live** at `https://p-002-zeta.vercel.app`, auto-deployed from `main`.
-`/healthz` → `{"ok":true,"stage":"production","commit":"99324dd"}`.
+**Live** at `https://no-crumbss.vercel.app`, auto-deployed from `main`.
+`/healthz` → `{"ok":true,"stage":"production","commit":"601cebf"}` (re-measured 2026-09-05; the former `p-002-zeta.vercel.app` now returns `DEPLOYMENT_NOT_FOUND`).
 
 **Built:** auth · the map, camera and pins (MapLibre + CARTO) · the saved list, search, category
 filter and pressable tag chips · place detail · TikTok import with review and confirm · manual add

@@ -11,7 +11,7 @@ Done: repo, toolchain and deploy (was MS2), the technical design (MS3), the data
 POI index chain `0010`/`0014` plus the resolver vocabulary, the ported scorer, the 44-case golden
 file and the Tel Aviv ingest (was MS5 tasks 1–5).
 
-**Production is live** at `https://p-002-zeta.vercel.app`, auto-deployed from `main`.
+**Production is live** at `https://no-crumbss.vercel.app`, auto-deployed from `main`.
 
 **Migrations — re-measure, never copy forward.** `npm run db:status:staging` / `db:status:prod`.
 Measured 2026-08-30: 29 on disk (`0001`–`0030`, no `0027`), **staging `0018`, production `0026`**.
