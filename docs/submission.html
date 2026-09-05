@@ -59,9 +59,9 @@ try {
 }
 /* ============================================================================
    INDEX PAGE — layout only. Tokens above are inherited verbatim from the five
-   documents; this page adds no colour of its own so it cannot drift from them.
-   It also states no measured figure: every number lives in the document that
-   measured it, and is cited there.
+   documents; this page defines no colour of its own so it cannot drift from
+   them. It also states no measured figure: every number lives in the document
+   that measured it, next to how it was measured.
    ========================================================================= */
 * { box-sizing:border-box; }
 body {
@@ -78,7 +78,7 @@ p { margin:0; }
 a { color:var(--mint-mid); text-decoration:none; }
 a:hover { text-decoration:underline; }
 :focus-visible { outline:2px solid var(--mint-mid); outline-offset:3px; border-radius:4px; }
-.wrap { width:min(100% - 44px, 980px); margin-inline:auto; }
+.wrap { width:min(100% - 44px, 940px); margin-inline:auto; }
 .rig { --gold-c:#F2C46B; --crust-c:#E0A845; --ink-c:#3A2A15; --blush:#F0866A; }
 .rig svg { display:block; overflow:visible; }
 .rig .body  { fill:var(--gold-c); }
@@ -90,14 +90,14 @@ a:hover { text-decoration:underline; }
 .rig .cheek { fill:var(--blush); opacity:.5; }
 .rig .glint { fill:#fff; }
 .eyebrow { font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:var(--mint-mid); }
-.lede { font-size:clamp(18px,1.6vw,21px); color:var(--ink-2); line-height:1.55; max-width:62ch; }
+.lede { font-size:clamp(18px,1.6vw,21px); color:var(--ink-2); line-height:1.55; max-width:60ch; }
 .small { font-size:15.5px; color:var(--ink-2); line-height:1.68; }
-.tiny { font-size:13px; color:var(--ink-3); }
-section { padding-block:clamp(46px,5vw,68px); }
+section { padding-block:clamp(46px,5vw,66px); }
 section + section { border-top:1px solid var(--line-soft); }
-header.cover { padding-block:clamp(56px,7vw,88px); background:var(--bg-deep); border-bottom:1px solid var(--line-soft); }
+h2.sec { font-size:clamp(23px,3vw,32px); }
+header.cover { padding-block:clamp(54px,7vw,84px); background:var(--bg-deep); border-bottom:1px solid var(--line-soft); }
 .cover-row { display:flex; align-items:flex-start; gap:16px; }
-h1 { font-size:clamp(32px,5vw,54px); }
+h1 { font-size:clamp(32px,5vw,52px); }
 .pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; }
 .pill {
   font-family:var(--mono); font-size:12px; letter-spacing:.04em;
@@ -105,26 +105,30 @@ h1 { font-size:clamp(32px,5vw,54px); }
   padding:6px 12px; border-radius:999px;
 }
 .pill.on { border-color:var(--mint-deep); color:var(--ink); }
+.links { margin-top:20px; font-size:15.5px; }
+.intro { max-width:64ch; }
+.intro p + p { margin-top:15px; }
+.intro .last { color:var(--ink-2); }
 .docs { display:grid; gap:14px; margin-top:26px; }
-@media (min-width:760px) { .docs { grid-template-columns:1fr 1fr; } }
+@media (min-width:740px) { .docs { grid-template-columns:1fr 1fr; } }
 .doc {
   display:block; border:1px solid var(--line); background:var(--card);
-  border-radius:14px; padding:20px 22px; box-shadow:var(--shadow-1);
+  border-radius:14px; padding:19px 21px; box-shadow:var(--shadow-1);
   transition:border-color .18s, transform .18s;
 }
 .doc:hover { border-color:var(--mint-mid); text-decoration:none; transform:translateY(-2px); }
 .doc .n { font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:.1em; }
 .doc h3 { font-size:19px; margin-top:7px; color:var(--ink); }
 .doc p { margin-top:8px; font-size:15px; color:var(--ink-2); line-height:1.6; }
-.doc .req { display:inline-block; margin-top:12px; font-family:var(--mono); font-size:11px; color:var(--mint-mid); letter-spacing:.08em; }
-.doc.wide { grid-column:1 / -1; }
-.tbl-wrap { overflow-x:auto; margin-top:20px; border:1px solid var(--line); border-radius:12px; }
-table { border-collapse:collapse; width:100%; min-width:560px; font-size:15px; }
-th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--line-soft); vertical-align:top; }
-th { font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); font-weight:500; }
-tr:last-child td { border-bottom:none; }
-td.id { font-family:var(--mono); color:var(--gold); white-space:nowrap; }
-footer { padding-block:40px; border-top:1px solid var(--line-soft); color:var(--ink-3); font-size:14px; }
+.deck {
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:10px;
+  margin-top:22px; padding-top:20px; border-top:1px solid var(--line-soft);
+}
+.deck h3 { font-size:16px; color:var(--ink); }
+.deck p { font-size:15px; color:var(--ink-2); }
+footer { padding-block:34px; border-top:1px solid var(--line-soft); }
+footer p + p { margin-top:8px; }
+footer .tiny { font-size:13.5px; color:var(--ink-3); }
 </style>
 
 <header class="cover">
@@ -134,18 +138,14 @@ footer { padding-block:40px; border-top:1px solid var(--line-soft); color:var(--
       <span class="rig" data-crumb data-size="46" style="flex:none;margin-top:6px"></span>
       <h1>No Crumbs<br><em>Submission</em></h1>
     </div>
-    <p class="lede" style="margin-top:20px">
-      A personal map of the places your feed recommended. Paste a TikTok link; the caption is read
-      on the server, the places in it are matched to real coordinates, and &mdash; once you confirm
-      them &mdash; they land on a map that is yours and stays yours.
-    </p>
+    <p class="lede" style="margin-top:20px">A personal map of the places your feed recommended.</p>
     <div class="pills">
       <span class="pill on">Live &middot; no-crumbss.vercel.app</span>
       <span class="pill">Next.js &middot; TypeScript</span>
       <span class="pill">Supabase Postgres</span>
       <span class="pill">Vercel</span>
     </div>
-    <p class="small" style="margin-top:20px">
+    <p class="links">
       <a href="https://no-crumbss.vercel.app">Open the live app</a> &nbsp;&middot;&nbsp;
       <a href="https://github.com/LiorJossef/no-crumbs">Open the repository</a>
     </p>
@@ -154,100 +154,91 @@ footer { padding-block:40px; border-top:1px solid var(--line-soft); color:var(--
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Start here</p>
-    <h2 style="font-size:clamp(24px,3vw,34px);margin-top:10px">The five documents</h2>
-    <p class="lede" style="margin-top:12px">
-      Each one answers a numbered course requirement, and each is written to be read on its own.
-      This page holds no figures of its own: every measured number lives in the document that
-      measured it, next to how it was measured.
-    </p>
-
-    <div class="docs">
-      <a class="doc" href="product-requirements-v1.3.html">
-        <span class="n">01</span>
-        <h3>Product Specification</h3>
-        <p>What problem the product solves, who it is for, who the customer is, the business goals,
-           the capabilities that meet them, and the core things a person actually does.</p>
-        <span class="req">M1 &middot; M2</span>
-      </a>
-
-      <a class="doc" href="technical-design-document-v1.3.html">
-        <span class="n">02</span>
-        <h3>Technical Design</h3>
-        <p>The architecture and the detailed design: layers, pages, routes and server actions, the
-           database and its tables, how data moves between browser, server and Postgres, state,
-           errors, validation, and every external service with the reason for it.</p>
-        <span class="req">M3 &middot; M4</span>
-      </a>
-
-      <a class="doc" href="testing-specification-v1.3.html">
-        <span class="n">03</span>
-        <h3>Test Specification</h3>
-        <p>What &ldquo;working&rdquo; means here, and how it is checked: the core features, invalid
-           input, the central business process, permissions between two real users, the database,
-           edge cases and the interface.</p>
-        <span class="req">M6 &middot; M7</span>
-      </a>
-
-      <a class="doc" href="scalability-v1.3.html">
-        <span class="n">04</span>
-        <h3>Scale</h3>
-        <p>What happens at tens or hundreds of users, which queries are heavy, which indexes exist,
-           how over-fetching is avoided, where the client/server split falls, and what actually runs
-           out first.</p>
-        <span class="req">M8</span>
-      </a>
-
-      <a class="doc" href="security-v1.3.html">
-        <span class="n">05</span>
-        <h3>Security</h3>
-        <p>How signing in works, how permission is decided in the database rather than in
-           application code, what stops one account reading another&rsquo;s rows, how input we did
-           not write is handled, where the secrets live &mdash; and the risks that remain.</p>
-        <span class="req">M9</span>
-      </a>
-
-      <a class="doc wide" href="presentation-v1.3.html">
-        <span class="n">06</span>
-        <h3>Presentation</h3>
-        <p>The 10&ndash;15 minute deck, built from the five documents above.</p>
-        <span class="req">M11</span>
-      </a>
+    <p class="eyebrow">The product</p>
+    <h2 class="sec" style="margin-top:10px">People save the video. What they wanted was the place.</h2>
+    <div class="intro" style="margin-top:18px">
+      <p>People find restaurants, caf&eacute;s and bars on TikTok, and they save the video. TikTok
+         keeps that as a video in a list ordered by date &mdash; not a place, not a location, not a
+         name. So saving works and getting it back out is broken, and getting it back out is the
+         only moment that matters: you are standing on a street, and the bakery you saved is four
+         hundred videos down.</p>
+      <p>No Crumbs takes one TikTok link, reads the post on the server, finds the places its caption
+         names, matches them to real coordinates, and &mdash; once you confirm them &mdash; puts
+         them on your own private map. You reach them by where they are, instead of by remembering
+         when you saved them.</p>
+      <p class="last">Not every video names its place in words; plenty say it out loud or show it on
+         screen, and we read captions. So &ldquo;no places in this one&rdquo; is an ordinary result
+         rather than an error &mdash; it has a screen of its own, with three ways forward.</p>
     </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Traceability</p>
-    <h2 style="font-size:clamp(24px,3vw,34px);margin-top:10px">Where each requirement is answered</h2>
+    <p class="eyebrow">Start here</p>
+    <h2 class="sec" style="margin-top:10px">The five documents</h2>
+    <p class="lede" style="margin-top:12px">Each is written to be read on its own. This page holds
+       no figures of its own: every measured number lives in the document that measured it, next to
+       how it was measured.</p>
 
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>ID</th><th>Requirement</th><th>Where</th></tr></thead>
-        <tbody>
-          <tr><td class="id">M1</td><td>Real business value</td><td>Document 01</td></tr>
-          <tr><td class="id">M2</td><td>Product specification</td><td>Document 01</td></tr>
-          <tr><td class="id">M3</td><td>Architecture plan</td><td>Document 02</td></tr>
-          <tr><td class="id">M4</td><td>Detailed technical design</td><td>Document 02</td></tr>
-          <tr><td class="id">M5</td><td>Next.js, TypeScript, Supabase, Vercel &mdash; reachable by URL</td><td><a href="https://no-crumbss.vercel.app">no-crumbss.vercel.app</a></td></tr>
-          <tr><td class="id">M6</td><td>Test specification</td><td>Document 03</td></tr>
-          <tr><td class="id">M7</td><td>Implemented tests</td><td><code>tests/</code> and <code>supabase/tests/</code>, described in Document 03</td></tr>
-          <tr><td class="id">M8</td><td>Scale document</td><td>Document 04</td></tr>
-          <tr><td class="id">M9</td><td>Security document</td><td>Document 05</td></tr>
-          <tr><td class="id">M10</td><td>Deployment: app link, repository link, run steps, environment variables</td><td>Links above; run steps and the environment matrix are in the repository <code>README.md</code></td></tr>
-          <tr><td class="id">M11</td><td>Presentation, 10&ndash;15 minutes</td><td>Document 06</td></tr>
-          <tr><td class="id">M12</td><td>The ten submission artefacts</td><td>This page, and the two links at the top</td></tr>
-        </tbody>
-      </table>
+    <div class="docs">
+      <a class="doc" href="product-requirements-v1.3.html">
+        <span class="n">01</span>
+        <h3>Product Specification</h3>
+        <p>What problem the product solves, who its users are, who the customer is, what the
+           business goals are, the capabilities that meet them, and the core things a person
+           actually does with it.</p>
+      </a>
+
+      <a class="doc" href="technical-design-document-v1.3.html">
+        <span class="n">02</span>
+        <h3>Technical Design</h3>
+        <p>How the system is built: the components and layers, the database and its central tables,
+           the pages, the API routes and server actions, how data moves between browser, server and
+           database, who may do what, and every external service with the reason for choosing it.</p>
+      </a>
+
+      <a class="doc" href="testing-specification-v1.3.html">
+        <span class="n">03</span>
+        <h3>Test Specification</h3>
+        <p>What &ldquo;working&rdquo; means here and how each part is checked &mdash; the core
+           features, invalid input, the central process, permissions between two real accounts, the
+           database, edge cases and the interface &mdash; naming the test file behind each one.</p>
+      </a>
+
+      <a class="doc" href="scalability-v1.3.html">
+        <span class="n">04</span>
+        <h3>Scale</h3>
+        <p>What happens at tens or hundreds of users, which queries could be heavy, which indexes
+           exist, how over-fetching is avoided, where the split between client and server falls,
+           what limits the product today, and what would be done for a larger one.</p>
+      </a>
+
+      <a class="doc" href="security-v1.3.html">
+        <span class="n">05</span>
+        <h3>Security</h3>
+        <p>How signing in works, how permission is decided in the database rather than in
+           application code, what stops one account reading another&rsquo;s data, how input we did
+           not write is validated, where the secrets are kept &mdash; and the risks that remain.</p>
+      </a>
     </div>
 
+    <div class="deck">
+      <h3>Presentation</h3>
+      <p>The 10&ndash;15 minute deck, built from the five documents above &mdash;
+         <a href="presentation-v1.3.html">open it</a>.</p>
+    </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <p>No Crumbs &middot; Lior Jossef &middot; RUNI CS, Internet Technologies</p>
+    <p class="small"><a href="https://no-crumbss.vercel.app">no-crumbss.vercel.app</a>
+       &nbsp;&middot;&nbsp;
+       <a href="https://github.com/LiorJossef/no-crumbs">github.com/LiorJossef/no-crumbs</a></p>
+    <p class="tiny">To run it locally, and for the environment variables it needs, see the
+       <code>README.md</code> in the repository.</p>
+    <p class="tiny">No Crumbs &middot; Lior Jossef &middot; RUNI CS, Internet Technologies</p>
   </div>
 </footer>
 
