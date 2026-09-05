@@ -431,9 +431,9 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     <tbody>
       <tr><td><code>app/map/</code></td><td>The main screen. A server component reads the user&rsquo;s places; a client component owns selection and filters</td></tr>
       <tr><td><code>app/import/</code></td><td>The paste flow, one component per screen</td></tr>
-      <tr><td><code>app/_lib/</code></td><td>Server-only helpers, including the client that holds the service key</td></tr>
+      <tr><td><code>app/_lib/</code></td><td>Server-only helpers that need <code>next/headers</code>, including the Supabase client that carries the signed-in user&rsquo;s own credentials</td></tr>
       <tr><td><code>domain/</code></td><td>Types and ports; the pipeline rules; place naming, scoring and categories; the error codes</td></tr>
-      <tr><td><code>integrations/</code></td><td>One directory per vendor: TikTok, the language models, Google Places, Supabase</td></tr>
+      <tr><td><code>integrations/</code></td><td>One directory per vendor: TikTok, the language models, Google Places, Supabase &mdash; including the one client that holds the service key (section 8.2)</td></tr>
       <tr><td><code>components/</code>, <code>ui/</code></td><td>The map and its layers, the sheet and desktop panel, the navigation &mdash; and the same logic with no JSX in it</td></tr>
       <tr><td><code>src/proxy.ts</code></td><td>Middleware: it refreshes the session on every page and guards <code>/map</code></td></tr>
       <tr><td><code>supabase/migrations/</code></td><td>Numbered SQL files. They are the only definition of the database</td></tr>
@@ -895,7 +895,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <h3>9.3 &nbsp;A closed set of errors</h3>
 
-<p class="prose">Failures are represented by a fixed list of thirteen codes. What crosses to the browser is a code and two flags &mdash; no message, no stack, no vendor string &mdash; so nothing internal leaks into a screen or a log by accident. Each code is produced by exactly one function, which fixes whether it is worth retrying, so no caller can claim otherwise. Adapters catch every vendor exception and turn it into one of these.</p>
+<p class="prose">Failures are represented by a fixed list of thirteen codes. What crosses to the browser is a code, one flag saying whether retrying could help, and the id of the import it belongs to &mdash; no message, no stack, no vendor string &mdash; so nothing internal leaks into a screen or a log by accident. Each code is produced by exactly one function, which fixes whether it is worth retrying, so no caller can claim otherwise. Adapters catch every vendor exception and turn it into one of these.</p>
 
 <p class="prose">The HTTP status is chosen to say whose fault it was: a video we read successfully that simply has no caption is a 422, an exhausted model quota is a 503 because the quota is ours rather than the caller&rsquo;s, and only one code may ever be a 500 &mdash; which is what keeps a 500 in the logs worth reading. The words a user sees are held in one place on the client, one entry per code, so adding a fourteenth code is a compile error rather than a screen that quietly says &ldquo;something went wrong&rdquo;. Every entry names at least one way forward, and a test enforces that, so no failure screen is a dead end.</p>
 

@@ -473,7 +473,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
   </table>
 </div>
 
-<p class="prose">Short links redirect, so we follow redirects ourselves with <code>redirect: &#39;manual&#39;</code> rather than letting <code>fetch</code> do it: every <code>Location</code> header goes through the same checks before we follow it, with five hops maximum, a timeout on each request, and no HTML parsed at any point. Both import routes redo the whole check on the server whatever the client did.</p>
+<p class="prose">Short links redirect, so we follow redirects ourselves with <code>redirect: &#39;manual&#39;</code> rather than letting <code>fetch</code> do it: every <code>Location</code> header goes through the same checks before we follow it, with five hops maximum, and no HTML parsed at any point. Both import routes redo the whole check on the server whatever the client did.</p>
 
 <h3>3.4 &nbsp;What the model says</h3>
 <p class="prose">The language model is untrusted on the same terms as the link. Its output is parsed against a Zod schema, every claim must quote the caption it came from before a user sees it, and the difference between what the caption said and what the model inferred survives to the review screen &mdash; so the user confirms a place rather than inheriting a guess.</p>

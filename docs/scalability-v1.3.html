@@ -455,7 +455,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <h3>2.4 &nbsp;What is deliberately not fetched</h3>
 <p class="prose">No query selects every column; each names what it needs. A shared collection returns a place&rsquo;s identity and nothing of the person who added it &mdash; not their note, not their tags, and not whether they have been &mdash; enforced both by the select and by a policy that would refuse those columns anyway. The list and the map share one fetch rather than issuing two. The caches remove whole classes of outside call. And the one query over a table not scoped to a user &mdash; the resolver&rsquo;s prefilter over <code>poi_index</code> &mdash; returns at most <strong>500 rows, ordered</strong>; without that cap one fuzzy match returned 2,904.</p>
 
-<p class="prose">So over-fetching is controlled by column, by query and by call, and uncontrolled by row on exactly one read: the map&rsquo;s, which is the next section.</p>
+<p class="prose">So over-fetching is controlled by column, by query and by call, and uncontrolled by row on the reads the map page runs together: the library query, which is the next section, and beside it the membership read, which pulls one place id per item of every collection you can edit so a place&rsquo;s sheet knows which collections it is already in.</p>
   </div>
 </section>
 
@@ -474,7 +474,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">Three things need the complete set: the camera frames the whole library on first paint, the list and the markers come from one array and so cannot disagree, and search has to reach places outside the current view. A viewport-scoped query gives none of the three on its own, and would need a second query for the camera besides.</p>
 
 <h3>3.3 &nbsp;The rendering is bounded even though the fetch is not</h3>
-<p class="prose">Drawing is banded by zoom &mdash; countries at the widest extent, then areas, then individual pins &mdash; and each layer declares its own zoom range, so the map library picks the band. No zoom listener runs and nothing re-renders during a pinch.</p>
+<p class="prose">Drawing is banded by zoom &mdash; countries at the widest extent, then areas, then individual pins &mdash; and each layer declares its own zoom range, so the map library picks the band. The listeners the surface registers note what the user did and where the camera settled; none of them redraws features while you pinch.</p>
 
 <h3>3.4 &nbsp;When this stops being fine</h3>
 <p class="prose">Every saved place becomes a feature at every zoom level, so cost grows with the library and nothing caps it. Three things grow together: the response, the feature collection rebuilt on each filter change, and the array re-filtered on each keystroke. All three are in the browser. The database is not under pressure here, which is why this limitation sits in this section rather than in section 4.</p>
