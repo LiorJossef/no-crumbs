@@ -836,11 +836,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <p class="prose">Server actions cover every ordinary change to a user&rsquo;s own rows: re-categorising, noting, tagging and marking a place visited, deleting one, adding one by hand, collections, profile, account and sign-out. There is no REST layer over our own database: row-level security is already the authorisation layer, and a hand-written one would be a second place for the same rules to drift.</p>
 
-<p class="prose">Confirm is worth following, because the trust boundary is there. The browser sends an extraction id and, per item, two numbers and an optional note &mdash; no place facts at all. The route validates that against a schema, then checks on the <em>user&rsquo;s</em> own client whether they have an import for that post, so the database answers the ownership question. The stored candidates are read back and re-validated, and the name, coordinates and category come from the row the server itself wrote.</p>
-
-<p class="prose">Two database functions then run. <code>resolve_place()</code> runs with the service role and is the only thing in the system that may create a row in <code>places</code>. <code>save_place()</code> runs as the user and can write only their own row in <code>saved_places</code>.</p>
-
-<p class="prose">That split closes a real hole. An earlier version let the browser supply the place, and the resolve step refreshed provider-owned columns on whichever row it matched &mdash; so one user could overwrite and move a venue other people had saved.</p>
+<p class="prose">When you confirm an import, the browser does not send the place it picked &mdash; it sends a pointer to the one the server already stored. The request carries the extraction id, and for each item the position of the place in that stored list and of the chosen match, plus the user&rsquo;s own note. The server checks the extraction belongs to the caller and reads the name and coordinates from its own row, so a forged request cannot invent a venue or move one that other users have saved. <code>resolve_place()</code>, the only function permitted to write to the shared <code>places</code> table, then creates or de-duplicates the venue, and <code>save_place()</code> adds it to the user&rsquo;s own library.</p>
   </div>
 </section>
 
@@ -882,7 +878,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <h3>9.1 &nbsp;Validating the link</h3>
 
-<p class="prose">The link is checked in the browser as it is typed, so an unsupported one becomes a clear message rather than a failed request. That check is a convenience; the one that matters runs again on the server, immediately before the fetch, and it is what stops the server being used to make requests on someone else&rsquo;s behalf. The host must match one of a short list of TikTok hosts exactly, not by suffix, so <code>tiktok.com.evil.io</code> and <code>nottiktok.com</code> both fail, and the check is repeated at every redirect when a short link is followed.</p>
+<p class="prose">The pasted link is the only outside address a user can point our server at, so it is checked before we fetch it. The host must match an allow-list of six official TikTok domains exactly, not by suffix, so <code>tiktok.com.evil.io</code> fails. The check runs again on every redirect a shortened link follows, up to five hops, so the server can never be sent somewhere unsafe. The check in the browser is a convenience only.</p>
 
 <h3>9.2 &nbsp;Everything else that arrives from outside</h3>
 
