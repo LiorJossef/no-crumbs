@@ -410,14 +410,21 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
         notes app, it has stopped being worth having.</p>
     </div>
 
-    <h3 style="margin-top:44px">Where this sits</h3>
-    <p class="prose" style="margin-top:14px">Turning a social link into a pin on a personal map is a
-      well-populated idea, and No Crumbs does not win by having more of it. It defends three things
-      instead. Honesty about what the app worked out, so what the post said, what the app inferred
-      and what you wrote stay separable, and an uncertain result is shown as uncertain. A common
-      failure that is designed rather than patched, because finding nothing is a result and deserves
-      its own screen. And a library that is genuinely yours, because only what can be kept forever is
-      stored, and privacy is enforced where the data lives.</p>
+    <h3 style="margin-top:44px">What makes it different</h3>
+    <p class="prose" style="margin-top:14px">Plenty of apps turn a social link into a pin on a map.
+      No Crumbs is not trying to do more of that than anyone else. It does three things they
+      generally do not.</p>
+    <ul class="clean prose" style="margin-top:16px">
+      <li><strong>It tells you what it is sure about.</strong> What the post actually said, what the
+        app worked out, and what you wrote yourself stay separate. A place it is not certain about
+        is shown to you as uncertain instead of being quietly presented as fact.</li>
+      <li><strong>Finding nothing is a proper answer, not an error.</strong> Most posts do not name
+        a place in words, so that outcome gets its own screen with real options &mdash; not a
+        shrug.</li>
+      <li><strong>What you save is genuinely yours.</strong> Only things that can be kept forever
+        are stored, so nothing expires out of your library. And your map is private because the
+        database itself refuses to hand your rows to anyone else.</li>
+    </ul>
   </div>
 </section>
 
@@ -801,105 +808,47 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
     <!-- 6.2 -->
     <div class="flowblock">
       <h3>02 &middot; Add a TikTok link</h3>
-      <p class="lede">The flagship: eight stages, four places it can legitimately diverge, and one
-        genuine hard stop.</p>
+      <p class="lede">The flagship, and the one flow the whole product is built around.</p>
       <div class="flow">
         <figure>
-          <svg viewBox="0 0 420 752" role="img" aria-hidden="true" focusable="false">
+          <svg viewBox="0 0 420 428" role="img" aria-hidden="true" focusable="false">
             <defs>
               <marker id="ah-ink-1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
-              <marker id="ah-mint-1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-mint"/></marker>
-              <marker id="ah-gold-1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-gold"/></marker>
-              <marker id="ah-crit-1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-crit"/></marker>
             </defs>
 
-            <!-- spine connectors -->
-            <path class="fd-edge" d="M126,70 V106"  marker-end="url(#ah-ink-1)"/>
-            <path class="fd-edge" d="M126,166 V202" marker-end="url(#ah-ink-1)"/>
-            <path class="fd-edge" d="M126,262 V298" marker-end="url(#ah-ink-1)"/>
-            <path class="fd-edge" d="M126,358 V394" marker-end="url(#ah-ink-1)"/>
-            <path class="fd-edge main" d="M126,454 V490" marker-end="url(#ah-mint-1)"/>
-            <path class="fd-edge main" d="M126,550 V586" marker-end="url(#ah-mint-1)"/>
-            <path class="fd-edge" d="M126,646 V682" marker-end="url(#ah-ink-1)"/>
+            <path class="fd-edge" d="M210,66 V92" marker-end="url(#ah-ink-1)"/>
+            <path class="fd-edge" d="M210,148 V174" marker-end="url(#ah-ink-1)"/>
+            <path class="fd-edge" d="M210,230 V248 M107,248 H313"/>
+            <path class="fd-edge" d="M107,248 V266" marker-end="url(#ah-ink-1)"/>
+            <path class="fd-edge" d="M313,248 V266" marker-end="url(#ah-ink-1)"/>
+            <path class="fd-edge" d="M107,330 V354" marker-end="url(#ah-ink-1)"/>
 
-            <!-- forks -->
-            <path class="fd-edge alt"  d="M126,70 V88 H344 V106"   marker-end="url(#ah-gold-1)"/>
-            <path class="fd-edge stop" d="M126,262 V280 H344 V298" marker-end="url(#ah-crit-1)"/>
-            <path class="fd-edge alt"  d="M126,358 V376 H344 V394" marker-end="url(#ah-gold-1)"/>
-            <path class="fd-edge alt"  d="M126,646 V664 H344 V682" marker-end="url(#ah-gold-1)"/>
+            <text class="fd-lab" x="107" y="240" text-anchor="middle">places found</text>
+            <text class="fd-lab" x="313" y="240" text-anchor="middle">none named</text>
 
-            <text class="fd-lab" x="134" y="82">if not TikTok</text>
-            <text class="fd-lab" x="134" y="274">if unreadable</text>
-            <text class="fd-lab" x="134" y="370">if none named</text>
-            <text class="fd-lab" x="134" y="658">if partial</text>
+            <rect class="fd-node" x="10" y="10" width="400" height="56" rx="12"/>
+            <text class="fd-t" x="24" y="44">Paste one TikTok link</text>
 
-            <!-- the line that matters -->
-            <text class="fd-s" x="10" y="564">NOTHING IS SAVED ABOVE THIS LINE</text>
-            <path class="fd-edge" d="M10,568 H410" stroke-dasharray="3 4"/>
+            <rect class="fd-node" x="10" y="92" width="400" height="56" rx="12"/>
+            <text class="fd-t" x="24" y="126">The app reads the post</text>
 
-            <!-- spine nodes -->
-            <rect class="fd-node act" x="10" y="10"  width="232" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="36">Paste one TikTok link</text>
-            <text class="fd-s" x="24" y="58">ONE FIELD</text>
+            <rect class="fd-node" x="10" y="174" width="400" height="56" rx="12"/>
+            <text class="fd-t" x="24" y="208">It looks for places named in the caption</text>
 
-            <rect class="fd-node sys" x="10" y="106" width="232" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="128">Checked before</text>
-            <text class="fd-t" x="24" y="147">anything is sent</text>
-            <text class="fd-s" x="24" y="160">IN THE BROWSER</text>
+            <rect class="fd-node" x="10" y="266" width="194" height="64" rx="12"/>
+            <text class="fd-t sm" x="24" y="292">You review &mdash;</text>
+            <text class="fd-t sm" x="24" y="311">nothing is saved yet</text>
 
-            <rect class="fd-node sys" x="10" y="202" width="232" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="228">The post is read</text>
-            <text class="fd-s" x="24" y="250">NO TYPING OR SCREENSHOTS</text>
+            <rect class="fd-node alt" x="216" y="266" width="194" height="64" rx="12"/>
+            <text class="fd-t sm" x="230" y="292">No places in</text>
+            <text class="fd-t sm" x="230" y="311">this one</text>
 
-            <rect class="fd-node sys" x="10" y="298" width="232" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="320">The caption is read</text>
-            <text class="fd-t" x="24" y="339">for place names</text>
-            <text class="fd-s" x="24" y="352">ZERO IS A REAL ANSWER</text>
-
-            <rect class="fd-node sys" x="10" y="394" width="232" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="416">Each name matched</text>
-            <text class="fd-t" x="24" y="435">to a real place</text>
-            <text class="fd-s" x="24" y="448">MATCHED WHERE POSSIBLE</text>
-
-            <rect class="fd-node act" x="10" y="490" width="232" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="512">Review &mdash; nothing</text>
-            <text class="fd-t" x="24" y="531">is saved yet</text>
-            <text class="fd-s" x="24" y="544">YOU CONFIRM</text>
-
-            <rect class="fd-node act" x="10" y="586" width="232" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="608">Save the ones</text>
-            <text class="fd-t" x="24" y="627">you want</text>
-            <text class="fd-s" x="24" y="640">YOUR CHOICES ONLY</text>
-
-            <rect class="fd-node end" x="10" y="682" width="232" height="60" rx="12"/>
-            <text class="fd-t" x="24" y="708">Pins on your map</text>
-            <text class="fd-s" x="24" y="730">ONE PLACE, ONE PIN</text>
-
-            <!-- diverts -->
-            <rect class="fd-node alt" x="250" y="106" width="160" height="68" rx="12"/>
-            <text class="fd-t sm" x="262" y="128">Not TikTok, or</text>
-            <text class="fd-t sm" x="262" y="145">not a video &mdash;</text>
-            <text class="fd-t sm" x="262" y="162">add it by name</text>
-
-            <rect class="fd-node stop" x="250" y="298" width="160" height="68" rx="12"/>
-            <text class="fd-t sm" x="262" y="320">The post can't</text>
-            <text class="fd-t sm" x="262" y="337">be read &mdash; the</text>
-            <text class="fd-t sm" x="262" y="354">only hard stop</text>
-
-            <rect class="fd-node alt" x="250" y="394" width="160" height="68" rx="12"/>
-            <text class="fd-t sm" x="262" y="416">No places in</text>
-            <text class="fd-t sm" x="262" y="433">this one &mdash; see</text>
-            <text class="fd-t sm" x="262" y="450">the next flow</text>
-
-            <rect class="fd-node alt" x="250" y="682" width="160" height="68" rx="12"/>
-            <text class="fd-t sm" x="262" y="704">Saved 2 of 3 &mdash;</text>
-            <text class="fd-t sm" x="262" y="721">one couldn't</text>
-            <text class="fd-t sm" x="262" y="738">be saved</text>
+            <rect class="fd-node end" x="10" y="354" width="194" height="64" rx="12"/>
+            <text class="fd-t sm" x="24" y="380">You confirm &mdash;</text>
+            <text class="fd-t sm" x="24" y="399">pins on your map</text>
           </svg>
-          <figcaption><strong>Reading the drawing.</strong> Mint edges are the two steps you
-            control. Gold outlines are <em>other normal endings</em>, not failures — there are
-            three of them. The one dashed red box is the single genuine failure in the whole
-            product.</figcaption>
+          <figcaption>Two normal endings, not one success and one error. Nothing is written down
+            until the review is confirmed.</figcaption>
         </figure>
         <div class="narr">
           <p class="small">The drawing shows the shape. What it cannot show is the timing, which is
@@ -907,18 +856,19 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
             picture, the handle, the caption &mdash; and stays in front of you while the slower work
             runs underneath, so you are looking at something the whole time rather than at a
             spinner.</p>
-          <p class="small">Two of the diverges cost nothing at all, because they are settled in the
-            browser before a single request goes out: a link that is not a TikTok video is recognised
-            on the spot and handed to adding by name. The gold outlines are the other normal endings,
-            and there are three of them. Only the dashed red box is a real failure &mdash; the post
-            itself could not be read &mdash; and it is the only one in the product.</p>
+          <p class="small">Some links cost nothing at all, because they are settled in the browser
+            before a single request goes out: a link that is not a TikTok video is recognised on the
+            spot and handed to adding by name. Of the endings that follow a real import, the two
+            drawn here are both ordinary; a post that cannot be read at all is the only genuine
+            failure in the product, and it is rare enough to belong in a sentence rather than on the
+            drawing.</p>
           <p class="small">The review step is where the whole design lands. One card per place,
             confident matches already ticked, uncertain ones offered as a short choice with nothing
             chosen for you. You can change any of it, add a note, and untick whatever you do not
-            want, and <strong>nothing above that dashed line has been written down</strong>. Pasting
+            want, and <strong>nothing has been written down yet</strong>. Pasting
             the same link again gets you the same answer, so re-trying is cheap.</p>
-          <p class="small">The last node is the point of the other seven. A pin per place, each
-            keeping its link back to the post, waiting for a day that is usually weeks away.</p>
+          <p class="small">The last box is the point of all the others. A pin per place, each keeping its
+            link back to the post, waiting for a day that is usually weeks away.</p>
         </div>
       </div>
     </div>
@@ -997,15 +947,13 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
             <text class="fd-t" x="72" y="372">Tap a pin &mdash; the whole record</text>
             <text class="fd-s" x="72" y="394">NAME &middot; CATEGORY &middot; NOTE &middot; VIDEO</text>
 
-            <path class="fd-edge alt" d="M126,408 V428" marker-end="url(#ah-gold-3)"/>
-            <rect class="fd-node alt" x="56" y="428" width="354" height="48" rx="14"/>
+            <path class="fd-edge" d="M126,408 V428" marker-end="url(#ah-ink-3)"/>
+            <rect class="fd-node" x="56" y="428" width="354" height="48" rx="14"/>
             <text class="fd-t sm" x="72" y="450">Near me &mdash; offered, never demanded, and</text>
             <text class="fd-t sm" x="72" y="467">distances only when the fix is good enough</text>
           </svg>
-          <figcaption><strong>Reading the drawing.</strong> This flow is not a sequence — it is
-            three ways of drawing the same library, chosen by how far out you are. Gold marks a
-            conditional capability rather than a step: <em>near me</em> depends on a permission you
-            are free to refuse.</figcaption>
+          <figcaption>Three ways of drawing the same library, chosen by how far out you are &mdash;
+            not three steps.</figcaption>
         </figure>
         <div class="narr">
           <p class="small">This is the one flow that is not a sequence. The three tiers in the
