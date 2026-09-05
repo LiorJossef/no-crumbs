@@ -115,9 +115,14 @@ p { margin:0; }
    (mark, uppercase kicker, extrabold headline, muted subhead) beside a panel.
    ========================================================================= */
 .deck { position:fixed; inset:0; z-index:1; }
+/* 50px bar + its bottom offset + an 18px gap. Kept beside .bar's own rule below. */
+:root { --bar-space: calc(50px + clamp(14px,2vw,26px) + 18px); }
 .slide {
   position:absolute; inset:0; display:grid; align-content:center;
-  padding:clamp(30px,4.4vw,76px) clamp(26px,5.4vw,96px) clamp(80px,7vw,104px);
+  /* The bottom reserve is expressed as the bar's own footprint (height + its offset
+     from the viewport + a gap) so it cannot fall below the thing it exists to clear.
+     The vw term still widens it on large screens; the max() is the floor. */
+  padding:clamp(30px,4.4vw,76px) clamp(26px,5.4vw,96px) max(clamp(80px,7vw,104px), var(--bar-space));
   opacity:0; visibility:hidden;
   transition:opacity var(--d-cross) var(--ease-exit), visibility 0s var(--d-cross);
 }
@@ -282,6 +287,33 @@ em.hl { font-style:normal; color:var(--brand); }
 .bar .go:hover { box-shadow:var(--shadow-raised); }
 .bar .go:active { transform:scale(.98); }
 @media (max-width:620px) { .bar .wm span:last-child, .bar .go span { display:none; } }
+
+/* ---------------------------------------------------------------- short viewport
+   The type scale is driven by vw alone, so it cannot see a window that is wide but
+   short — a maximised laptop browser. There the text grows with the width while the
+   height does not, and the tallest slides (03 Architecture, 01 The problem) reach
+   under the bar. Compress instead of overflowing: a slide that scrolls during a talk
+   is worse than one that is a little tighter.
+   -------------------------------------------------------------------------------- */
+@media (max-height:900px) {
+  .slide { padding-top:clamp(20px,3vw,48px); }
+  .slide-in { gap:clamp(11px,1.4vw,20px) !important; }
+  .head { font-size:clamp(26px,3.5vw,46px); }
+  .sub { font-size:clamp(14px,1.3vw,18px); }
+  .cols { gap:clamp(18px,2.5vw,38px); }
+  .rows > div { padding-block:clamp(7px,0.85vw,11px); }
+  .rows .v { font-size:clamp(13px,1vw,15.5px); }
+  .panel { padding:clamp(14px,1.6vw,22px); }
+  /* width:auto keeps the aspect ratio while the height is capped, so the diagram
+     shrinks proportionally and stays centred rather than letterboxing. */
+  .fig svg { max-height:34vh; width:auto; margin-inline:auto; }
+}
+
+@media (max-height:760px) {
+  .head { font-size:clamp(24px,3vw,38px); }
+  .rows > div { padding-block:clamp(6px,0.7vw,9px); }
+  .fig svg { max-height:30vh; }
+}
 .nav { position:fixed; top:0; bottom:0; width:12%; z-index:20; border:0; background:none; cursor:pointer; opacity:0; }
 .nav.prev { left:0; } .nav.next { right:0; }
 
