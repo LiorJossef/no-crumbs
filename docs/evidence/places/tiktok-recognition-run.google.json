@@ -1,6 +1,6 @@
 {
   "_comment": "Machine record of a tests/manual/tiktok-recognition.manual.ts run — real TikTok URLs through the real oEmbed → caption → extraction → resolve flow. Regenerated on every run; see tiktok-recognition.md for the human reading. Corpus: tests/manual/tiktok-recognition-corpus.json.",
-  "run_at": "2026-08-28T07:52:41.034Z",
+  "run_at": "2026-09-05T15:36:02.362Z",
   "supabase_url": "http://127.0.0.1:54321",
   "overture_release": "2026-07-22.0",
   "region": {
@@ -19,47 +19,65 @@
     "provider": "google",
     "reason": "PLACE_RESOLVER=google"
   },
+  "scoring": {
+    "weights": {
+      "name": 1,
+      "category": 0,
+      "datasetConfidence": 0
+    },
+    "bands": {
+      "preselectScore": 0.92,
+      "preselectMargin": 0.05,
+      "confirmScore": 0.8,
+      "weakestToken": 0.81
+    },
+    "branch_guard": {
+      "rivalScoreBand": 0.12
+    },
+    "same_place_metres": 75,
+    "address_weight": 0.2,
+    "ranked_rows_recorded": 10
+  },
   "extractor": {
     "version": "2026-08-gemini-gemini-3.5-flash-lite",
-    "promptVersion": "p11-s3"
+    "promptVersion": "p17-s5"
   },
   "cache_bypassed": false,
   "network_this_run": {
-    "oembed_fetches": 0,
-    "llm_calls": 0
+    "oembed_fetches": 4,
+    "llm_calls": 5,
+    "google_text_search_calls": 5,
+    "google_text_search_replayed": 0
   },
   "summary": {
-    "auto_match": 6,
-    "adjudicated": 16,
-    "auto_match_rate": 0.375,
-    "correct_not_auto_accepted": 9,
+    "auto_match": 0,
+    "adjudicated": 0,
+    "auto_match_rate": null,
+    "correct_not_auto_accepted": 0,
     "wrong": 0,
-    "extraction_misses": 1,
+    "extraction_misses": 0,
     "false_auto_accepts": 0,
-    "unadjudicated": 1,
-    "cases": 13,
+    "unadjudicated": 5,
+    "cases": 5,
     "case_statuses": {
-      "ok": 13
+      "ok": 5
     },
-    "failure_buckets": {
-      "not_auto_accepted": 9,
-      "extraction_miss": 1
-    }
+    "failure_buckets": {}
   },
   "cases": [
     {
-      "url": "https://www.tiktok.com/@joelleuzyel/video/7259010845558983978",
-      "category": "talked_about_restaurants",
+      "url": "https://vt.tiktok.com/ZSqF2Bhg8/",
+      "category": "cafes",
       "status": "ok",
       "statusDetail": null,
-      "externalId": "7259010845558983978",
-      "authorHandle": "joelleuzyel",
-      "caption": "Resturants in Tel Aviv 📍Ha Kosem #foodie #restaurant #telaviv #israel",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "Tel Aviv",
+      "externalId": "7514620546823310610",
+      "authorHandle": "danielle__tal",
+      "caption": "בית הקפה הפריזאי ששבר את הרשת ✨🥐 ואחד מהאהובים עלי בארץ, משיק תפריט עם מנות חדשות ומיוחדות ומתעלה על עצמו כל פעם מחדש! ✨קפה מרי✨ מנות בראנץ׳ מיוחדות וטעימות, מאפים ומתוקים של קונדיטורית בעבודת יד, משקאות מרעננים וייחודיים לקיץ, עיצוב אלגנטי ונעים ותחושה של פריז. תוסיפו לזה שהוא כשר ונמצא במרכז - וקיבלתם את המקום המושלם! הטופ 3 שלי: ✨ טוסט פולטה פטריות עם מלא פרמז׳ן - מנת הדגל! ✨ ברוסקטה תרד עם ביצה עלומה - חדשה בתפריט ומדהימה! ✨ בייגל עם מקושקשת רכה כמו בפריז! בנוסף יש ויטרינה פריזאית עם מלא מאפים ומתוקים מדהימים בעבודת יד, בערב יש תפריט ערב חלבי נדיר, ופתוחים להזמנות של מגשי אירוח לאירועים! שעות פתיחה: ראשון-חמישי 8:00-22:00 תפריט בראנצ׳ים עד 19:00 החל מ19:00 תפריט ערב  שישי 7:30-14:00 כשר רבנות ✨ בשית!ף קפה מרי   @cafemari  #בראנץ #מאפים #קינוחים #ביתקפה #טעים #פודיז #כשר #קפה #פטיסרי #בוקר #פריז",
+      "captionSource": "live",
+      "extractionSource": "live",
+      "extractionCityHint": null,
       "rawCandidateNames": [
-        "Ha Kosem"
+        "קפה מרי"
       ],
       "droppedByPlausibility": {
         "hashtag_or_handle": 0,
@@ -70,57 +88,104 @@
       },
       "candidates": [
         {
-          "rawName": "Ha Kosem",
-          "cityHint": "Tel Aviv",
+          "rawName": "קפה מרי",
+          "cityHint": null,
           "countryHint": "Israel",
-          "categoryHint": "restaurant",
+          "categoryHint": "cafe",
           "addressHint": null,
-          "queryText": "Ha Kosem",
-          "queryCityHint": "Tel Aviv",
-          "expectedName": "HaKosem",
-          "expectedArea": "שלמה המלך 1, Tel Aviv",
+          "queryText": "קפה מרי",
+          "queryCityHint": null,
+          "expectedName": null,
+          "expectedArea": null,
           "regionsSearched": [
             "global"
           ],
           "candidatesPrefiltered": 1,
           "band": "preselect",
-          "score": 0.9500000000000001,
+          "score": 1,
           "margin": null,
           "top1": {
-            "name": "HaKosem",
-            "address": "Shlomo HaMelekh Street 1",
-            "locality": "Tel Aviv-Yafo",
-            "lat": 32.0763896,
-            "lng": 34.7766843,
-            "providerCategory": "falafel_restaurant",
+            "name": "קפה מרי",
+            "address": "ירושלים 121",
+            "locality": "ראשון לציון",
+            "lat": 31.959937300000004,
+            "lng": 34.8290584,
+            "providerCategory": "coffee_shop",
             "datasetConfidence": 0.5
           },
           "top3": [
-            "HaKosem (0.950)"
+            "קפה מרי (1.000)"
           ],
+          "ranking": {
+            "rows": [
+              {
+                "rank": 1,
+                "name": "קפה מרי",
+                "address": "ירושלים 121",
+                "locality": "ראשון לציון",
+                "lat": 31.959937300000004,
+                "lng": 34.8290584,
+                "provider": "google",
+                "providerPlaceId": "ChIJYbdWl4a1AhURiQ8XZ1TvvPw",
+                "providerCategory": "coffee_shop",
+                "datasetConfidence": 0.5,
+                "score": 1,
+                "nameScore": 1,
+                "tokenCoverage": 1,
+                "categoryScore": 1,
+                "addressScore": null,
+                "scoreGapFromTop1": 0,
+                "metresFromTop1": 0,
+                "nameDifferenceFromTop1": [],
+                "sameSpotAsTop1": true,
+                "withinRivalScoreBand": true
+              }
+            ],
+            "complete": true,
+            "rankedLength": 1,
+            "rowsAvailable": 1,
+            "branchGuard": {
+              "fired": false,
+              "rivalRank": null,
+              "rivalName": null,
+              "rivalScoreGap": null,
+              "rivalMetres": null,
+              "rivalDifference": null,
+              "reason": "no-rival",
+              "evaluatedOverRows": 1,
+              "forms": [
+                "קפה מרי",
+                "Cafe Mari"
+              ]
+            },
+            "constants": {
+              "rivalScoreBand": 0.12,
+              "samePlaceMetres": 75
+            }
+          },
           "resolutionKind": "answered",
-          "verdict": "auto_match",
+          "verdict": "unadjudicated",
           "failure": null,
           "acceptedRank": null,
           "indexProbeHits": null,
-          "note": null
+          "note": "no corpus expectation matched this candidate — rule from the top-3 below and add one"
         }
       ],
       "extractionMisses": []
     },
     {
-      "url": "https://vt.tiktok.com/ZSVprT9Ag/",
-      "category": "cafes",
+      "url": "https://vt.tiktok.com/ZSqF2DQSr/",
+      "category": "brunch",
       "status": "ok",
       "statusDetail": null,
-      "externalId": "7653903058312826133",
-      "authorHandle": "noyzo_eat",
-      "caption": "בית קפה אהוב בתל אביב עם מנות בריאות אבל מושחתות ואני כמובן מדברת על מתחת לעץ 🌳☕️ יש שם מנות בריאות, צבעוניות ועם חומרי גלם טריים ואיכותיים באמת שהכללל היה לנו טעים ברמות! הבולים שם חובה בעיניי! אנחנו לקחנו את הקארי עגבניות הודי שהיה מצויין גם הלביבות ירק על צזיקי, טוסט מוצרלה נמתחת והכרוב צלוי היו מעולים לאחרונה הם איגדו 6 מנות מתחת ל-500 קלוריות שזה מושלם למי שבחיטוב 💪🏽 יש להם משקאות מיוחדים ומושלמים כמו המאצ׳ה לאטה עם מייפל והנייג׳לה מייפל 🍵 האווירה שם  נעימה וקלילה, הכי לבוא עם ולשבת בכיף עם לפטופ, השירות הוא עצמי והמחירים ממש טובים  3 סניפים בת״א 📍 - נאת אפקה- נתן אלתרמן 13 מלא חניה ובחינם  - לבונטין 13 - בן יהודה 202",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
+      "externalId": "7643015488091475220",
+      "authorHandle": "danielle__tal",
+      "caption": "חשבתם שהבראנצ׳ים השווים נמצאים רק במרכז? אז תחשבו שוב, כי המקום הבא הולך להפתיע אתכם! ✨ בזיליקה ✨ האיטלקייה של הדרום 🇮🇹🍝🍕 בבוקר מדובר בבית קפה עם מנות בראנץ מצוינות, ובצהריים ובערב המקום הופך למסעדה איטלקית עם מנות טעימות באווירה כיפית וצעירה  ובלוקיישן כיפי של 5 דק נסיעה מחוף הים של אשקלון (חוף דלידה), אז מושלם לשלב את שניהם ליום בילוי כיפי 🌊☀️ אנחנו הגענו לטעום את תפריט הבראנץ החדש שהוא פשוט מעולה! המנות שהכי אהבנו: - קרואסון מקושקשת כמהין  - בריוש סלט ביצים עם בצל מקורמל - בנדיקט פלורנטין - ברוסקטה אבוקדו  - עוגת גבינה לקינוח 🍰 שעות פתיחה: ימים ראשון - חמישי 09:00-23:00 מוצ״ש 21:00-00:00 *שימו לב ששישי ושבת סגור! שדרות דוד בן גוריון 13, אשקלון בשיתוף בזיליקה #בראנץ #מסעדה #אוכל #ים #כשר",
+      "captionSource": "live",
+      "extractionSource": "live",
+      "extractionCityHint": "אשקלון",
       "rawCandidateNames": [
-        "מתחת לעץ"
+        "בזיליקה"
       ],
       "droppedByPlausibility": {
         "hashtag_or_handle": 0,
@@ -131,46 +196,202 @@
       },
       "candidates": [
         {
-          "rawName": "מתחת לעץ",
-          "cityHint": "תל אביב",
+          "rawName": "בזיליקה",
+          "cityHint": "אשקלון",
           "countryHint": "ישראל",
-          "categoryHint": "cafe",
-          "addressHint": null,
-          "queryText": "מתחת לעץ",
-          "queryCityHint": "תל אביב",
-          "expectedName": "מתחת לעץ",
-          "expectedArea": "נתן אלתרמן 13 / לבונטין 13 / בן יהודה 202, תל אביב",
+          "categoryHint": "restaurant",
+          "addressHint": "שדרות דוד בן גוריון 13, אשקלון",
+          "queryText": "בזיליקה",
+          "queryCityHint": "אשקלון",
+          "expectedName": null,
+          "expectedArea": null,
           "regionsSearched": [
             "global"
           ],
           "candidatesPrefiltered": 1,
           "band": "confirm",
-          "score": 0.8488387096774195,
+          "score": 0.7212000000000001,
           "margin": null,
           "top1": {
-            "name": "מתחת לעץ בן יהודה",
-            "address": "בן יהודה 202",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0901755,
-            "lng": 34.774119,
-            "providerCategory": "cafe",
+            "name": "בזיליקה- מסעדה איטלקית",
+            "address": "שדרות דוד בן גוריון 13",
+            "locality": "אשקלון",
+            "lat": 31.6659946,
+            "lng": 34.5584335,
+            "providerCategory": "italian_restaurant",
             "datasetConfidence": 0.5
           },
           "top3": [
-            "מתחת לעץ בן יהודה (0.849)"
+            "בזיליקה- מסעדה איטלקית (0.721)"
           ],
+          "ranking": {
+            "rows": [
+              {
+                "rank": 1,
+                "name": "בזיליקה- מסעדה איטלקית",
+                "address": "שדרות דוד בן גוריון 13",
+                "locality": "אשקלון",
+                "lat": 31.6659946,
+                "lng": 34.5584335,
+                "provider": "google",
+                "providerPlaceId": "ChIJpT_qikedAhURjJtCHd3_oBY",
+                "providerCategory": "italian_restaurant",
+                "datasetConfidence": 0.5,
+                "score": 0.7212000000000001,
+                "nameScore": 0.9015,
+                "tokenCoverage": 1,
+                "categoryScore": 1,
+                "addressScore": 0,
+                "scoreGapFromTop1": 0,
+                "metresFromTop1": 0,
+                "nameDifferenceFromTop1": [],
+                "sameSpotAsTop1": true,
+                "withinRivalScoreBand": true
+              }
+            ],
+            "complete": true,
+            "rankedLength": 1,
+            "rowsAvailable": 1,
+            "branchGuard": {
+              "fired": false,
+              "rivalRank": null,
+              "rivalName": null,
+              "rivalScoreGap": null,
+              "rivalMetres": null,
+              "rivalDifference": null,
+              "reason": "no-rival",
+              "evaluatedOverRows": 1,
+              "forms": [
+                "בזיליקה",
+                "Basilica Ashkelon"
+              ]
+            },
+            "constants": {
+              "rivalScoreBand": 0.12,
+              "samePlaceMetres": 75
+            }
+          },
           "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
+          "verdict": "unadjudicated",
+          "failure": null,
+          "acceptedRank": null,
           "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
+          "note": "no corpus expectation matched this candidate — rule from the top-3 below and add one"
         }
       ],
       "extractionMisses": []
     },
     {
-      "url": "https://vt.tiktok.com/ZSVphhEg6/",
+      "url": "https://vt.tiktok.com/ZSqF24PBH/",
+      "category": "talked_about_restaurants",
+      "status": "ok",
+      "statusDetail": null,
+      "externalId": "7610698546961992968",
+      "authorHandle": "stavkagan",
+      "caption": "זה המקום שאני תמיד חוזרת אליו מסעדה איטלקית כשרה בהרצליה עם פיצות מעולות, פסטות איכותיות וסלטים טריים. ויש מגוון אופציות ללא גלוטן. אל תפספסו את הניוקי ערמונים הכי טעים שאכלתי ופסטה אולליק מנה מושלמת. ובגזרת הפיצות את הפיצה בוראטה ופיצה אמיליה שהיו ממש טעימות. זה מקום מושלם לבילוי ערב עם אוכל מפנק לצד יין או בירה. ודאגתי לכם ל*הטבה שווה* לשבועיים הקרובים  קינוח מתנה בקנייה מעל 80 ש״ח עם קוד קופון - MUCHA26  ההטבה תקפה לכל הסניפים בין התאריכים 23.2.26-21.3.26 אז תכירו את מוצ׳ה בהרצליה פיתוח📍 המסעדה כשרה. כתובת: אבא אבן 12, הרצליה. ותעקבו לעוד המלצות :) #מסעדה #אוכל #כשר #קינוחים #הרצליה ",
+      "captionSource": "live",
+      "extractionSource": "live",
+      "extractionCityHint": "הרצליה",
+      "rawCandidateNames": [
+        "מוצ׳ה"
+      ],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "candidates": [
+        {
+          "rawName": "מוצ׳ה",
+          "cityHint": "הרצליה",
+          "countryHint": "ישראל",
+          "categoryHint": "restaurant",
+          "addressHint": "אבא אבן 12, הרצליה",
+          "queryText": "מוצ׳ה",
+          "queryCityHint": "הרצליה",
+          "expectedName": null,
+          "expectedArea": null,
+          "regionsSearched": [
+            "global"
+          ],
+          "candidatesPrefiltered": 1,
+          "band": "confirm",
+          "score": 0.7160000000000001,
+          "margin": null,
+          "top1": {
+            "name": "Mucha - הרצליה",
+            "address": "שדרות אבא אבן 12",
+            "locality": "הרצליה",
+            "lat": 32.161563099999995,
+            "lng": 34.8083831,
+            "providerCategory": "restaurant",
+            "datasetConfidence": 0.5
+          },
+          "top3": [
+            "Mucha - הרצליה (0.716)"
+          ],
+          "ranking": {
+            "rows": [
+              {
+                "rank": 1,
+                "name": "Mucha - הרצליה",
+                "address": "שדרות אבא אבן 12",
+                "locality": "הרצליה",
+                "lat": 32.161563099999995,
+                "lng": 34.8083831,
+                "provider": "google",
+                "providerPlaceId": "ChIJMfxNmcBJHRURh-3TZ9hed_I",
+                "providerCategory": "restaurant",
+                "datasetConfidence": 0.5,
+                "score": 0.7160000000000001,
+                "nameScore": 0.895,
+                "tokenCoverage": 1,
+                "categoryScore": 1,
+                "addressScore": 0,
+                "scoreGapFromTop1": 0,
+                "metresFromTop1": 0,
+                "nameDifferenceFromTop1": [],
+                "sameSpotAsTop1": true,
+                "withinRivalScoreBand": true
+              }
+            ],
+            "complete": true,
+            "rankedLength": 1,
+            "rowsAvailable": 1,
+            "branchGuard": {
+              "fired": false,
+              "rivalRank": null,
+              "rivalName": null,
+              "rivalScoreGap": null,
+              "rivalMetres": null,
+              "rivalDifference": null,
+              "reason": "no-rival",
+              "evaluatedOverRows": 1,
+              "forms": [
+                "מוצ׳ה",
+                "מוצ'ה",
+                "Mucha"
+              ]
+            },
+            "constants": {
+              "rivalScoreBand": 0.12,
+              "samePlaceMetres": 75
+            }
+          },
+          "resolutionKind": "answered",
+          "verdict": "unadjudicated",
+          "failure": null,
+          "acceptedRank": null,
+          "indexProbeHits": null,
+          "note": "no corpus expectation matched this candidate — rule from the top-3 below and add one"
+        }
+      ],
+      "extractionMisses": []
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSqF2UwSs/",
       "category": "cafes",
       "status": "ok",
       "statusDetail": null,
@@ -178,7 +399,7 @@
       "authorHandle": "paz_farchi1",
       "caption": "⁨\t⁨\t⁨\tבית קפה חדש בסגנון יפני נפתח בתל אביב 🇯🇵✨ 📍קוהי, בן יהודה 155 תל אביב  הוקם ע”י סרבר גולומוב, שחי את התרבות היפנית כבר שנים והחליט להביא את זה לידי ביטוי בבית קפה מדוייק. מהתפריט תמצאו כאן שילוב מושלם בין קפה איכותי לבין אוכל יפני-אירופי עדין. יש כריך טמאגו על בריוש רך,  מוזלי עם אוכמניות ומנגו, סלט ירקות טבעוני וסלט קינואה הדרים למי שמחפש משהו קליל. והקינוחים? ואוו.  פנקייק יפני אוורירי בשתי גרסאות, פרנץ’ טוסט בריוש, עוגיות שוקולד ומאצ׳ה, רולדת מאצ׳ה ועוגת לימון מפוצצת הדרים. 🍰 ולמי שמגיע בשביל הקפה- זה לגמרי המקום!  קוהי מגישים קפה ספיישליטי שמגיע מבתי קלייה ברחבי העולם: יפן, הולנד, ארה״ב, בריטניה וגם מישראל. המחירים הוגנים לגמרי: אספרסו 13 ש״ח, פלאט וויט 17 ש״ח, קפוצ’ינו 18 ש״ח 💰 חשוב לדעת:  🔸אין תעודת כשרות כי פתוח בשבת 🔸שעות פתיחה:⁩ ראשון- שבת 07:30-18:30⁩⁩#המלצות #המלצפז #תלאביב #בתיקפה #בתיקפהתלאביב ",
       "captionSource": "cache",
-      "extractionSource": "cache",
+      "extractionSource": "live",
       "extractionCityHint": "תל אביב",
       "rawCandidateNames": [
         "קוהי"
@@ -199,14 +420,14 @@
           "addressHint": "בן יהודה 155",
           "queryText": "קוהי",
           "queryCityHint": "תל אביב",
-          "expectedName": "קוהי (Kohi)",
-          "expectedArea": "בן יהודה 155, תל אביב",
+          "expectedName": null,
+          "expectedArea": null,
           "regionsSearched": [
             "global"
           ],
           "candidatesPrefiltered": 1,
-          "band": "confirm",
-          "score": 0.8853333333333333,
+          "band": "preselect",
+          "score": 0.9066666666666667,
           "margin": null,
           "top1": {
             "name": "Kohi בית קפה יפני",
@@ -218,59 +439,78 @@
             "datasetConfidence": 0.5
           },
           "top3": [
-            "Kohi בית קפה יפני (0.885)"
+            "Kohi בית קפה יפני (0.907)"
           ],
+          "ranking": {
+            "rows": [
+              {
+                "rank": 1,
+                "name": "Kohi בית קפה יפני",
+                "address": "בן יהודה 155",
+                "locality": "תל אביב-יפו",
+                "lat": 32.088286,
+                "lng": 34.773303,
+                "provider": "google",
+                "providerPlaceId": "ChIJ8wxsCABNHRURPXmEiwFalTI",
+                "providerCategory": "coffee_shop",
+                "datasetConfidence": 0.5,
+                "score": 0.9066666666666667,
+                "nameScore": 0.8833333333333333,
+                "tokenCoverage": 1,
+                "categoryScore": 1,
+                "addressScore": 1,
+                "scoreGapFromTop1": 0,
+                "metresFromTop1": 0,
+                "nameDifferenceFromTop1": [],
+                "sameSpotAsTop1": true,
+                "withinRivalScoreBand": true
+              }
+            ],
+            "complete": true,
+            "rankedLength": 1,
+            "rowsAvailable": 1,
+            "branchGuard": {
+              "fired": false,
+              "rivalRank": null,
+              "rivalName": null,
+              "rivalScoreGap": null,
+              "rivalMetres": null,
+              "rivalDifference": null,
+              "reason": "no-rival",
+              "evaluatedOverRows": 1,
+              "forms": [
+                "קוהי",
+                "Kohi"
+              ]
+            },
+            "constants": {
+              "rivalScoreBand": 0.12,
+              "samePlaceMetres": 75
+            }
+          },
           "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
+          "verdict": "unadjudicated",
+          "failure": null,
+          "acceptedRank": null,
           "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
+          "note": "no corpus expectation matched this candidate — rule from the top-3 below and add one"
         }
       ],
       "extractionMisses": []
     },
     {
-      "url": "https://vt.tiktok.com/ZSVprTkwJ/",
-      "category": "brunch",
+      "url": "https://vt.tiktok.com/ZSqF2yEx5/",
+      "category": "cafes",
       "status": "ok",
       "statusDetail": null,
-      "externalId": "7548837331906645256",
-      "authorHandle": "liran.rozen",
-      "caption": "בראנץ׳ צרפתי כשר וחדש בתל אביב🥂 (פירוט👇🏻) #לירןרוזן #אוכלים_עם_לירן #בראנץ #5אננסים #מדדלירן  שעבר ללב תל אביב 🇫🇷 כתובת: לבונטין 19, תל אביב📍 כשר: כן! (רבנות תל אביב) ✅ סיקרתי אותו כבר פעמיים: בראסרי 18 נפתחה ממש לאחר פרוץ המלחמה בנובמבר 2023 ולאחרונה עבר מרמת אביב  ללב העיר בלבונטין 19 🙌🏻 שף המסעדה הוא שלמה שריקי, בחור צעיר ומוכשר שנכנס לכובע השף תוך כדי המלחמה ושירות מילואים! התפריט מציע קלאסיקות כמו פרנץ׳ טוסט, מילפיי,  אגז בנדיקט, סלט קיסר, טרטר טונה, סטייק טונה ועוד! הבראסרי פתוח כל היום! כמיטב המסורת  עם שלושה תפריטים שונים: בראנץ׳, עסקית צהריים וערב. בראנץ׳: שני עד חמישי: 9:00 עד 11:30 שישי: 9:00 עד 14:00 עסקיות צהריים: ראשון עד חמישי: 12:15 עד 15:30 ערב: ראשון עד חמישי 19:30 עד 22:00 האפי האוור (20% הנחה על הכל) ראשון עד חמישי: 17:30 עד 19:30 5 אננסים במדד לירן! (5/5) 🍍🍍🍍🍍🍍 (שירות, ניקיון, עיצוב, טעם ומחיר) כן דירגתי כי הם לא באמת חדשים. רק עברו מיקום. המסעדה מבוססת כבר. חייבת להגיע שוב בערב גם ❤️🙌🏻 ספרו לי מה אתם חשבתם👇🏻",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [],
-      "extractionMisses": [
-        "בראסרי 18"
-      ]
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVphdqUs/",
-      "category": "brunch",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7606612154493488402",
-      "authorHandle": "nadavbornstein",
-      "caption": "הבראנ׳צים הכי שווים היום בתל אביב    הבראנץ׳ קונטיננטל של קפה אירופה עם הדיספליי המרהיב - המון קינוחים, מלא מאפים מתוקים מלוחים 📍קפה אירופה   שישי ושבת, החל מ-11:00 זה של מיכל אפשטיין בeats עם הסקונס הפנומנליים שלה אגז בנדיקט הגרילד צ׳יז שטובלים במרק עגבניות שרופות ואיך אני אוהב פרנץ’ טוסט, כאן מקורמל ובפנים קרם וניל 📍eats בית חנה  שישי ושבת, 09:00-15:00 זה עם הבופה-מאפים, פחמימות פשוט נפלאות - החושחש והרוגעלך שווים הגעה במיוחד - שמים על המגש ומתיישבים בחממה של האחים 📍האחים  ראשון-שישי, 08:00-12:00 שישי כל שבועיים, 12:30-16:00 עלות כרטיס: 290 ש״ח ארוחת הבוקר של בל עמי - עם הפנקייק שכל בוקר אני מפנטז עליו, והפרנץ טוסט כמו קרפ סוזט רק להזמין מקום חודש מראש 📍בל עמי   הבראנץ׳-מסיבה בפלט - עם הבר שעמוס מנות ביס ומאפים. קונים כרטיס - והכל כולל האלכוהול ללא הגבלה (אבל לא זול הכרטיס) 📍Palette Bistro  יאללה שיהיה בוקר טוב 🌅",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
+      "externalId": "7615709940753173767",
+      "authorHandle": "noarecommends",
+      "caption": "בית קפה פטיסרי צרפתי, כשר ומושלם בשרון!!! ביקור קטן ב־L’Art du Pain 🥐 יש מקומות שאתה נכנס אליהם רק בשביל “קפה קטן”, ואז יוצא עם שקית מלאה מאפים… זה בדיוק מה שקורה פה. הריח של חמאה טרייה באוויר, הוויטרינה מלאה קרואסונים זהובים וקינוחים שנראים כמו גלויה מפריז 🇫🇷 הזמנתי מאפה טוב לצד קפה, ויש משהו בביס הראשון שמיד מסביר למה המקום הזה כל כך אהוב. הבצק פריך מבחוץ, רך מבפנים, והמילוי עשיר בדיוק במידה הנכונה. אם אתם מגיעים לכאן – אל תוותרו על הקרואסונים או על אחד הקינוחים המושקעים. זה מסוג המקומות שמוכיחים שמאפה טוב באמת לא צריך הרבה יותר מזה ☕🥐 לפעמים כל מה שצריך זה רגע קטן של מתוק באמצע היום #fyp #foodtok #ביתקפה #כשר #המלצה ",
+      "captionSource": "live",
+      "extractionSource": "live",
+      "extractionCityHint": null,
       "rawCandidateNames": [
-        "קפה אירופה",
-        "eats בית חנה",
-        "האחים",
-        "בל עמי",
-        "Palette Bistro"
+        "L’Art du Pain"
       ],
       "droppedByPlausibility": {
         "hashtag_or_handle": 0,
@@ -281,49 +521,13 @@
       },
       "candidates": [
         {
-          "rawName": "קפה אירופה",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
+          "rawName": "L’Art du Pain",
+          "cityHint": null,
+          "countryHint": "Israel",
           "categoryHint": "cafe",
           "addressHint": null,
-          "queryText": "קפה אירופה",
-          "queryCityHint": "תל אביב",
-          "expectedName": "קפה אירופה",
-          "expectedArea": "תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "confirm",
-          "score": 0.8500000000000001,
-          "margin": null,
-          "top1": {
-            "name": "קפה אירופה",
-            "address": "Rothschild Boulevard 9",
-            "locality": "Tel Aviv-Yafo",
-            "lat": 32.0632446,
-            "lng": 34.7702488,
-            "providerCategory": "restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "קפה אירופה (0.850)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
-          "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
-        },
-        {
-          "rawName": "eats בית חנה",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "cafe",
-          "addressHint": null,
-          "queryText": "eats בית חנה",
-          "queryCityHint": "תל אביב",
+          "queryText": "L’Art du Pain",
+          "queryCityHint": null,
           "expectedName": null,
           "expectedArea": null,
           "regionsSearched": [
@@ -331,625 +535,74 @@
           ],
           "candidatesPrefiltered": 1,
           "band": "preselect",
-          "score": 0.9500000000000001,
+          "score": 0.9568333333333334,
           "margin": null,
           "top1": {
-            "name": "איטס",
-            "address": "אד\"ם הכהן 1",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0837935,
-            "lng": 34.7762093,
-            "providerCategory": "cafe",
+            "name": "לאר דו פאן",
+            "address": "Ha-Tidhar Street 15",
+            "locality": "Ra'anana",
+            "lat": 32.1963121,
+            "lng": 34.884293899999996,
+            "providerCategory": "pastry_shop",
             "datasetConfidence": 0.5
           },
           "top3": [
-            "איטס (0.950)"
+            "לאר דו פאן (0.957)"
           ],
+          "ranking": {
+            "rows": [
+              {
+                "rank": 1,
+                "name": "לאר דו פאן",
+                "address": "Ha-Tidhar Street 15",
+                "locality": "Ra'anana",
+                "lat": 32.1963121,
+                "lng": 34.884293899999996,
+                "provider": "google",
+                "providerPlaceId": "ChIJ55VKeAI5HRURByTXup2WlBk",
+                "providerCategory": "pastry_shop",
+                "datasetConfidence": 0.5,
+                "score": 0.9568333333333334,
+                "nameScore": 0.9568333333333334,
+                "tokenCoverage": 0.9833333333333334,
+                "categoryScore": 0,
+                "addressScore": null,
+                "scoreGapFromTop1": 0,
+                "metresFromTop1": 0,
+                "nameDifferenceFromTop1": [],
+                "sameSpotAsTop1": true,
+                "withinRivalScoreBand": true
+              }
+            ],
+            "complete": true,
+            "rankedLength": 1,
+            "rowsAvailable": 1,
+            "branchGuard": {
+              "fired": false,
+              "rivalRank": null,
+              "rivalName": null,
+              "rivalScoreGap": null,
+              "rivalMetres": null,
+              "rivalDifference": null,
+              "reason": "no-rival",
+              "evaluatedOverRows": 1,
+              "forms": [
+                "L’Art du Pain",
+                "לארט דו פאן",
+                "לארט דופאן"
+              ]
+            },
+            "constants": {
+              "rivalScoreBand": 0.12,
+              "samePlaceMetres": 75
+            }
+          },
           "resolutionKind": "answered",
           "verdict": "unadjudicated",
           "failure": null,
           "acceptedRank": null,
           "indexProbeHits": null,
           "note": "no corpus expectation matched this candidate — rule from the top-3 below and add one"
-        },
-        {
-          "rawName": "האחים",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": null,
-          "queryText": "האחים",
-          "queryCityHint": "תל אביב",
-          "expectedName": "האחים",
-          "expectedArea": "אבן גבירול 26, תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "preselect",
-          "score": 0.9500000000000001,
-          "margin": null,
-          "top1": {
-            "name": "האחים",
-            "address": "שלמה אבן גבירול 26",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0745789,
-            "lng": 34.7821292,
-            "providerCategory": "middle_eastern_restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "האחים (0.950)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "auto_match",
-          "failure": null,
-          "acceptedRank": null,
-          "indexProbeHits": null,
-          "note": null
-        },
-        {
-          "rawName": "בל עמי",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": null,
-          "queryText": "בל עמי",
-          "queryCityHint": "תל אביב",
-          "expectedName": "בל עמי",
-          "expectedArea": "תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "preselect",
-          "score": 0.9500000000000001,
-          "margin": null,
-          "top1": {
-            "name": "בל עמי",
-            "address": "בן עמי 14",
-            "locality": "תל אביב-יפו",
-            "lat": 32.078286,
-            "lng": 34.773292,
-            "providerCategory": "restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "בל עמי (0.950)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "auto_match",
-          "failure": null,
-          "acceptedRank": null,
-          "indexProbeHits": null,
-          "note": null
-        },
-        {
-          "rawName": "Palette Bistro",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "bar",
-          "addressHint": null,
-          "queryText": "Palette Bistro",
-          "queryCityHint": "תל אביב",
-          "expectedName": "Palette Bistro",
-          "expectedArea": "תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "confirm",
-          "score": 0.8500000000000001,
-          "margin": null,
-          "top1": {
-            "name": "Palette Bistro",
-            "address": "שדרות ירושלים 22",
-            "locality": "תל אביב-יפו",
-            "lat": 32.054024,
-            "lng": 34.759276899999996,
-            "providerCategory": "restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "Palette Bistro (0.850)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
-          "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
-        }
-      ],
-      "extractionMisses": []
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVprwmjy/",
-      "category": "brunch",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7603002710132116744",
-      "authorHandle": "shirazooooo",
-      "caption": "זה המקום המושלם מבחינתי בתל אביב,  מראשון עד שישי מגישים ב׳אחים׳ בוקר חלומי שכולל בעיקר כמויות בלתי נתפסות של מאפים בכל הסוגים והגדלים. בוחרים כמה שאוהבים (כל אחד במחיר שונה) ומתיישבים בחצר ענקית ומהממת.  אני כל כך נהנתי היה לי בוקר מושלם ואין לי ספק שאחזור שוב בקרוב שמרו לכם  📍האחים, אבן גבירול 26 #בוקרבתלאביב #ארוחתבוקר ",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "האחים"
-      ],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [
-        {
-          "rawName": "האחים",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "אבן גבירול 26",
-          "queryText": "האחים",
-          "queryCityHint": "תל אביב",
-          "expectedName": "האחים",
-          "expectedArea": "אבן גבירול 26, תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "preselect",
-          "score": 0.9600000000000002,
-          "margin": null,
-          "top1": {
-            "name": "האחים",
-            "address": "שלמה אבן גבירול 26",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0745789,
-            "lng": 34.7821292,
-            "providerCategory": "middle_eastern_restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "האחים (0.960)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "auto_match",
-          "failure": null,
-          "acceptedRank": null,
-          "indexProbeHits": null,
-          "note": null
-        }
-      ],
-      "extractionMisses": []
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVph2SnR/",
-      "category": "bakeries",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7635005463251143944",
-      "authorHandle": "sapir_rahmany",
-      "caption": "⸻ ארוחת בוקר חדשה בקונספט קצת אחר באחד המקומות הוותיקים והטובים בעיר הקונדיטורית טולי נווה (יוצאת בייקרי נומי) חברה לאחים ויחד נולד מקום שמחבר בין פטיסרי מושקע לבראנץ׳ איך זה עובד? בוחרים מהמגוון עם מגש ומשלמים בקופה – שירות עצמי אבל עם מלא מקומות ישיבה בפנים ובחוץ אין תפריט קבוע יש מאפים מלוחים ומתוקים, קינוחי פטיסרי, שקשוקה תרד, בייגלה מיוחדים, מלאווח בעבודת יד והרוגעלך הכי מדובר בת״א טווח מחירים קצת גבוה אבל אין תשלום על שירות וחומרי הגלם ברמה מאוד גבוהה לדוגמה: מאפה רוברב היביסקוס עם חמאה מותססת רולדת תות עם זוטא לבנה ותלתלי תות של המדגסקר שקשוקה מעלי חובזה ותרד ראשון עד שישי 08:00–12:00 האחים, אבן גבירול 26 📍 #ארוחתבוקר #תלאביב #בראנץ #בייקרי",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "האחים"
-      ],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [
-        {
-          "rawName": "האחים",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "אבן גבירול 26",
-          "queryText": "האחים",
-          "queryCityHint": "תל אביב",
-          "expectedName": "האחים",
-          "expectedArea": "אבן גבירול 26, תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "preselect",
-          "score": 0.9600000000000002,
-          "margin": null,
-          "top1": {
-            "name": "האחים",
-            "address": "שלמה אבן גבירול 26",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0745789,
-            "lng": 34.7821292,
-            "providerCategory": "middle_eastern_restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "האחים (0.960)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "auto_match",
-          "failure": null,
-          "acceptedRank": null,
-          "indexProbeHits": null,
-          "note": null
-        }
-      ],
-      "extractionMisses": []
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVphFPMC/",
-      "category": "talked_about_restaurants",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7651616355346648327",
-      "authorHandle": "thefoodnett",
-      "caption": "איטלקיה חדשה בתל אביב! טרטוריה אונה של שף איתי קושמרו מה-aka, פתח עכשיו ברמת אביב רחוק ממרכז העיר ובעיות החניה איטלקית שכונתית, קז׳ואלית סטייל הטרטוריות של איטליה. יש 8 פסטות וראשונות של ירק, מטוגנים ועוד ו-2 קינוחים לביס מתוק בסוף. ✨אל תוותרו על: אנילוטי גבינות בחמאת מרווה 84₪ | סלט תירס 48₪ ✨מחירים (התפריט מופיע בריל): ראשונות 29₪-66₪, פסטות 65₪-84₪ ✨התאמות אוכל: הריוניות🤰🏻 - מבחר די גדול וגם הביצים בקינוחים מפוסטרות! לל״ג - יש אפשרות לפסטה פנה ללא גלוטן. 📍איינשטיין 69, תל אביב פתוחים כל יום מ-17:00 כדאי להזמין מקום מראש מניסיוני יש חניות כחול לבן בסביבה",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "טרטוריה אונה"
-      ],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [
-        {
-          "rawName": "טרטוריה אונה",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "איינשטיין 69",
-          "queryText": "טרטוריה אונה",
-          "queryCityHint": "תל אביב",
-          "expectedName": "טרטוריה אונה",
-          "expectedArea": "איינשטיין 69, תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 8,
-          "band": "no_match",
-          "score": 0.7600000000000001,
-          "margin": 0.16172089383879484,
-          "top1": {
-            "name": "Trattoria Una",
-            "address": "בארט 2",
-            "locality": "תל אביב-יפו",
-            "lat": 32.1135186,
-            "lng": 34.7993016,
-            "providerCategory": "italian_restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "Trattoria Una (0.760)",
-            "איטלקיה בפשפשים (0.598)",
-            "טונינו (0.597)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
-          "indexProbeHits": null,
-          "note": "top-1 is right, band no_match, margin 0.162"
-        }
-      ],
-      "extractionMisses": []
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVph2Q9n/",
-      "category": "talked_about_restaurants",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7416278674976034056",
-      "authorHandle": "sapir_magal",
-      "caption": "זאת אחת המסעדות האיטלקיות הכי ותיקות ומוכרות בתל אביב באווירה איטלקית קלאסית ועכשיו יש להם תפריט חדש ומפתיע! תכירו את מסעדת רוסטיקו 🍽️ במקום תמצאו תפריט מגוון הכולל ראשונות, פסטות, פיצות, דגים, פירות ים ובשרים והכל נעשה במקום מחומרי גלם טריים ואיכותיים! אופציה לצמחוני, טבעוני וללא גלוטן 🌱 יש גם בר אלכוהול שמציע מגוון יינות, בירות וקוקטיילים מעולים 🍹 יש גם האפי האוור של 20% הנחה על כל האלכוהול בין הימים א׳-ה׳ בין השעות 17:00-19:0 🍺 שעות פתיחה: 🕐 ב׳-שבת- 12:00-22:30 א׳- 18:00-22:30 כתובת: בזל 42, תל אביב 📍 ויש מסעדה נוספת ברוטשילד 15, תל אביב 📍 (יש חניון ממול)  מומלץ להזמין מקומות מראש דרך אונטופו 📲 יש משלוחים דרך וולט ותן ביס 🏍️ ויש אופציה לסגור אירועים בחדר אירועים (עד 24 מקומות) בקיצור תשלחו למישהו שחייב לקחת אתכם לשם 😜 בשיתוף רוסטיקו #ספירממליצה #פודטוק #מסעדהאיטלקית ",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "רוסטיקו"
-      ],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [
-        {
-          "rawName": "רוסטיקו",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "בזל 42",
-          "queryText": "רוסטיקו",
-          "queryCityHint": "תל אביב",
-          "expectedName": "רוסטיקו",
-          "expectedArea": "בזל 42 / רוטשילד 15, תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "no_match",
-          "score": 0.7046068965517243,
-          "margin": null,
-          "top1": {
-            "name": "רוסטיקו רוטשילד",
-            "address": "שדרות רוטשילד 15",
-            "locality": "תל אביב-יפו",
-            "lat": 32.063286999999995,
-            "lng": 34.7708413,
-            "providerCategory": "italian_restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "רוסטיקו רוטשילד (0.705)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
-          "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
-        }
-      ],
-      "extractionMisses": []
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVphDRbd/",
-      "category": "desserts",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7647572114941201671",
-      "authorHandle": "thefoodnett",
-      "caption": "⁨\t⁨\tג׳לאטו איטלקי חדש בתל אביב! 🍦✨🇮🇹 ‪‪@gelalucci‬‬  יש מבחר טעמים - איטלקיים קלאסיים וגם טעמים מיוחדים שפותחו במיוחד לישראל. יש סורבה, גלידות ללא חלב/סוכר, גלידות ללא גלוטן - בקיצור מתאים לכולם! הריוניות: יש כמה טעמים בודדים עם ביצים ומנקים ושוטפים את המכונה בין הכנה להכנה (אבל אי אפשר להבטיח סטריליות מוחלטת) טווח מחירים לכדורי גלידה: 17₪-31₪ 📍מסריק 1, תל אביב שעות הרצה (עשויות להשתנות):  ראשון-רביעי - 00:00-10:00 חמישי - 10:00 - 01:00 שישי - 09:00 - 01:00 שבת - 09:00 - 00:00 ייתכנו שינויים בימי ההרצה הראשונים בשיתוף טעים מאוד!⁩⁩",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "Gelalucci"
-      ],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [
-        {
-          "rawName": "Gelalucci",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "shop",
-          "addressHint": "מסריק 1",
-          "queryText": "Gelalucci",
-          "queryCityHint": "תל אביב",
-          "expectedName": "Gelalucci",
-          "expectedArea": "מסריק 1, תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "confirm",
-          "score": 0.8800000000000001,
-          "margin": null,
-          "top1": {
-            "name": "Gelalucci",
-            "address": "שדרות מסריק 1",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0780324,
-            "lng": 34.7778513,
-            "providerCategory": "ice_cream_shop",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "Gelalucci (0.880)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
-          "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
-        }
-      ],
-      "extractionMisses": []
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVph5Xor/",
-      "category": "brunch",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7674587716595535112",
-      "authorHandle": "thefoodnett",
-      "caption": "⁨\t⁨\t⁨\tהבראנץ החדש של חיים כהן! ✨🥞🥑🍳 ‪‪‪@chef_haim_cohen‬‬‬  דיזנגוף 9‪@dizengoff_99‬99‬99‬99  חיים בנה כאן בראנץ׳ שווה מאוד ב-150₪ לאדם: במקום המאזטים והצלוחיות שכולנו רגילים לראות מתחילים בפתיחים מושקעים. בוחרים 3 (או 5 אם אתם זוג) ממבחר שכולל למשל פסטרמי אלבקור, סלקים וסטרצ׳יאטלה, עגבניות שרי על גספצ׳ו וסלט ביצים. לאלה מתווספת סלסלת לחמים ומאפים טריים, 2 קפה ומיץ (ויפנקו אם תרצו בעוד) ועיקרית לבחירה מבין מנות ביצים עלומות שונות או ביצים מקושקשות, שקשוקה והפנקייק המעולה של דיקסי. אפשר גם לבחור להרכיב ארוחה איך שרוצים ולא מהארוחה המובנת ואז העיקריות נעות סביב 50₪ והצלוחיות 20₪-30₪. 📍דיזנגוף 99, תל אביב מומלץ להזמין מקום מראש, בטח בסופ״ש ‎ראשון-שישי 7:30-11:30 שבת 8:00-11:30⁩⁩⁩",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "דיזנגוף 99"
-      ],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [
-        {
-          "rawName": "דיזנגוף 99",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "דיזנגוף 99",
-          "queryText": "דיזנגוף 99",
-          "queryCityHint": "תל אביב",
-          "expectedName": "דיזנגוף 99",
-          "expectedArea": "דיזנגוף 99, תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "confirm",
-          "score": 0.8800000000000001,
-          "margin": null,
-          "top1": {
-            "name": "דיזנגוף 99",
-            "address": "דיזנגוף 99",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0793044,
-            "lng": 34.7737548,
-            "providerCategory": "premise",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "דיזנגוף 99 (0.880)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
-          "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
-        }
-      ],
-      "extractionMisses": []
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVphmY3a/",
-      "category": "talked_about_restaurants",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7651299293902474503",
-      "authorHandle": "nadavbornstein",
-      "caption": "בר השניצל הראשון בישראל  ‏📍Oscar’s נחלת בנימין 68 בנחלת בנימין ת״א נפתח בר שניצלים זה אומר שבתפריט יש רק שניצלים: תירס, עוף, סינטה ולבן לתוספות: פירה, פתיתים וצ׳יפס - ויש ריפיל חינם לפירה! (לא תמיד, כזה מתי שמתחשק פה) השף: טל רשבסקי (מי שמכונה ׳נוכל הפסטה׳) ורק פתחו אז סבלנות בתפריט  שניצל עוף 88  שניצל תירס 88  שניצל סינטה 108  שניצל לבן 108 * כל השניצלים מגיעים עם פירה, סלט עלים בויניגרט הדרים, ריבת שזיפים ואיולי. השניצל תירס מגיע עם רוטב קטשופ עגבניות מגי מונזל  תוספות  צ'יפס-פירה רג'יאנו 3 שנים 42  פתיתים עם חמאת מרווה ולימון 37  פירה 28  סלט מלפפונים מוחמצים עם שמיר וזרעי חרדל 18  סלט עלים בויניגרט הדרים 18 קינוח  עוגת גבינה קרמל מלוח 28",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "Oscar’s"
-      ],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [
-        {
-          "rawName": "Oscar’s",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "נחלת בנימין 68",
-          "queryText": "Oscar’s",
-          "queryCityHint": "תל אביב",
-          "expectedName": "Oscar's",
-          "expectedArea": "נחלת בנימין 68, תל אביב",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 1,
-          "band": "preselect",
-          "score": 0.9600000000000002,
-          "margin": null,
-          "top1": {
-            "name": "Oscar’s",
-            "address": "נחלת בנימין 68",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0613978,
-            "lng": 34.7723776,
-            "providerCategory": "restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "Oscar’s (0.960)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "auto_match",
-          "failure": null,
-          "acceptedRank": null,
-          "indexProbeHits": null,
-          "note": null
-        }
-      ],
-      "extractionMisses": []
-    },
-    {
-      "url": "https://vt.tiktok.com/ZSVphtyLT/",
-      "category": "desserts",
-      "status": "ok",
-      "statusDetail": null,
-      "externalId": "7613465746798103825",
-      "authorHandle": "onelastbite_il",
-      "caption": "לראשונה בישראל: בצק עוגיות עננים (הטרנד של לונדון עכשיו בתל אביב) למי שלא מכיר את הקונספט של Scooped Cookie Dough – תשכחו מכל מה שידעתם על עוגיות שוקולד צ'יפס רגילות. זה לא בצק נא וזו לא עוגייה יבשה מהמדף. מדובר בתבניות ענק של בצק עוגיות שנאפות בטמפרטורה מדויקת כדי להישאר רכות בטירוף מבפנים. שמים סקופים של עוגיות רכות וחמימות ישר לתוך הכלי, ועליהם מוסיפים שוקולד מומס וגלידה מעל. השילוב של הבצק החם עם הגלידה הקרירה והשוקולד המומס, הוא בדיוק השילוב שהופך את הקינוח הזה לאחד מהפייבוריטים שלי. פשוט ומעולה. חוץ מזה, יש להם עוד לא מעט קינוחים מעניינים👌🏽 הפוסט הזה לא ממומן! 📍 WOW – בית אשל 15, שוק הפשפשים, יפו. . . . . . #בצקעוגיותעננים  #שוקהפשפשים  #מקומותחדשים #קינוחים  #תלאביב ",
-      "captionSource": "cache",
-      "extractionSource": "cache",
-      "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "WOW"
-      ],
-      "droppedByPlausibility": {
-        "hashtag_or_handle": 0,
-        "city_or_country_only": 0,
-        "generic_words_only": 0,
-        "evidence_not_in_caption": 0,
-        "duplicate": 0
-      },
-      "candidates": [
-        {
-          "rawName": "WOW",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "bakery",
-          "addressHint": "בית אשל 15",
-          "queryText": "WOW",
-          "queryCityHint": "תל אביב",
-          "expectedName": "WOW",
-          "expectedArea": "בית אשל 15, שוק הפשפשים, יפו",
-          "regionsSearched": [
-            "global"
-          ],
-          "candidatesPrefiltered": 2,
-          "band": "confirm",
-          "score": 0.8329600000000001,
-          "margin": 0.0795753846153846,
-          "top1": {
-            "name": "wow london",
-            "address": "בית אשל 15",
-            "locality": "תל אביב-יפו",
-            "lat": 32.0533071,
-            "lng": 34.7573885,
-            "providerCategory": "buffet_restaurant",
-            "datasetConfidence": 0.5
-          },
-          "top3": [
-            "wow london (0.833)",
-            "Wow Cosmetics (0.753)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
-          "indexProbeHits": null,
-          "note": "top-1 is right, band confirm, margin 0.080"
         }
       ],
       "extractionMisses": []
