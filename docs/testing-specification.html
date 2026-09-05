@@ -411,35 +411,43 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s1h">Core Feature and Business Process Verification</h2>
       <p class="lede">The product has one business process, and working means it survives all of its hops without inventing anything.</p>
     </div>
-    <p class="prose">A user pastes a TikTok link; the link becomes a canonical video identity,
-      then a caption, then a structured extraction, then real-world places, then rows that user owns
-      on a private map.</p>
+<p class="prose">The product has one business process, and every test in this section exists to hold one of its hops honest.</p>
 
-    <p class="prose">Working could not mean &ldquo;the happy path completes&rdquo;, because that is
-      not the common case. <strong>The most frequent outcome of an import is that the caption names
-      no place at all.</strong> So &ldquo;no places found&rdquo; is defined as a <em>success</em>,
-      with its own screen and its own tests. A version of the product that treated it as an error
-      would fail this specification even if every request returned 200.</p>
+<p class="prose">A user pastes a TikTok link. The link becomes a canonical video identity, then a caption, then a structured extraction, then real-world places, then rows that user owns on a private map.</p>
 
-    <p class="prose">The process is specified as a test rather than as prose. One test drives the
-      real pipeline and asserts the event sequence in order, that zero candidates ends on the
-      no-places screen, and that partial success is first-class &mdash; some places resolved and some
-      not is still a finished import, because unresolved names help a person more than a failure
-      screen does.</p>
+<h3>&ldquo;No places found&rdquo; is a success, not an error</h3>
 
-    <p class="prose">The error taxonomy is closed, and proved closed. There are thirteen error
-      codes; the pipeline test reaches each one through real code, then asserts all thirteen were
-      reached. <strong>Adding a fourteenth fails the suite until someone shows how a user could get
-      there.</strong></p>
+<p class="prose">Working could not mean &ldquo;the happy path completes&rdquo;, because that is not the common case. <strong>The most frequent outcome of an import is that the caption names no place at all.</strong></p>
 
-    <p class="prose">The assembled process is checked in a real browser: six of the thirteen browser
-      specs drive import, including double submit and a stale response arriving after the user
-      changed the link. In the run cited above, 56 browser tests passed and 2 were skipped.</p>
+<p class="prose">So &ldquo;no places found&rdquo; is defined as a <em>success</em>, with its own screen and its own tests. A version of the product that treated it as an error would fail this specification even if every request returned 200.</p>
 
-    <p class="prose">What none of this tells us is whether the answer was any <em>good</em>. Pinning
-      &ldquo;this caption yields this venue&rdquo; would pin a third party&rsquo;s non-deterministic
-      output, and would fail on a model upgrade that was an improvement. Quality is therefore
-      measured by hand, and the numbers written down.</p>
+<h3>The process is specified as a test, not as prose</h3>
+
+<p class="prose">One test drives the real pipeline. It asserts the event sequence in order, and that zero candidates ends on the no-places screen.</p>
+
+<p class="prose">The same test makes partial success first-class. Some places resolved and some not is still a finished import, because unresolved names help a person more than a failure screen does.</p>
+
+<h3>Thirteen error codes, and no fourteenth</h3>
+
+<p class="prose">The error taxonomy is closed, and proved closed. There are thirteen error codes; the pipeline test reaches each one through real code, then asserts all thirteen were reached.</p>
+
+<p class="prose"><strong>Adding a fourteenth fails the suite until someone shows how a user could get there.</strong></p>
+
+<h3>Then checked assembled, in a real browser</h3>
+
+<p class="prose">Six of the thirteen browser specs drive import, including a double submit and a stale response arriving after the user changed the link. In the run cited above, 56 browser tests passed and 2 were skipped.</p>
+
+<h3>What this layer cannot tell us</h3>
+
+<p class="prose">None of this tells us whether the answer was any <em>good</em>. Pinning &ldquo;this caption yields this venue&rdquo; would pin a third party&rsquo;s non-deterministic output, and would fail on a model upgrade that was an improvement.</p>
+
+<p class="prose">Quality is therefore measured by hand, and the numbers written down.</p>
+
+<h3>Where each requirement area is covered</h3>
+
+<p class="prose">The five sections divide the required ground as follows.</p>
+
+<div class="tbl-wrap"><table class="tight"><thead><tr><th>Requirement area</th><th>How it is verified</th><th>Where</th></tr></thead><tbody><tr><td>Core features</td><td>The import pipeline test, plus 58 tests driving the built application</td><td>Section 01</td></tr><tr><td>Business process</td><td>One end-to-end test asserting the event sequence in order</td><td>Section 01</td></tr><tr><td>Invalid input</td><td>Default-deny host allow-list; refusal codes asserted distinguishable</td><td>Section 02</td></tr><tr><td>Edge cases</td><td>Truncated model output, double submit, stale response, zero candidates</td><td>Sections 01 and 02</td></tr><tr><td>Permissions</td><td>277 policy assertions executed as a second real signed-in user</td><td>Section 03</td></tr><tr><td>Database integrity</td><td>Deletes executed, absences asserted, every new table gated on build</td><td>Section 04</td></tr><tr><td>User interface and map</td><td>Component render, pinned copy, two browser sizes</td><td>Section 05</td></tr></tbody></table></div>
   </div>
 </section>
 
@@ -450,36 +458,41 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s2h">Input Validation and Edge Case Handling</h2>
       <p class="lede">Working here means the product refuses precisely, and never turns an odd input into a confident wrong answer.</p>
     </div>
-    <p class="prose">There are two untrusted inputs, and they are untrusted in different ways.</p>
+<p class="prose">There are two untrusted inputs, and they are untrusted in different ways.</p>
 
-    <p class="prose">The paste field is a security boundary, not a usability one, because what a
-      user pastes becomes an outbound request from our server. Its parser is <strong>default-deny
-      against a closed allow-list of six hosts</strong>, matched by full-host equality and never by
-      suffix. The tests attack it the way an attacker would: a host merely <em>ending</em> in
-      <code>tiktok.com</code>, one containing it as a substring, credentials in the authority, an
-      explicit port, IP literals, any non-HTTP scheme. A further test asserts the allow-list is
-      exactly that closed set and is shared with the short-link resolver, so a second adapter cannot
-      quietly widen it.</p>
+<h3>The paste field is a security boundary</h3>
 
-    <p class="prose">Refusals must be <em>distinguishable</em>, and that is a product decision
-      written as a test. An Instagram link is not broken &mdash; it is a platform we do not support,
-      and it earns its own code and a route to manual add. Text that is not a link at all earns a
-      different code and a different sentence. The two are asserted never to collapse into one,
-      because collapsing them sends a person to fix something that is not broken.</p>
+<p class="prose">It is a security boundary rather than a usability one, because what a user pastes becomes an outbound request from our server.</p>
 
-    <p class="prose">The second untrusted input is the language model, which is
-      <strong>well-intentioned and wrong</strong> rather than hostile. The schema tests reject an
-      invented category, a list past the candidate cap, an out-of-range latitude, and a length that
-      fits raw but not once accents are normalised. Null coordinates are accepted <em>and required to
-      be present</em>, because &ldquo;no basis for a guess&rdquo; is a claim and a missing field is
-      not.</p>
+<p class="prose">Its parser is <strong>default-deny against a closed allow-list of six hosts</strong>, matched by full-host equality and never by suffix.</p>
 
-    <p class="prose">One edge case changed the design. <strong>Truncated model output is salvaged,
-      not discarded</strong> &mdash; a reply cut mid-list yields the candidates that did parse,
-      because losing eight good places to one bad byte is the worse outcome.</p>
+<p class="prose">The tests attack it the way an attacker would, with a host that:</p>
 
-    <p class="prose">The limit of this layer is that it proves the boundary rejects bad input, not
-      that it is the only way in. That is what the layer guard in section 4 is for.</p>
+<ul class="clean"><li>merely <strong>ends</strong> in <code>tiktok.com</code>;</li><li>contains it as a <strong>substring</strong>;</li><li>carries <strong>credentials in the authority</strong>;</li><li>carries an <strong>explicit port</strong>;</li><li>is an <strong>IP literal</strong>;</li><li>arrives under <strong>any non-HTTP scheme</strong>.</li></ul>
+
+<p class="prose">A further test asserts the allow-list is exactly that closed set, and that it is shared with the short-link resolver, so a second adapter cannot quietly widen it.</p>
+
+<h3>Refusals must be distinguishable</h3>
+
+<p class="prose">That is a product decision written as a test. An Instagram link is not broken &mdash; it is a platform we do not support, and it earns its own code and a route to manual add.</p>
+
+<p class="prose">Text that is not a link at all earns a different code and a different sentence. The two are asserted never to collapse into one, because collapsing them sends a person to fix something that is not broken.</p>
+
+<h3>The model is the second untrusted input</h3>
+
+<p class="prose">The language model is <strong>well-intentioned and wrong</strong> rather than hostile, so the schema tests reject what a helpful model invents:</p>
+
+<ul class="clean"><li>an <strong>invented category</strong>;</li><li>a list <strong>past the candidate cap</strong>;</li><li>an <strong>out-of-range latitude</strong>;</li><li>a <strong>length that fits raw</strong> but not once accents are normalised.</li></ul>
+
+<p class="prose">Null coordinates are accepted <em>and required to be present</em>, because &ldquo;no basis for a guess&rdquo; is a claim and a missing field is not.</p>
+
+<h3>One edge case changed the design</h3>
+
+<p class="prose"><strong>Truncated model output is salvaged, not discarded.</strong> A reply cut mid-list yields the candidates that did parse, because losing eight good places to one bad byte is the worse outcome.</p>
+
+<h3>The limit of this layer</h3>
+
+<p class="prose">It proves the boundary rejects bad input. It does not prove the boundary is the only way in &mdash; that is what the layer guard in section 4 is for.</p>
   </div>
 </section>
 
@@ -490,34 +503,33 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s3h">Access Control and Privacy Enforcement</h2>
       <p class="lede">Working means a second signed-in user, holding a valid session, can neither read nor forge a row belonging to the first &mdash; proved by executing the attack, not by reading the policy.</p>
     </div>
-    <p class="prose">Every map is private, so this is the one failure that is a breach rather
-      than a disappointment.</p>
+<p class="prose">Every map is private, so this is the one failure that is a breach rather than a disappointment.</p>
 
-    <p class="prose">Authorisation lives in the database, so the tests do too. <strong>Eight SQL
-      policy files carry 277 assertions</strong>, and the database job rebuilds the schema from the
-      first migration and runs all eight on every push. Seven of the eight create at least two real
-      users and issue the adversary&rsquo;s queries under the adversary&rsquo;s own role.</p>
+<h3>The tests live where the authorisation does</h3>
 
-    <p class="prose"><strong>Each file asserts the positive half first, and that ordering is the
-      most important decision in this section.</strong> &ldquo;User B sees zero of user A&rsquo;s
-      rows&rdquo; is satisfied identically by a correct policy and by a database where nobody can read
-      anything &mdash; which is the standard way a policy suite goes vacuously green. So each file
-      first shows A reading <em>exactly one</em> of their own rows through each gated table, and only
-      then shows B reading zero.</p>
+<p class="prose">Authorisation lives in the database, so the tests do too. <strong>Eight SQL policy files carry 277 assertions</strong>, and the database job rebuilds the schema from the first migration and runs all eight on every push.</p>
 
-    <p class="prose">Reading is the easy half; <strong>forgery is tested too.</strong> B cannot write
-      a provenance row carrying A&rsquo;s user id, cannot attach provenance to a place they do not
-      own, and cannot borrow A&rsquo;s source for their own save. An invite token cannot be chosen by
-      the client, and unknown, revoked and expired tokens fail <em>identically</em>, so a token cannot
-      be probed for existence.</p>
+<p class="prose">Seven of the eight create at least two real users, then issue the adversary&rsquo;s queries under the adversary&rsquo;s own role.</p>
 
-    <p class="prose">Sharing shares a place, not a library: a collaborator reads the shared place
-      identity and none of the owner&rsquo;s private note, provenance or aliases.</p>
+<h3>The positive half is asserted first</h3>
 
-    <p class="prose">Every file was written failure-first. Each assertion was checked in both
-      directions against a throwaway database &mdash; the control removed, the test <em>seen to
-      fail</em> with the message it prints, the control restored. A guard never seen to fail is not a
-      guard.</p>
+<p class="prose"><strong>That ordering is the most important decision in this section.</strong> &ldquo;User B sees zero of user A&rsquo;s rows&rdquo; is satisfied identically by a correct policy and by a database where nobody can read anything.</p>
+
+<p class="prose">That is the standard way a policy suite goes vacuously green. So each file first shows A reading <em>exactly one</em> of their own rows through each gated table, and only then shows B reading zero.</p>
+
+<h3>Forgery is tested, not only reading</h3>
+
+<p class="prose">Reading is the easy half. These are the writes the suite proves user B cannot make:</p>
+
+<ul class="clean"><li><strong>A provenance row carrying A&rsquo;s user id.</strong></li><li><strong>Provenance attached to a place B does not own.</strong></li><li><strong>A save that borrows A&rsquo;s source.</strong></li><li><strong>An invite token chosen by the client</strong> &mdash; and unknown, revoked and expired tokens fail <em>identically</em>, so a token cannot be probed for existence.</li></ul>
+
+<p class="prose">Sharing shares a place, not a library: a collaborator reads the shared place identity and none of the owner&rsquo;s private note, provenance or aliases.</p>
+
+<h3>Every file was written failure-first</h3>
+
+<p class="prose">Each assertion was checked in both directions against a throwaway database: the control removed, the test <em>seen to fail</em> with the message it prints, the control restored.</p>
+
+<p class="prose">A guard never seen to fail is not a guard.</p>
   </div>
 </section>
 
@@ -528,27 +540,29 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s4h">Database Integrity and Data Safeguards</h2>
       <p class="lede">&ldquo;The database&rdquo; means three things here, so it is tested three ways: authorisation, invariants executed rather than read, and a static gate on the posture of every new table.</p>
     </div>
-    <p class="prose">Invariants are asserted by doing. The retention bound on captions is proved
-      by <strong>executing a delete and asserting the rows are gone</strong>, not by confirming that a
-      foreign key says it cascades. The same file asserts <em>absences</em> &mdash; no coordinate
-      column, no import reference &mdash; because a table that can quietly grow a location column is a
-      privacy promise that decays.</p>
+<h3>Invariants are asserted by doing</h3>
 
-    <p class="prose">One gate runs on every build because of a hazard a local database cannot show.
-      Hosted Postgres grants broad privileges on new tables to browser-reachable roles, so a script
-      refuses any migration that creates a table without enabling <em>and forcing</em> row-level
-      security and revoking those grants in the same file. <strong>The check that guards production is
-      itself run in the pipeline</strong>, so it cannot drift from the migrations unnoticed.</p>
+<p class="prose">The retention bound on captions is proved by <strong>executing a delete and asserting the rows are gone</strong>, not by confirming that a foreign key says it cascades.</p>
 
-    <p class="prose">Investigating one failing test taught us the thing most worth recording. A
-      privileged function <strong>does not protect a deferred constraint trigger</strong>: the queued
-      check runs at commit under whatever role is in effect then, not the role that queued it. It was
-      ruled harmless only by proving, by execution, that the signed-in role cannot call the one
-      function that inserts into the table concerned.</p>
+<p class="prose">The same file asserts <em>absences</em> &mdash; no coordinate column, no import reference &mdash; because a table that can quietly grow a location column is a privacy promise that decays.</p>
 
-    <p class="prose">The layer guard deserves naming as a test in its own right: it <strong>writes
-      deliberate architecture violations, asserts the linter rejects each one, then removes
-      them</strong>. It proves the rule can fail before trusting it to pass.</p>
+<h3>A gate on the posture of every new table</h3>
+
+<p class="prose">One gate runs on every build because of a hazard a local database cannot show: hosted Postgres grants broad privileges on new tables to browser-reachable roles.</p>
+
+<p class="prose">So a script refuses any migration that creates a table without enabling <em>and forcing</em> row-level security and revoking those grants in the same file.</p>
+
+<p class="prose"><strong>The check that guards production is itself run in the pipeline</strong>, so it cannot drift from the migrations unnoticed.</p>
+
+<h3>What one failing test taught us</h3>
+
+<p class="prose">A privileged function <strong>does not protect a deferred constraint trigger</strong>. The queued check runs at commit under whatever role is in effect then, not the role that queued it.</p>
+
+<p class="prose">It was ruled harmless only by proving, by execution, that the signed-in role cannot call the one function that inserts into the table concerned.</p>
+
+<h3>The layer guard is a test in its own right</h3>
+
+<p class="prose">It <strong>writes deliberate architecture violations, asserts the linter rejects each one, then removes them</strong>. It proves the rule can fail before trusting it to pass.</p>
   </div>
 </section>
 
@@ -559,41 +573,45 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s5h">User Interface and Interactive Map Tests</h2>
       <p class="lede">This is the thinnest layer in the suite, and saying so is more useful than overstating it.</p>
     </div>
-    <p class="prose">The interface is checked three ways, and each has a limit we can name.</p>
+<p class="prose">The interface is checked three ways, and each has a limit we can name:</p>
 
-    <p class="prose">Components are rendered to a static HTML string and asserted on markup and
-      accessible name. That catches the failure easiest to introduce and hardest to see: an
-      approximate pin must stay visually distinguishable from a matched one <em>and</em> keep its
-      screen-reader name, because a label replaces a button&rsquo;s content and a glyph inside it is
-      then announced nowhere. <strong>No component test here is evidence about layout, size or
-      contrast</strong>, because a static string has no styling attached.</p>
+<ul class="clean"><li><strong>Component render</strong> &mdash; markup and accessible name, from a static HTML string.</li><li><strong>Pinned copy</strong> &mdash; the exact words of a screen, and the words banned from it.</li><li><strong>A real browser</strong> &mdash; interaction, at both of our specified sizes.</li></ul>
 
-    <p class="prose">Copy is pinned where honesty depends on it: the no-places screen is asserted
-      word for word against its specification, together with a ban on the words that would make it
-      sound like an error.</p>
+<h3>Components rendered to a string</h3>
 
-    <p class="prose"><strong>105 of the 250 unit files read source text and assert against it</strong>,
-      which is a real weakness we would rather state than hide. It is a legitimate way to prove an
-      <em>absence</em> &mdash; that a screen contains no forbidden word, that a module imports nothing
-      from a layer it may not touch. But it proves the code <em>says</em> something, not that the
-      application <em>does</em> it: a change that keeps the string and breaks the behaviour passes.</p>
+<p class="prose">This catches the failure easiest to introduce and hardest to see. An approximate pin must stay visually distinguishable from a matched one, <em>and</em> must keep its screen-reader name.</p>
 
-    <p class="prose">Real interaction is left to the browser, at the right sizes. The shipped device
-      presets are 412&times;839 and 1280&times;720; our design is specified at 390&times;844 and
-      1440&times;900, and 22 pixels is exactly the width at which a layout decides its column count.
-      So two extra browser projects exist only to assert the measurement conditions before anything is
-      measured under them.</p>
+<p class="prose">A label replaces a button&rsquo;s content, so a glyph inside it is then announced nowhere.</p>
 
-    <p class="prose">There is no screenshot comparison, deliberately. A pixel baseline on a product
-      mid-redesign is re-approved on nearly every commit, which is the same as having no baseline
-      while paying for one.</p>
+<p class="prose"><strong>No component test here is evidence about layout, size or contrast</strong>, because a static string has no styling attached.</p>
 
-    <p class="prose"><strong>And no automated test here can tell you the map opened somewhere
-      useful.</strong> An import that saved eight correct rows while the camera sat on another
-      continent passes every assertion in the suite and is plainly broken. That is why our working
-      agreement requires running the application, using the feature and reading the saved rows before
-      anything is called done. Automation covers the failures we can describe; the rest we look
-      at.</p>
+<h3>Copy is pinned where honesty depends on it</h3>
+
+<p class="prose">The no-places screen is asserted word for word against its specification, together with a ban on the words that would make it sound like an error.</p>
+
+<h3>The source-text weakness, stated rather than hidden</h3>
+
+<p class="prose"><strong>105 of the 250 unit files read source text and assert against it.</strong> That is a real weakness, and we would rather state it than hide it.</p>
+
+<p class="prose">It is a legitimate way to prove an <em>absence</em> &mdash; that a screen contains no forbidden word, or that a module imports nothing from a layer it may not touch.</p>
+
+<p class="prose">But it proves the code <em>says</em> something, not that the application <em>does</em> it. A change that keeps the string and breaks the behaviour passes.</p>
+
+<h3>Real interaction, at the real sizes</h3>
+
+<p class="prose">The shipped device presets are 412&times;839 and 1280&times;720; our design is specified at 390&times;844 and 1440&times;900, and 22 pixels is exactly the width at which a layout decides its column count.</p>
+
+<p class="prose">So two extra browser projects exist only to assert the measurement conditions before anything is measured under them.</p>
+
+<p class="prose">There is no screenshot comparison, deliberately. A pixel baseline on a product mid-redesign is re-approved on nearly every commit, which is the same as having no baseline while paying for one.</p>
+
+<h3>What no automated test here can tell you</h3>
+
+<p class="prose"><strong>No automated test here can tell you the map opened somewhere useful.</strong> An import that saved eight correct rows while the camera sat on another continent passes every assertion in the suite and is plainly broken.</p>
+
+<p class="prose">That is why our working agreement requires running the application, using the feature and reading the saved rows before anything is called done.</p>
+
+<p class="prose">Automation covers the failures we can describe; the rest we look at.</p>
   </div>
 </section>
 

@@ -382,27 +382,22 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s1h">Authentication &amp; Session State</h2>
       <p class="lede">Signing in is handled by the auth provider, so this application never sees, hashes or stores a password.</p>
     </div>
-    <p class="prose">The whole of authentication is one screen, which calls sign-up or sign-in.
-      <strong>Nothing else in the codebase authenticates anybody.</strong> Accounts live in the auth
-      provider&rsquo;s own tables, in a schema no browser role can read at all, so a user&rsquo;s
-      email address is not reachable from the product&rsquo;s data API.</p>
+<h3>Authentication is one screen, and nothing else</h3>
+<p class="prose">The whole of authentication is one screen, which calls sign-up or sign-in. <strong>Nothing else in the codebase authenticates anybody.</strong></p>
+<p class="prose">Accounts live in the auth provider&rsquo;s own tables, in a schema no browser role can read at all. A user&rsquo;s email address is therefore not reachable from the product&rsquo;s data API.</p>
 
-    <p class="prose">The session is a cookie with a one-hour token and refresh rotation.
-      &ldquo;Remember me&rdquo; is a custom cookie adapter that drops the expiry, so with the box
-      unticked the cookie dies with the browser instead of living for the library&rsquo;s default 400
-      days.</p>
+<h3>The session is a cookie that expires when we say it does</h3>
+<p class="prose">The session is a cookie with a one-hour token and refresh rotation.</p>
+<p class="prose">&ldquo;Remember me&rdquo; is a custom cookie adapter that drops the expiry. With the box unticked the cookie dies with the browser, instead of living for the library&rsquo;s default 400 days.</p>
 
-    <p class="prose"><strong>Every server-side check asks the auth server rather than the
-      cookie.</strong> One call decodes what the browser sent and trusts it; the other validates the
-      token upstream. The validating call appears at 31 sites across 21 files &mdash; the middleware,
-      every page that renders user data, every API route and every server action. The single
-      trusting call is on the sign-in screen, deciding whether to say &ldquo;check your
-      email&rdquo;.</p>
-
-    <p class="prose">The checks are layered on purpose: middleware redirects anonymous visitors away
-      from the map, and each page still guards itself, because a route matcher is a list somebody
-      forgets to update. <strong>If all of it were deleted the database would still refuse</strong>
-      &mdash; the page would render an empty list rather than somebody else&rsquo;s.</p>
+<h3>Every server-side check asks the auth server, not the cookie</h3>
+<p class="prose">One call decodes what the browser sent and trusts it; the other validates the token upstream. Only the second one is used to decide anything.</p>
+<ul class="clean">
+  <li><strong>The validating call appears at 31 sites across 21 files</strong> &mdash; the middleware, every page that renders user data, every API route and every server action.</li>
+  <li><strong>The single trusting call is on the sign-in screen</strong>, deciding whether to say &ldquo;check your email&rdquo;.</li>
+</ul>
+<p class="prose">The checks are layered on purpose. Middleware redirects anonymous visitors away from the map, and each page still guards itself, because a route matcher is a list somebody forgets to update.</p>
+<p class="prose"><strong>If all of it were deleted the database would still refuse.</strong> The page would render an empty list rather than somebody else&rsquo;s.</p>
   </div>
 </section>
 
@@ -413,37 +408,37 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s2h">Row-Level Security &amp; User Map Isolation</h2>
       <p class="lede">Who may read a row is decided by Postgres itself, not by <code>if</code> statements in application code.</p>
     </div>
-    <p class="prose">Row-level security means the database attaches a rule to a table and adds it
-      to every query touching it. Our rule is one sentence: the row&rsquo;s owner must be the person
-      asking. Postgres adds that rule with AND, so a caller&rsquo;s own filter can only narrow the
-      result &mdash; asking for someone else&rsquo;s id returns nothing rather than their map.</p>
+<h3>The rule is one sentence, and Postgres adds it to every query</h3>
+<p class="prose">Row-level security means the database attaches a rule to a table and applies it to every query touching that table. Our rule is one sentence: the row&rsquo;s owner must be the person asking.</p>
+<p class="prose">Postgres adds that rule with AND, so a caller&rsquo;s own filter can only narrow the result. Asking for someone else&rsquo;s id returns nothing rather than their map.</p>
+<p class="prose">All <strong>17 tables</strong> have row-level security enabled <em>and</em> forced. Forcing matters, because without it a table&rsquo;s owner is exempt from its own rules.</p>
 
-    <p class="prose">All <strong>17 tables</strong> have row-level security enabled <em>and</em>
-      forced; forcing matters, because without it a table&rsquo;s owner is exempt from its own rules.
-      There are 38 live policies, every one written for the signed-in role and reducing to the
-      caller&rsquo;s own identity.</p>
+<h3>The isolation surface, counted from the migrations</h3>
+<div class="tbl-wrap"><table class="tight"><thead><tr><th>Control</th><th>Count</th><th>What the number means</th></tr></thead><tbody>
+  <tr><td>Tables with RLS enabled and forced</td><td>17</td><td>Every table in the schema; forcing removes the owner&rsquo;s exemption</td></tr>
+  <tr><td>Live policies</td><td>38</td><td>Every one written for the signed-in role, and every one reducing to the caller&rsquo;s own identity</td></tr>
+  <tr><td>Grants to the anonymous role</td><td>0</td><td>Across all 36 migrations there are only revokes</td></tr>
+  <tr><td>Privileged (definer) functions</td><td>20</td><td>13 may be run by a signed-in user; seven actually write</td></tr>
+  <tr><td>Columns a user may update on their own saved place</td><td>5</td><td>Owner, venue and origin are not among them</td></tr>
+  <tr><td>SQL policy suites</td><td>8</td><td>Each attempts the cross-user read, write and delete, then rolls back</td></tr>
+</tbody></table></div>
 
-    <p class="prose"><strong>The anonymous role holds nothing.</strong> Across the 36 migrations
-      there is not one grant to it, only revokes &mdash; which is why the key shipped in the browser
-      is not a contradiction. It identifies the project and grants no access; authorisation is the
-      database&rsquo;s rules, not the secrecy of that key.</p>
+<h3>The anonymous role holds nothing</h3>
+<p class="prose">Across the 36 migrations there is not one grant to it, only revokes. <strong>That is why the key shipped in the browser is not a contradiction.</strong></p>
+<p class="prose">The key identifies the project and grants no access. Authorisation is the database&rsquo;s rules, not the secrecy of that key.</p>
 
-    <p class="prose">Users hold no insert, update or delete privilege on the tables shared between
-      people. Those writes go through privileged functions that run with the owner&rsquo;s rights.
-      There are 20, of which 13 may be run by a signed-in user and seven actually write &mdash;
-      deliberately, because for a user&rsquo;s tags and for model-written prose the function
-      <em>is</em> the write path. Each takes the caller&rsquo;s identity from the session inside its
-      own filter and refuses a stranger&rsquo;s row.</p>
+<h3>Shared tables are written only through privileged functions</h3>
+<p class="prose">Users hold no insert, update or delete privilege on the tables shared between people. Those writes go through functions that run with the owner&rsquo;s rights.</p>
+<p class="prose">There are 20, of which 13 may be run by a signed-in user and seven actually write. That is deliberate: for a user&rsquo;s tags and for model-written prose, the function <em>is</em> the write path.</p>
+<p class="prose">Each one takes the caller&rsquo;s identity from the session inside its own filter, and refuses a stranger&rsquo;s row.</p>
 
-    <p class="prose">Privileges are also granted column by column, which makes some attacks
-      <strong>impossible to express rather than merely refused</strong>. A user may update exactly
-      five columns of their own saved place; the owner, the venue and the origin are not among them,
-      so &ldquo;give my save to another account&rdquo; fails at the privilege layer before any rule is
-      consulted.</p>
+<h3>Column grants make some attacks impossible to express</h3>
+<p class="prose">Privileges are granted column by column, which makes some attacks <strong>impossible to express rather than merely refused</strong>.</p>
+<p class="prose">A user may update exactly five columns of their own saved place. The owner, the venue and the origin are not among them, so &ldquo;give my save to another account&rdquo; fails at the privilege layer before any rule is consulted.</p>
 
-    <p class="prose">Eight SQL suites prove it rather than assert it: each is one transaction that
-      creates its own users, attempts the cross-user read, write and delete, and rolls back. Their
-      assertions are counted in the testing specification.</p>
+<h3>Proved, not asserted</h3>
+<p class="prose">Eight SQL suites prove the isolation rather than assert it. Each is one transaction that creates its own users, attempts the cross-user read, write and delete, and rolls back.</p>
+<p class="prose">Their assertions are counted in the testing specification.</p>
   </div>
 </section>
 
@@ -454,38 +449,32 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s3h">Input Sanitization &amp; External Link Defense</h2>
       <p class="lede">Every value crossing a boundary is parsed against a schema before it is used &mdash; and the most important boundary is the one where we stopped trusting the browser at all.</p>
     </div>
-    <p class="prose"><strong>The strongest thing here is a bug we found and closed.</strong> The
-      import-confirm endpoint used to accept the place itself &mdash; name, latitude, longitude,
-      provider id &mdash; and passed it to a function that refreshes a venue&rsquo;s details. Venue
-      rows are shared between everyone who saved that venue, and nothing checked who was asking, so
-      one ordinary signed-in request could rename and relocate a venue other people had saved.
-      Confirmed on a local database: a single request renamed a Tel Aviv caf&eacute; and moved it to
-      the Eiffel Tower.</p>
+<h3>The strongest thing here is a bug we found and closed</h3>
+<p class="prose">The import-confirm endpoint used to accept the place itself &mdash; name, latitude, longitude, provider id &mdash; and passed it to a function that refreshes a venue&rsquo;s details.</p>
+<p class="prose">Venue rows are shared between everyone who saved that venue, and nothing checked who was asking. <strong>One ordinary signed-in request could rename and relocate a venue other people had saved.</strong></p>
+<p class="prose">Confirmed on a local database: a single request renamed a Tel Aviv caf&eacute; and moved it to the Eiffel Tower.</p>
 
-    <p class="prose">The fix was not a stricter validation rule, because no schema can tell a
-      truthful latitude from a malicious one. It was a change of authority: the request now carries an
-      extraction id, indices into the candidate list the server itself wrote, and the user&rsquo;s own
-      note &mdash; <strong>place facts do not travel from the browser at all</strong>. A hostile body
-      can do exactly two things, name an extraction it does not own or an index that does not exist,
-      and both are refused.</p>
+<h3>The fix changed the authority, not the validation rule</h3>
+<p class="prose">A stricter schema would not have helped, because no schema can tell a truthful latitude from a malicious one.</p>
+<p class="prose">The request now carries an extraction id, indices into the candidate list the server itself wrote, and the user&rsquo;s own note. <strong>Place facts do not travel from the browser at all.</strong></p>
+<p class="prose">A hostile body can now do exactly two things &mdash; name an extraction it does not own, or an index that does not exist &mdash; and both are refused.</p>
+<h3>Every other boundary, and the layer underneath them all</h3>
+<p class="prose">Other boundaries are guarded the same way, including data read back out of our own database. Beneath all of them sit 103 database check constraints, the layer an application bug cannot skip.</p>
 
-    <p class="prose">Other boundaries are guarded the same way, including data read back out of our
-      own database, and beneath all of them sit 103 database check constraints &mdash; the layer an
-      application bug cannot skip.</p>
+<h3>The pasted link is the one value that makes our server open a connection</h3>
+<p class="prose">A server given a URL can be tricked into fetching something private. The canonicaliser rejects, before any request is made:</p>
+<ul class="clean">
+  <li><strong>Any scheme that is not <code>http</code> or <code>https</code></strong> &mdash; so <code>file</code>, <code>ftp</code> and <code>data</code> never reach the fetcher.</li>
+  <li><strong>Any URL carrying credentials</strong>, which is the classic way to disguise the real host.</li>
+  <li><strong>Any URL carrying a port</strong>, which is how an internal service is usually addressed.</li>
+  <li><strong>Any bare IP address</strong>, including the loopback and metadata addresses.</li>
+  <li><strong>Any hostname not exactly equal to one of six TikTok hosts</strong> &mdash; matched for equality, never an &ldquo;ends with&rdquo; test, so <code>tiktok.com.evil.io</code> fails like any random host.</li>
+</ul>
 
-    <h3>The pasted link, which is the one value that makes our server open a connection</h3>
-    <p class="prose">A server given a URL can be tricked into fetching something private. The
-      canonicaliser rejects anything that is not <code>http</code> or <code>https</code>, anything
-      carrying credentials or a port, and any bare IP address, then matches the hostname for exact
-      equality against a closed list of six TikTok hosts &mdash; never an &ldquo;ends with&rdquo;
-      test, so <code>tiktok.com.evil.io</code> fails like any random host.</p>
-
-    <p class="prose">Redirects are followed by hand: every new location re-checked against the same
-      list, five hops maximum, a timeout on each request, and no HTML parsed. <strong>Both import
-      routes re-run the whole check on the server whatever the client did</strong>, because only the
-      server&rsquo;s check counts. The language model is untrusted in the same way: its output is
-      schema-validated, and every claim it makes must quote the caption before a user is offered
-      it.</p>
+<h3>Redirects are followed by hand, and the model is untrusted too</h3>
+<p class="prose">Every new location is re-checked against the same list, with five hops maximum, a timeout on each request, and no HTML parsed.</p>
+<p class="prose"><strong>Both import routes re-run the whole check on the server whatever the client did</strong>, because only the server&rsquo;s check counts.</p>
+<p class="prose">The language model is untrusted in the same way. Its output is schema-validated, and every claim it makes must quote the caption before a user is offered it.</p>
   </div>
 </section>
 
@@ -496,32 +485,30 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s4h">API Protection &amp; Secrets Management</h2>
       <p class="lede">There are six routes under <code>/api</code>; all are POST, and all establish who is calling before doing anything else.</p>
     </div>
-    <p class="prose">Being POST-only matters more than it looks: a GET handler is reachable from a
-      cross-site image tag or a link, whereas a JSON POST is not. Most of the product needs no route
-      protection at all, because most of it is not a route &mdash; everything the user reads is
-      fetched on the server under that user&rsquo;s own token.</p>
+<h3>Six routes, all POST, all identifying the caller first</h3>
+<p class="prose">Being POST-only matters more than it looks. A GET handler is reachable from a cross-site image tag or a link; a JSON POST is not.</p>
+<p class="prose">Most of the product needs no route protection at all, because most of it is not a route. Everything the user reads is fetched on the server under that user&rsquo;s own token.</p>
 
-    <p class="prose"><strong>Errors are treated as a leak channel, not a formatting problem.</strong>
-      A route returns a code from a closed set of thirteen and nothing else: no provider message, no
-      upstream status, no stack, no environment-variable name. Detail goes to the server log, which
-      carries codes and counts, never a caption and never a coordinate.</p>
+<h3>Errors are treated as a leak channel, not a formatting problem</h3>
+<p class="prose">A route returns a code from a closed set of thirteen and nothing else: no provider message, no upstream status, no stack, no environment-variable name.</p>
+<p class="prose">Detail goes to the server log, which carries codes and counts &mdash; never a caption, and never a coordinate.</p>
 
-    <p class="prose">Security headers are set on every response: no content-type sniffing; a referrer
-      policy that becomes no-referrer on the invite-join route, because the token is in the path; a
-      ban on being framed by anyone; and a permissions policy granting location to our own page while
-      denying camera, microphone and payment.</p>
+<h3>Security headers, set on every response</h3>
+<ul class="clean">
+  <li><strong>No content-type sniffing</strong>, so a response is only ever read as what we said it is.</li>
+  <li><strong>A referrer policy that becomes no-referrer on the invite-join route</strong>, because the invite token is in the path.</li>
+  <li><strong>A ban on being framed by anyone</strong>, which closes the clickjacking route into the map.</li>
+  <li><strong>A permissions policy granting location to our own page</strong> while denying camera, microphone and payment.</li>
+</ul>
 
-    <p class="prose">The rule for secrets is one line &mdash; <strong>anything without the public
-      prefix must never reach the browser</strong> &mdash; and two mechanisms enforce it. The
-      framework inlines only prefixed variables into client code, and every module holding a secret
-      imports <code>server-only</code>, which turns &ldquo;a client component imported this&rdquo;
-      into a <strong>build failure</strong> rather than a shipped key. Twelve modules carry that
-      import.</p>
-
-    <p class="prose">Nothing sensitive is in the repository: every environment file is excluded while
-      the example is kept, and keys live in the hosting platform&rsquo;s encrypted store. The
-      privileged database key bypasses every rule, so its protection is placement and secrecy &mdash;
-      never in the browser, never in the repository, never in an error message.</p>
+<h3>Secrets: one rule, two mechanisms that enforce it</h3>
+<p class="prose">The rule is one line &mdash; <strong>anything without the public prefix must never reach the browser</strong>. It is not left to discipline.</p>
+<ul class="clean">
+  <li><strong>The framework inlines only prefixed variables</strong> into client code, so an unprefixed name is simply absent from the bundle.</li>
+  <li><strong>Every module holding a secret imports <code>server-only</code></strong>, which turns &ldquo;a client component imported this&rdquo; into a <strong>build failure</strong> rather than a shipped key. Twelve modules carry that import.</li>
+</ul>
+<p class="prose">Nothing sensitive is in the repository. Every environment file is excluded while the example is kept, and keys live in the hosting platform&rsquo;s encrypted store.</p>
+<p class="prose">The privileged database key bypasses every rule, so its protection is placement and secrecy: never in the browser, never in the repository, never in an error message.</p>
   </div>
 </section>
 
@@ -532,39 +519,40 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <h2 id="s5h">Known Risks &amp; Security Hardening</h2>
       <p class="lede">No exploitable cross-user vulnerability was found &mdash; and the honest version of that sentence names what was actually attempted.</p>
     </div>
-    <p class="prose">The attacks were executed, not reasoned about. A freshly created attacker
-      account, running as a real signed-in user, tried to read another user&rsquo;s saved places
-      directly, through joined requests and through row counts; to update and delete their rows; to
-      reassign a save, take over a shared collection and choose its own invite token; and called every
-      stored procedure with someone else&rsquo;s identifiers. The same set was repeated with no
-      account at all, and again over HTTP with genuine tokens. <strong>Every read returned zero rows
-      and every write returned a permission error.</strong></p>
+<h3>What was actually attempted</h3>
+<p class="prose">The attacks were executed, not reasoned about. A freshly created attacker account, running as a real signed-in user, tried to:</p>
+<ul class="clean">
+  <li><strong>Read another user&rsquo;s saved places directly</strong>, by selecting their rows.</li>
+  <li><strong>Read them through joined requests</strong>, arriving at the same rows from a related table.</li>
+  <li><strong>Read them through row counts</strong>, to see whether an aggregate would leak what a select would not.</li>
+  <li><strong>Update their rows.</strong></li>
+  <li><strong>Delete their rows.</strong></li>
+  <li><strong>Reassign a save</strong> to a different owner.</li>
+  <li><strong>Take over a shared collection</strong> belonging to the other user.</li>
+  <li><strong>Choose its own invite token</strong>, rather than accept a generated one.</li>
+  <li><strong>Call every stored procedure</strong> with someone else&rsquo;s identifiers.</li>
+</ul>
+<p class="prose">The same set was repeated with no account at all, and again over HTTP with genuine tokens.</p>
+<p class="prose"><strong>Every read returned zero rows, and every write returned a permission error.</strong></p>
 
-    <p class="prose">One property does behave as an attacker would like, and it is documented rather
-      than fixed: saving a venue id you already possess grants read access to that shared venue row.
-      The ids are random 128-bit values, the data is open and non-personal, and the column grants mean
-      it reaches nothing else.</p>
+<h3>The one property that behaves as an attacker would like</h3>
+<p class="prose">It is documented rather than fixed: saving a venue id you already possess grants read access to that shared venue row.</p>
+<p class="prose">The ids are random 128-bit values, the data is open and non-personal, and the column grants mean it reaches nothing else.</p>
 
-    <p class="prose"><strong>The rest are real and remain open.</strong> Each is graded for a
-      coursework project with no public sign-up, and each names what would change the grade.</p>
+<h3>The risks we accepted, and what would change each grade</h3>
+<p class="prose"><strong>The rest are real and remain open.</strong> Each is graded for a coursework project with no public sign-up, and each names what would change the grade.</p>
+<div class="tbl-wrap"><table class="tight"><thead><tr><th>Risk</th><th>Grade</th><th>Why it was accepted, and what would change that</th></tr></thead><tbody>
+  <tr><td>No rate limit on the import route, so a signed-in user can loop it and spend a paid model call each time</td><td><span class="st part">medium</span></td><td>Sign-up is closed and the population is the owner and an examiner. A public sign-up link changes it. The fix is a per-user counter over the imports table, checked before the model call</td></tr>
+  <tr><td>No script-level content-security policy, and the session cookie is readable from JavaScript</td><td><span class="st part">medium</span></td><td>React escapes by default and no user-authored or third-party markup is rendered anywhere, so there is no injection point. Any surface rendering untrusted markup changes it</td></tr>
+  <tr><td>Captions are stored indefinitely with no deletion path</td><td><span class="st part">medium</span></td><td>A legal gap, not a technical one: a public post, no user id, and a cache other importers use. Real users or a published privacy policy change it</td></tr>
+  <tr><td>In-app playback hands TikTok a year-long cross-site identifier, on the page showing a user&rsquo;s saved places</td><td><span class="st part">medium</span></td><td>Only on a deliberate press, with the cost stated beside the button, and refusing is a genuine zero-request path. Only removing the feature closes it</td></tr>
+  <tr><td>Passwords may be six characters with no composition rule</td><td><span class="st na">low</span></td><td>The identity provider&rsquo;s default, with no public sign-up and no valuable account to take over. Configuration, not code</td></tr>
+  <tr><td>The deployed environments are not all at the same migration</td><td><span class="st na">low</span></td><td>Nothing deployed is weaker; the later tables simply do not exist there yet. Re-measure and push before claiming a control is live</td></tr>
+</tbody></table></div>
 
-    <div class="tbl-wrap" style="margin-top:20px">
-      <table class="tight">
-        <thead><tr><th style="width:30%">Risk</th><th style="width:74px">Grade</th><th>Why it was accepted, and what would change that</th></tr></thead>
-        <tbody>
-          <tr><td>No rate limit on the import route, so a signed-in user can loop it and spend a paid model call each time</td><td><span class="st part">medium</span></td><td>Sign-up is closed and the population is the owner and an examiner. A public sign-up link changes it. The fix is a per-user counter over the imports table, checked before the model call</td></tr>
-          <tr><td>No script-level content-security policy, and the session cookie is readable from JavaScript</td><td><span class="st part">medium</span></td><td>React escapes by default and no user-authored or third-party markup is rendered anywhere, so there is no injection point. Any surface rendering untrusted markup changes it</td></tr>
-          <tr><td>Captions are stored indefinitely with no deletion path</td><td><span class="st part">medium</span></td><td>A legal gap, not a technical one: a public post, no user id, and a cache other importers use. Real users or a published privacy policy change it</td></tr>
-          <tr><td>In-app playback hands TikTok a year-long cross-site identifier, on the page showing a user&rsquo;s saved places</td><td><span class="st part">medium</span></td><td>Only on a deliberate press, with the cost stated beside the button, and refusing is a genuine zero-request path. Only removing the feature closes it</td></tr>
-          <tr><td>Passwords may be six characters with no composition rule</td><td><span class="st na">low</span></td><td>The identity provider&rsquo;s default, with no public sign-up and no valuable account to take over. Configuration, not code</td></tr>
-          <tr><td>The deployed environments are not all at the same migration</td><td><span class="st na">low</span></td><td>Nothing deployed is weaker; the later tables simply do not exist there yet. Re-measure and push before claiming a control is live</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <p class="prose" style="margin-top:22px">The most valuable hardening is the least glamorous:
-      <strong>keep the policy suites running on every push</strong> rather than on the day
-      somebody remembers. Evidence that is not continuous is a snapshot, and a snapshot ages.</p>
+<h3>The hardening that matters most</h3>
+<p class="prose">The most valuable hardening is the least glamorous: <strong>keep the policy suites running on every push</strong>, rather than on the day somebody remembers.</p>
+<p class="prose">Evidence that is not continuous is a snapshot, and a snapshot ages.</p>
   </div>
 </section>
 
