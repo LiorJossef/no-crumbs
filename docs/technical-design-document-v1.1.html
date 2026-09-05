@@ -1,0 +1,980 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No Crumbs Technical Design v1.1</title>
+<script>
+/* Applied before the stylesheet loads: a pending render-blocking stylesheet defers
+   any script after it, which made a saved dark preference flash light for as long
+   as the fonts took to arrive. */
+try {
+  var t = localStorage.getItem('nc-prd-theme');
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+} catch (e) { /* private mode: the system preference still works */ }
+</script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..900,0..100,0..1&family=Manrope:wght@400..800&family=JetBrains+Mono:wght@400..700&display=swap">
+<style>
+/* ============================================================================
+   TOKENS — inherited verbatim from no-crumbs-submission.html. Do not retune a
+   value here: the two documents are read side by side and any drift shows.
+   ========================================================================= */
+:root {
+  color-scheme: dark;
+  --bg:#0D0B08; --bg-deep:#080706; --raised:#15120D; --card:#1A1611; --card-2:#211C15;
+  --line:#2B241A; --line-soft:#1F1A13;
+  --ink:#F3EFE7; --ink-2:#ABA294; --ink-3:#8B8375;
+  --gold:#F2C46B; --mint:#A8ECE2; --mint-mid:#5FD3C2; --mint-deep:#2E7A70;
+  --glow:rgba(168,236,226,.13); --glow-2:rgba(168,236,226,.06);
+  --ok:#5BE0A4; --warn:#F5C451; --crit:#FF7B7B;
+  --shadow-1:0 1px 2px rgba(0,0,0,.5);
+  --shadow-2:0 8px 24px -12px rgba(0,0,0,.7);
+  --display:"Fraunces","Iowan Old Style",Georgia,serif;
+  --body:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --page:1140px; --prose:66ch;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg:#FAF9F6; --bg-deep:#F1EFE9; --raised:#FFFFFF; --card:#FFFFFF; --card-2:#F4F2EC;
+    --line:#E7E3DC; --line-soft:#EFECE5;
+    --ink:#1B1B1A; --ink-2:#6E6A63; --ink-3:#736E66;
+    --gold:#B8801F; --mint:#215F56; --mint-mid:#2C786E; --mint-deep:#123B35;
+    --glow:rgba(46,122,112,.10); --glow-2:rgba(46,122,112,.05);
+    --ok:#12805A; --warn:#8A6100; --crit:#BE3B32;
+    --shadow-1:0 1px 2px rgba(20,32,30,.06);
+    --shadow-2:0 8px 24px -14px rgba(20,32,30,.22);
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg:#FAF9F6; --bg-deep:#F1EFE9; --raised:#FFFFFF; --card:#FFFFFF; --card-2:#F4F2EC;
+  --line:#E7E3DC; --line-soft:#EFECE5;
+  --ink:#1B1B1A; --ink-2:#6E6A63; --ink-3:#736E66;
+  --gold:#B8801F; --mint:#215F56; --mint-mid:#2C786E; --mint-deep:#123B35;
+  --glow:rgba(46,122,112,.10); --glow-2:rgba(46,122,112,.05);
+  --ok:#12805A; --warn:#8A6100; --crit:#BE3B32;
+  --shadow-1:0 1px 2px rgba(20,32,30,.06);
+  --shadow-2:0 8px 24px -14px rgba(20,32,30,.22);
+}
+
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--body);
+  font-size:17px; line-height:1.7; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+h1,h2 {
+  font-family:var(--display); font-optical-sizing:auto;
+  font-variation-settings:"SOFT" 32,"WONK" 1; font-weight:700;
+  letter-spacing:-.012em; line-height:1.08; text-wrap:balance; margin:0;
+}
+h3,h4,h5 { font-family:var(--body); font-weight:800; letter-spacing:-.015em; line-height:1.25; text-wrap:balance; margin:0; }
+p { margin:0; }
+a { color:var(--mint-mid); text-decoration:none; }
+a:hover { text-decoration:underline; }
+:focus-visible { outline:2px solid var(--mint-mid); outline-offset:3px; border-radius:4px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior:smooth; } }
+
+.wrap { width:min(100% - 44px, var(--page)); margin-inline:auto; }
+.prose { max-width:var(--prose); }
+.stack > * + * { margin-top:var(--gap,18px); }
+/* the six capability groups get the hairline rhythm section 06 already uses, so a
+   reader can see where one ends and count the six the lede promises */
+
+.eyebrow { font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:var(--mint-mid); }
+.eyebrow.dim { color:var(--ink-3); }
+.lede { font-size:clamp(18px,1.6vw,21px); color:var(--ink-2); line-height:1.55; }
+.sec-head .lede { color:var(--ink); max-width:54ch; }
+.small { font-size:15.5px; color:var(--ink-2); line-height:1.68; }
+.tiny { font-size:13px; color:var(--ink-3); }
+.mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+section { padding-block:clamp(72px,7vw,96px); position:relative; scroll-margin-top:74px; }
+section > .wrap > h3 { font-size:clamp(21px,2vw,25px); letter-spacing:-.02em; margin-top:clamp(34px,4.5vw,52px); }
+section > .wrap > h3:first-child { margin-top:0; }
+section > .wrap > h3 + * { margin-top:12px; }
+section + section { border-top:1px solid var(--line-soft); }
+section.deep { background:var(--bg-deep); }
+.sec-head { display:flex; flex-direction:column; gap:10px; margin-bottom:clamp(30px,3.5vw,44px); }
+.sec-head .lede { margin-top:6px; }
+.sec-head h2 { font-size:clamp(26px,3.6vw,42px); }
+
+
+/* ============================================================================
+   HEADER · TOC · PROGRESS
+   ========================================================================= */
+header.top {
+  position:sticky; top:0; z-index:60;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:blur(14px) saturate(1.3);
+  border-bottom:1px solid var(--line-soft);
+}
+.top-in { display:flex; align-items:center; gap:16px; min-height:58px; }
+.brand { display:flex; align-items:center; gap:9px; font-family:var(--display); font-weight:800; letter-spacing:-.02em; font-size:16px; flex:none; }
+.brand .rig svg { filter:drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
+.brand .tiny { font-family:var(--mono); letter-spacing:.1em; text-transform:uppercase; margin-left:2px; }
+
+.tocbar { display:flex; gap:3px; margin-left:auto; flex-wrap:wrap; }
+.tocbar a {
+  display:flex; align-items:center; gap:7px;
+  font-family:var(--body); font-size:12.5px; font-weight:600; color:var(--ink-2);
+  padding:7px 12px; border-radius:999px; border:1px solid transparent; background:none;
+  transition:background .18s,color .18s,border-color .18s; white-space:nowrap;
+}
+.tocbar a b { font-family:var(--mono); font-size:10px; font-weight:500; color:var(--ink-3); letter-spacing:.06em; }
+.tocbar a:hover { background:var(--glow); color:var(--ink); text-decoration:none; }
+.tocbar a[aria-current="true"] { background:var(--mint-deep); color:#fff; }
+.tocbar a[aria-current="true"] b { color:rgba(255,255,255,.92); }
+.theme-btn {
+  border:1px solid var(--line); background:var(--raised); color:var(--ink-2);
+  width:32px; height:32px; border-radius:999px; cursor:pointer;
+  display:grid; place-items:center; flex:none; transition:border-color .18s,color .18s;
+}
+.theme-btn:hover { border-color:var(--mint-mid); color:var(--ink); }
+@media (max-width:1040px) {
+  /* the chip row drops to its own line, so the header row must be allowed to wrap.
+     The brand takes the remaining space so the theme button stays beside it
+     rather than claiming a third row. */
+  .top-in { flex-wrap:wrap; row-gap:0; }
+  .brand { flex:1 1 auto; min-width:0; }
+  .theme-btn { margin-left:auto; }
+  .tocbar { order:3; width:100%; margin-left:0; padding-bottom:9px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
+  .tocbar::-webkit-scrollbar { display:none; }
+  /* the sticky header is two rows here (measured 78px), so anchor jumps need
+     more clearance. The matching .progress offset lives after the base rule
+     below — declared here it would lose to it on source order. */
+  section { scroll-margin-top:88px; }
+}
+@media (max-width:430px) { .brand .tiny { display:none; } }
+.progress { position:sticky; top:59px; z-index:59; height:2px; background:transparent; }
+.progress i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--mint-deep),var(--mint-mid)); }
+/* Must come after the base rule, not inside the earlier header block: equal
+   specificity, so source order decides. The header is two rows below 1041px
+   and would otherwise sit on top of the bar. */
+@media (max-width:1040px) { .progress { top:78px; } }
+
+/* ============================================================================
+   COVER
+   ========================================================================= */
+.cover { padding-block:clamp(38px,5vw,66px) clamp(28px,3.4vw,44px); border-bottom:1px solid var(--line-soft); background:linear-gradient(180deg,var(--glow-2),transparent); }
+.cover-n { font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--mint-mid); }
+.cover-h { display:flex; align-items:flex-start; gap:18px; margin-top:14px; }
+.cover-t { font-size:clamp(32px,5vw,58px); font-variation-settings:"SOFT" 44,"WONK" 1; }
+.cover-t em { font-style:normal; color:var(--mint); }
+.cover-b { margin-top:18px; max-width:62ch; font-size:clamp(16px,1.5vw,18.5px); color:var(--ink-2); line-height:1.6; }
+.hero-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:26px; }
+.pill { font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; padding:6px 11px; border-radius:999px; border:1px solid var(--line); background:var(--raised); color:var(--ink-2); }
+.pill.on { border-color:color-mix(in srgb, var(--mint-mid) 55%, transparent); color:var(--mint-mid); background:var(--glow-2); }
+
+/* ============================================================================
+   BLOCKS — inherited
+   ========================================================================= */
+.grid { display:grid; gap:16px; }
+.g2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media (max-width:940px) { .g3,.g4 { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:620px) { .g2,.g3,.g4 { grid-template-columns:1fr; } }
+
+.card { background:var(--raised); border:1px solid var(--line-soft); border-radius:14px; padding:22px 24px; }
+.card h3 { font-size:16px; }
+.card h4 { font-size:14.5px; }
+.card p { margin-top:9px; font-size:15.5px; color:var(--ink-2); line-height:1.65; }
+
+.stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+.stats > div { background:var(--raised); padding:18px; }
+.stats .n { font-family:var(--display); font-size:clamp(20px,2.2vw,26px); font-weight:900; letter-spacing:-.03em; line-height:1.1; color:var(--ink); }
+.stats .k { margin-top:8px; font-size:12.5px; color:var(--ink-2); line-height:1.42; }
+@media (max-width:780px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+.tbl-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:16px; scroll-snap-type:x proximity; }
+table { width:100%; border-collapse:collapse; font-size:15px; min-width:640px; }
+th,td { text-align:left; padding:12px 15px; border-bottom:1px solid var(--line-soft); vertical-align:top; scroll-snap-align:start; }
+th { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:500; background:var(--card-2); }
+tr:last-child td { border-bottom:0; }
+table.tight td, table.tight th { padding:9px 14px; }
+tr.grp td { background:var(--card-2); font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); padding:9px 15px; }
+.scrollhint { display:none; }
+@media (max-width:700px) { .scrollhint { display:block; margin-bottom:8px; } }
+/* the disclosure table is short-string content on both sides: let it reflow */
+table.reflow { min-width:0; }
+table.reflow td, table.reflow th { width:50%; }
+
+.st { font-family:var(--mono); font-size:10px; letter-spacing:.09em; text-transform:uppercase; padding:3px 8px; border-radius:999px; white-space:nowrap; display:inline-block; }
+.st.yes { color:var(--ok); background:color-mix(in srgb, var(--ok) 15%, transparent); }
+.st.na  { color:var(--ink-3); background:var(--card-2); }
+
+.note { border-left:3px solid var(--mint-mid); background:var(--glow-2); border-radius:0 12px 12px 0; padding:15px 18px; }
+.note h4 { font-size:14px; margin-bottom:5px; }
+.note p { font-size:15.5px; color:var(--ink-2); line-height:1.66; }
+.note p + p { margin-top:8px; }
+
+.rows { border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+.row { display:grid; grid-template-columns:38px 1fr auto; gap:15px; padding:15px 18px; background:var(--raised); align-items:start; }
+.rows.plain .row { grid-template-columns:38px 1fr; }
+.rows .grp { background:var(--card-2); font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); padding:9px 18px; }
+.rows .grp + .row { border-top:0; }
+.row + .row { border-top:1px solid var(--line-soft); }
+.row .idx { font-family:var(--mono); font-size:11px; color:var(--ink-3); padding-top:3px; }
+.row h4 { font-size:15px; letter-spacing:-.01em; }
+.row p { margin-top:6px; font-size:15.5px; color:var(--ink-2); line-height:1.65; }
+@media (max-width:620px) { .row, .rows.plain .row { grid-template-columns:1fr; gap:7px; } .row .st { justify-self:start; } }
+
+ul.clean, ol.clean { margin:0; padding-left:1.15em; }
+ul.clean li, ol.clean li { margin-top:11px; color:var(--ink-2); font-size:16px; line-height:1.68; }
+ul.clean li strong, ol.clean li strong { color:var(--ink); font-weight:700; }
+ul.bare li { position:relative; padding-left:20px; margin-top:12px; font-size:15.5px; color:var(--ink-2); line-height:1.65; }
+ul.bare li::before { content:"\2192"; position:absolute; left:0; color:var(--mint-mid); }
+ul.bare li strong { color:var(--ink); }
+
+/* ============================================================================
+   NEW TO THIS DOCUMENT
+   ========================================================================= */
+/* the pull-quote — used exactly twice, so it keeps its force */
+.quote { border-block:1px solid var(--line); padding-block:clamp(28px,4vw,44px); margin-block:clamp(32px,4vw,52px); }
+.quote blockquote {
+  font-family:var(--display); font-weight:700;
+  font-size:clamp(21px,3.1vw,34px); line-height:1.18; letter-spacing:-.015em;
+  text-wrap:balance; margin:0;
+}
+@media (min-width:1041px) { .quote blockquote { max-width:26ch; } }
+.quote em { font-style:normal; color:var(--mint); }
+.quote figcaption { margin-top:14px; font-size:14px; color:var(--ink-2); max-width:56ch; }
+
+/* the value exchange */
+ }
+
+/* the three opening questions — set in the display face, like nothing else here */
+
+/* flow layout: diagram beside its narration */
+.flowblock + .flowblock { margin-top:clamp(40px,5vw,64px); padding-top:clamp(40px,5vw,64px); border-top:1px solid var(--line-soft); }
+.flowblock > h3 { font-size:clamp(18px,2vw,22px); }
+.flowblock > .lede { margin-top:8px; max-width:64ch; font-size:17.5px; color:var(--ink); }
+.flow { display:grid; grid-template-columns:420px minmax(0,1fr); gap:clamp(22px,3vw,44px); align-items:start; margin-top:24px; }
+@media (max-width:960px) { .flow { grid-template-columns:1fr; } }
+.flow figure { margin:0; max-width:448px; border:1px solid var(--line); border-radius:16px; background:var(--raised); padding:14px; }
+.flow figure > svg { display:block; width:100%; height:auto; max-width:420px; }
+.flow figcaption { margin-top:10px; font-size:12.5px; color:var(--ink-2); line-height:1.5; }
+.narr > * + * { margin-top:16px; }
+
+/* diagram internals — every colour is a token reference, never a literal */
+.fd-node      { fill:var(--card-2); stroke:var(--line);     stroke-width:1.5; }
+.fd-node.act  { fill:var(--glow-2); stroke:var(--mint-mid); stroke-width:1.8; }
+.fd-node.sys  { fill:var(--raised); stroke:var(--line);     stroke-width:1.5; }
+.fd-node.end  { fill:var(--glow);   stroke:var(--mint-mid); stroke-width:2.4; }
+.fd-node.alt  { fill:none;          stroke:var(--gold);     stroke-width:2; }
+.fd-node.reveal { fill:var(--card-2); stroke:var(--mint-mid); stroke-width:1.6; stroke-dasharray:4 4; }
+.fd-node.stop { fill:color-mix(in srgb, var(--crit) 8%, transparent); stroke:var(--crit); stroke-width:1.6; stroke-dasharray:6 4; }
+.fd-edge      { fill:none; stroke:var(--ink-3);  stroke-width:1.6; }
+.fd-edge.stop { stroke:var(--crit); stroke-width:1.5; stroke-dasharray:6 4; }
+/* --ink-3 is a hairline colour only. It fails AA as text in the light theme,
+   so no diagram label ever uses it. */
+.fd-t   { fill:var(--ink);   font-family:var(--body); font-size:17px; font-weight:700; }
+.fd-t.sm{ font-size:15px; }
+.fd-s   { fill:var(--ink-2); font-family:var(--mono); font-size:14px; font-weight:500; letter-spacing:.04em; }
+.fd-lab { fill:var(--ink-2); font-family:var(--mono); font-size:14px; font-weight:500; }
+.ah-ink  { fill:var(--ink-3); }
+.ah-gold { fill:var(--gold); }
+
+/* ============================================================================
+   PRINT — this document is submitted as a PDF, so a dark reader must not
+   print a black page. Re-declare the light palette outright.
+   ========================================================================= */
+@media print {
+  :root:root {
+    --bg:#fff; --bg-deep:#fff; --raised:#fff; --card:#fff; --card-2:#F4F2EC;
+    --line:#D8D4CC; --line-soft:#E7E3DC;
+    --ink:#000; --ink-2:#333; --ink-3:#666;
+    --gold:#8A5D0F; --mint:#154A43; --mint-mid:#1D5C54; --mint-deep:#123B35;
+    --glow:rgba(0,0,0,.04); --glow-2:rgba(0,0,0,.02);
+    --ok:#0B6B4A; --warn:#7A5500; --crit:#A32B24;
+  }
+  header.top, .progress, .theme-btn, .tocbar, .scrollhint { display:none !important; }
+  body { background:#fff; color:#000; }
+    section { padding-block:22px; break-before:page; }
+  h3, h4, .sec-head, .flowblock > h3, .flowblock > .lede { break-after:avoid; }
+  p, li { orphans:2; widows:2; }
+  tr { break-inside:avoid; }
+  tr.grp { break-after:avoid; }
+  section.deep { background:#fff; }
+  .cover { break-after:page; }
+    .flow { grid-template-columns:1fr; }
+  .flow figure { max-width:420px; break-inside:avoid; }
+  .flow .narr { break-inside:avoid; }
+  .flowblock { break-inside:avoid; }
+  .tbl-wrap { overflow:visible; }
+  table { min-width:0; }
+  thead { display:table-header-group; }
+  .quote { break-inside:avoid; }
+  a[href^="http"]::after { content:" (" attr(href) ")"; font-family:var(--mono); font-size:10px; color:#555; }
+  .printtoc { display:block !important; }
+}
+.printtoc { display:none; }
+
+/* the crumb mark — colours are fixed, not themed: the mark is the mark */
+.rig { --gold-c:#F2C46B; --crust-c:#E0A845; --ink-c:#3A2A15; --blush:#F0866A; }
+.rig svg { display:block; overflow:visible; }
+.rig .body  { fill:var(--gold-c); }
+.rig .shade { fill:var(--crust-c); }
+.rig .shine { fill:#FFFFFF; opacity:.28; }
+.rig .out   { fill:none; stroke:var(--ink-c); stroke-width:4.5; stroke-linejoin:round; }
+.rig .ink   { fill:var(--ink-c); }
+.rig .inkl  { fill:none; stroke:var(--ink-c); stroke-width:4.2; stroke-linecap:round; stroke-linejoin:round; }
+.rig .cheek { fill:var(--blush); opacity:.5; }
+.rig .glint { fill:#fff; }
+
+/* a diagram that sits in the flow of prose rather than beside a narration */
+.figblock { margin:26px 0 0; max-width:448px; border:1px solid var(--line); border-radius:16px; background:var(--raised); padding:14px; }
+.figblock > svg { display:block; width:100%; height:auto; max-width:420px; }
+.figblock figcaption { margin-top:10px; font-size:13px; color:var(--ink-2); line-height:1.5; }
+code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:var(--card-2); padding:1px 5px; border-radius:4px; word-break:break-word; }
+@media print { .figblock { break-inside:avoid; } }
+
+.introblock { padding-block:clamp(40px,5vw,60px); border-top:0; }
+@media print { .introblock { break-before:auto; } }
+</style>
+<header class="top">
+  <div class="wrap top-in">
+    <span class="brand">
+      <span class="rig" data-crumb data-size="20" style="display:block"></span>
+      <span>No&nbsp;Crumbs</span>
+      <span class="tiny">Technical Design &middot; 1.1</span>
+    </span>
+    <nav class="tocbar" aria-label="Sections">
+      <a href="#s1"><b>01</b><span>Layout</span></a>
+      <a href="#s2"><b>02</b><span>Pipeline</span></a>
+      <a href="#s3"><b>03</b><span>Map &amp; state</span></a>
+      <a href="#s4"><b>04</b><span>Database</span></a>
+      <a href="#s5"><b>05</b><span>Routes</span></a>
+      <a href="#s6"><b>06</b><span>Errors</span></a>
+    </nav>
+    <button type="button" class="theme-btn" id="themeBtn" aria-label="Switch between light and dark">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>
+      </svg>
+    </button>
+  </div>
+</header>
+<div class="progress"><i id="progbar"></i></div>
+
+<div class="cover">
+  <div class="wrap">
+    <p class="cover-n">Technical Design Document &middot; Version 1.1 &middot; 5 September 2026</p>
+    <div class="cover-h">
+      <span class="rig" data-crumb data-size="44" style="flex:none;margin-top:6px"></span>
+      <h1 class="cover-t">Technical Design<br><em>Document</em></h1>
+    </div>
+    <p class="cover-b"><strong>Abstract.</strong> This document describes the implemented design of the No Crumbs system: a single Next.js application divided into four source layers. It states the layering rule and the mechanism that enforces it, the stages by which a pasted link becomes a set of candidate places, the placement of application state and the lifetime of the map instance, the relational model and its core operations, the route and server-action inventory, and the validation boundaries and closed error taxonomy. Each section describes the system as deployed rather than as planned.</p>
+    <div class="hero-meta">
+      <span class="pill on">Deployed &middot; no-crumbss.vercel.app</span>
+      <span class="pill">Next.js &middot; TypeScript</span>
+      <span class="pill">Supabase Postgres</span>
+      <span class="pill">MapLibre GL</span>
+    </div>
+    <div class="printtoc" style="margin-top:26px">
+      <p class="eyebrow dim">Contents</p>
+      <p class="small" style="margin-top:8px">01 System Layout and Component Hierarchy &nbsp;&middot;&nbsp; 02 The Extraction and Geo-Resolution Pipeline &nbsp;&middot;&nbsp; 03 Interactive Map Architecture and Application State &nbsp;&middot;&nbsp; 04 Database Design and Core CRUD Operations &nbsp;&middot;&nbsp; 05 API Routes and Data Flow &nbsp;&middot;&nbsp; 06 Input Validation and Error Handling</p>
+    </div>
+  </div>
+</div>
+
+<section id="s1" aria-labelledby="s1h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 01</p>
+      <h2 id="s1h">System Layout and Component Hierarchy</h2>
+      <p class="lede">The product is a single Next.js application divided into four source layers. The governing constraint is that <code>src/domain/</code> may import nothing outside itself.</p>
+    </div>
+
+<h3>1.1 &nbsp;Source layers</h3>
+<p class="prose">Each layer has one responsibility, and import edges point in one direction only.</p>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:24%">Layer</th><th style="width:40%">Contents</th><th>Constraint</th></tr></thead>
+    <tbody>
+      <tr><td><code>src/app/</code></td><td>Pages, route handlers, server actions, and the server-only helpers under <code>_lib/</code></td><td>The only layer in which Next.js appears</td></tr>
+      <tr><td><code>src/domain/</code></td><td>URL classification, name scoring, plausibility assessment, and derivation of a place from a stored extraction</td><td>Plain TypeScript: no network, no database, no React, no vendor SDK</td></tr>
+      <tr><td><code>src/integrations/</code></td><td>One adapter per external service</td><td>A vendor&rsquo;s types terminate here</td></tr>
+      <tr><td><code>src/components/</code> and <code>src/ui/</code></td><td>React components, and the framework-free logic behind them</td><td>Rules such as which recovery a given error offers are testable without a browser</td></tr>
+    </tbody>
+  </table>
+</div>
+
+      <figure class="figblock">
+        <svg viewBox="0 0 420 266" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="ah-ink-l" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
+  </defs>
+
+  <path class="fd-edge" d="M105,66 V100"  marker-end="url(#ah-ink-l)"/>
+  <path class="fd-edge" d="M315,66 V100"  marker-end="url(#ah-ink-l)"/>
+  <path class="fd-edge" d="M105,156 V190" marker-end="url(#ah-ink-l)"/>
+  <path class="fd-edge" d="M315,156 V190" marker-end="url(#ah-ink-l)"/>
+
+  <rect class="fd-node" x="10" y="10" width="400" height="56" rx="12"/>
+  <text class="fd-t" x="24" y="36">app &mdash; the only place Next.js appears</text>
+  <text class="fd-s" x="24" y="56">PAGES &middot; ROUTE HANDLERS &middot; SERVER ACTIONS</text>
+
+  <rect class="fd-node" x="10" y="100" width="190" height="56" rx="12"/>
+  <text class="fd-t sm" x="24" y="124">components / ui</text>
+  <text class="fd-s" x="24" y="144">REACT, AND ITS LOGIC</text>
+
+  <rect class="fd-node" x="220" y="100" width="190" height="56" rx="12"/>
+  <text class="fd-t sm" x="234" y="124">integrations</text>
+  <text class="fd-s" x="234" y="144">ONE PER VENDOR</text>
+
+  <rect class="fd-node act" x="10" y="190" width="400" height="56" rx="12"/>
+  <text class="fd-t" x="24" y="216">domain &mdash; imports nothing</text>
+  <text class="fd-s" x="24" y="236">NO NETWORK &middot; NO DATABASE &middot; NO REACT</text>
+</svg>
+        <figcaption>Import edges point downward only. <code>domain</code> has no outgoing edge, which is the whole of the rule.</figcaption>
+      </figure>
+
+<h3>1.2 &nbsp;Enforcement of the layering rule</h3>
+
+<p class="prose"><code>npm run check:layers</code> writes deliberate violations into the tree and asserts that the lint zones reject each one. It then searches <code>src/domain/</code> for input and output independently, so suppressing the lint rule does not defeat the check.</p>
+
+<p class="prose">The same command asserts that every module in <code>src/app/_lib/</code> imports <code>server-only</code>. A leaked service key therefore fails the build rather than depending on review.</p>
+
+<p class="prose">Two consequences are measurable. The scoring benchmark executes in milliseconds because <code>domain/places/score.ts</code> cannot reach a network, and replacing the places provider required one new file in <code>integrations/</code> and no change in <code>domain/</code>. The port and adapter arrangement that permits this is described in section 2.8.</p>
+
+<h3>1.3 &nbsp;Route inventory</h3>
+
+<p class="prose">The application exposes eleven pages: <code>/</code>, <code>/sign-in</code>, <code>/import</code>, <code>/profile</code>, <code>/account</code>, <code>/auth/reset</code>, <code>/auth/new-password</code>, <code>/collections</code>, <code>/collections/[id]</code>, <code>/collections/join/[token]</code>, and <code>/map</code>, which acts as the shell.</p>
+
+<p class="prose"><code>/map</code> is a single route segment carrying three views &mdash; places, the collections index, and one open collection &mdash; addressed by the search parameters <code>?view=collections</code> and <code>?collection=&lt;id&gt;</code>.</p>
+
+<p class="prose">A segment change unmounts the outgoing subtree, which formerly unmounted the drawer with it. The arrangement that keeps the map mounted across such a change is described in section 3.4.</p>
+
+<h3>1.4 &nbsp;Component hierarchy beneath <code>/map</code></h3>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:34%">Module</th><th style="width:22%">Kind</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>app/layout.tsx</code></td><td>Root layout</td><td>Renders <code>components/shell/persistent-map.tsx</code>, which owns the map for the session</td></tr>
+      <tr><td><code>app/map/page.tsx</code></td><td>Server Component</td><td>Authenticates the request and reads the library</td></tr>
+      <tr><td><code>map-page-client.tsx</code></td><td>Client Component</td><td>Owns selection and filters, and feeds the mobile sheet, the desktop panel and the pin layer</td></tr>
+    </tbody>
+  </table>
+</div>
+  </div>
+</section>
+
+<section id="s2" class="deep" aria-labelledby="s2h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 02</p>
+      <h2 id="s2h">The Extraction and Geo-Resolution Pipeline</h2>
+      <p class="lede">A pasted link becomes places on a map in four stages: canonicalisation of the link, retrieval of the post, extraction of candidate names from the caption by a language model under a fixed schema, and resolution of each name against a places provider.</p>
+    </div>
+
+    <h3>2.1 &nbsp;Link canonicalisation and source retrieval</h3>
+    <p class="prose">The first stage establishes identity rather than content. The canonicaliser re-runs on the server: the host is checked against an allow-list, short links are followed with that allow-list re-applied to every redirect, and the numeric video identifier is extracted. The security properties of this stage are stated in section 6.1.</p>
+
+    <p class="prose">That identifier is the key on which the remainder depends, so the same video pasted twice yields one source rather than a second import. The server then retrieves the post through TikTok&rsquo;s public oEmbed endpoint, which returns the caption, the author and a thumbnail.</p>
+      <figure class="figblock">
+        <svg viewBox="0 0 420 506" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="ah-ink-p" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
+  </defs>
+
+  <path class="fd-edge" d="M126,66 V96"   marker-end="url(#ah-ink-p)"/>
+  <path class="fd-edge" d="M126,152 V182" marker-end="url(#ah-ink-p)"/>
+  <path class="fd-edge" d="M126,238 V268" marker-end="url(#ah-ink-p)"/>
+  <path class="fd-edge" d="M126,324 V440" marker-end="url(#ah-ink-p)"/>
+
+  <path class="fd-edge" d="M126,238 V253 H331 V268" marker-end="url(#ah-ink-p)"/>
+  <text class="fd-lab" x="134" y="249">if none named</text>
+
+  <path class="fd-edge" d="M126,324 V339 H331 V354" marker-end="url(#ah-ink-p)"/>
+  <text class="fd-lab" x="134" y="335">if no match</text>
+
+  <path class="fd-edge" d="M331,410 V425 H126 V440" marker-end="url(#ah-ink-p)"/>
+
+  <rect class="fd-node" x="10" y="10" width="232" height="56" rx="12"/>
+  <text class="fd-t" x="24" y="36">Paste a link</text>
+  <text class="fd-s" x="24" y="56">ONE CANONICAL VIDEO ID</text>
+
+  <rect class="fd-node" x="10" y="96" width="232" height="56" rx="12"/>
+  <text class="fd-t" x="24" y="122">Fetch the post</text>
+  <text class="fd-s" x="24" y="142">CAPTION AND AUTHOR</text>
+
+  <rect class="fd-node" x="10" y="182" width="232" height="56" rx="12"/>
+  <text class="fd-t" x="24" y="208">Read the caption</text>
+  <text class="fd-s" x="24" y="228">FIXED OUTPUT SCHEMA</text>
+
+  <rect class="fd-node" x="10" y="268" width="232" height="56" rx="12"/>
+  <text class="fd-t" x="24" y="294">Match name to place</text>
+  <text class="fd-s" x="24" y="314">REAL COORDINATES</text>
+
+  <rect class="fd-node end" x="10" y="440" width="232" height="56" rx="12"/>
+  <text class="fd-t" x="24" y="466">Review, then save</text>
+  <text class="fd-s" x="24" y="486">EACH ONE CONFIRMED</text>
+
+  <rect class="fd-node" x="252" y="268" width="158" height="56" rx="12"/>
+  <text class="fd-t sm" x="264" y="292">No places in</text>
+  <text class="fd-t sm" x="264" y="309">this one</text>
+
+  <rect class="fd-node" x="252" y="354" width="158" height="56" rx="12"/>
+  <text class="fd-t sm" x="264" y="378">An approximate</text>
+  <text class="fd-t sm" x="264" y="395">point, marked</text>
+</svg>
+        <figcaption>Two of the terminal states are ordinary results rather than failures. The caches described in section 2.7 sit on the two middle stages.</figcaption>
+      </figure>
+    <p class="prose">Captions are the only input read. Neither the audio track nor text burned into the video is processed. Many recommendation videos state the venue in speech and write nothing, and such posts therefore yield no candidates.</p>
+
+    <p class="prose">This outcome is treated as a designed result rather than an error condition; section 6.5 states the reasoning.</p>
+
+    <h3>2.2 &nbsp;Caption extraction</h3>
+    <p class="prose">The caption is submitted to a language model under a versioned prompt, and the model must answer in a shape defined in code. No prose is parsed and no regular expression is applied to a model reply.</p>
+
+    <div class="tbl-wrap">
+      <table class="tight">
+        <thead><tr><th style="width:22%">Element</th><th style="width:38%">Location</th><th>Property</th></tr></thead>
+        <tbody>
+          <tr><td>Prompt</td><td><code>src/integrations/llm/prompt.ts</code></td><td>A plain constant, so it cannot change without a deploy</td></tr>
+          <tr><td>Output shape</td><td><code>src/domain/extraction/schema.ts</code></td><td>Converted into the JSON Schema that constrains the model at the API level</td></tr>
+          <tr><td>Provider</td><td>Gemini in production; an Anthropic adapter beside it</td><td>Selected by one environment variable</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>2.3 &nbsp;Classification of extracted fields</h3>
+    <p class="prose">The requested fields divide into four classes of claim. Some fields must be copyable out of the caption; some are the model&rsquo;s reading of the caption; some are its recall of the world; one is its assessment of itself. The distinction determines how each field may subsequently be used.</p>
+
+    <div class="tbl-wrap">
+      <table class="tight">
+        <thead><tr><th style="width:22%">Class</th><th style="width:38%">Fields</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td>Caption&#8209;verbatim</td><td><code>rawName</code>, <code>evidence</code>, <code>cityHint</code>, <code>countryHint</code>, <code>areaHint</code>, <code>addressHint</code>, <code>dishes</code></td><td>Copied from the caption. A fabrication is a substring test, not a judgement call</td></tr>
+          <tr><td>Caption&#8209;inference</td><td><code>categoryHint</code>, <code>tags</code>, <code>whyGo</code></td><td>The model&rsquo;s reading of the caption, which may not go beyond it</td></tr>
+          <tr><td>World knowledge</td><td><code>identifiedName</code>, <code>coordinates</code>, <code>nameVariants</code></td><td>Unverified recall about the real world, checked only by a person</td></tr>
+          <tr><td>Model self&#8209;report</td><td><code>modelConfidence</code></td><td>Kept so it can be measured; never trusted, never shown</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="prose">The classification is enforced in code rather than stated in a comment, since a convention erodes one field at a time. A constant names the class of every field, and a unit test fails if a new field arrives without one.</p>
+
+    <h3>2.4 &nbsp;Verbatim gates and candidate rejection</h3>
+    <p class="prose">Two gates make the verbatim classes of section 2.3 effective, and both reduce trust in the model to a string search. The first drops any candidate whose supporting quote does not appear in the caption. The second erases the model&rsquo;s one-line reason when the fragment it cites cannot be found.</p>
+
+    <p class="prose">The same gate rejects obvious non-places before they incur cost: links, bare usernames, names that denote only a city or a country, generic phrases such as &ldquo;this hidden gem&rdquo;, and duplicates.</p>
+
+    <p class="prose">Weak but genuine cases are retained deliberately &mdash; a venue named only in a hashtag, for example &mdash; with confidence capped and the review screen stating the limitation.</p>
+
+    <p class="prose">Two caps bound the work. The schema refuses more than twelve candidates, so a model that converts thirty hashtags into places fails validation instead of flooding the pipeline. Eight is the maximum number looked up; candidates beyond that limit are retained and marked as unchecked.</p>
+
+    <h3>2.5 &nbsp;Place resolution</h3>
+    <p class="prose">Resolution asks a places provider to identify each surviving name. The query is composed from the caption&rsquo;s name, its city, country and address hints, and the model&rsquo;s alternative spellings, which is the mechanism by which a Hebrew caption reaches a venue indexed under its English name.</p>
+
+    <p class="prose">Results are scored on name similarity, category agreement and dataset confidence, and then banded.</p>
+
+    <div class="tbl-wrap">
+      <table class="tight">
+        <thead><tr><th style="width:34%">Band</th><th>Behaviour on the review screen</th></tr></thead>
+        <tbody>
+          <tr><td>A clear winner</td><td>Pre-selected</td></tr>
+          <tr><td>A plausible but unseparated set</td><td>Presented as a shortlist for the user to choose from</td></tr>
+          <tr><td>Everything else</td><td>Recorded as no match</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="prose">The decisive quantity is the margin between the top result and the runner-up. A caption that names no venue characteristically matches many rows equally well.</p>
+
+    <h3>2.6 &nbsp;Unresolved candidates</h3>
+    <p class="prose">Where nothing matches, no coordinate is invented and the candidate is not discarded. It is saved with the model&rsquo;s own coordinate, carries no resolution score, and its card states that the pin is approximate and links out to a public map for verification by a person.</p>
+
+    <p class="prose">Its identity is derived from the caption&rsquo;s verbatim name, so re-pasting converges on one row rather than growing the library. A candidate is skipped only when the resolver found nothing <em>and</em> the model supplied no coordinate; it is not pinned to a city centre.</p>
+
+    <h3>2.7 &nbsp;Extraction and lookup caches</h3>
+    <p class="prose">An extraction is stored under the source, the model and the prompt version together, so re-pasting a link incurs no model call. Provider replies are cached below the ranking step.</p>
+
+    <p class="prose">Cost is the secondary motivation. The model is not deterministic, so in the absence of the cache the same link produced different places on a second run, under different names and coordinates. The cache key is what makes an import repeatable.</p>
+
+    <h3>2.8 &nbsp;Port and adapter boundary</h3>
+    <p class="prose">Neither the model nor the places provider is called directly from the pipeline. Both sit behind a <em>port</em> &mdash; a small interface owned by the domain, listing only what the domain requires &mdash; with one <em>adapter</em> per vendor behind it, selected in a single factory. No vendor type crosses that boundary, which is the layering rule of section 1.1 applied to external services.</p>
+
+    <p class="prose">Three consequences follow.</p>
+
+    <ul class="clean">
+      <li>Tests substitute fakes for the network.</li>
+      <li>A second model is a second file rather than a rewrite.</li>
+      <li>A provider change required by licence terms is confined to one location.</li>
+    </ul>
+
+  </div>
+</section>
+
+<section id="s3" aria-labelledby="s3h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 03</p>
+      <h2 id="s3h">Interactive Map Architecture and Application State</h2>
+      <p class="lede">No client state library is used. Each kind of state has one location, selected according to whether it must survive a refresh, a navigation, or neither.</p>
+    </div>
+
+<h3>3.1 &nbsp;State placement</h3>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th>Kind of state</th><th>Where it lives</th><th>Why there</th></tr></thead>
+    <tbody>
+      <tr><td>Persisted data</td><td>Read on the server, in <code>app/map/page.tsx</code></td><td>Must survive a refresh, and the database already holds the visibility rules</td></tr>
+      <tr><td>The current view</td><td>URL search parameters</td><td>Must survive a navigation and be shareable</td></tr>
+      <tr><td>Transient state</td><td>Local state in the component that owns it</td><td>Needs to survive neither</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>3.2 &nbsp;Server-side data access</h3>
+
+<p class="prose">Persisted data is read on the server. <code>app/map/page.tsx</code> calls <code>_lib/get-spots.ts</code>, which queries <code>saved_places</code> joined to <code>places</code> and <code>sources</code> &mdash; the tables described in section 4.1 &mdash; through the caller&rsquo;s own client, and passes plain objects into the client tree. No component fetches its own data on mount.</p>
+
+<p class="prose">That query carries no user filter, by design. Row-level security already scopes all three tables, and a second filter expressed in TypeScript would give one rule two definitions.</p>
+
+<h3>3.3 &nbsp;URL-addressed view state</h3>
+
+<p class="prose">State that addresses the current view is held in the URL. Search parameters are not part of the router&rsquo;s segment cache key, whereas a dynamic segment&rsquo;s value is; this is why <code>/collections/[id]</code> remounted the drawer and <code>?collection=</code> does not. Both former routes are retained as redirects, so no previously shared link ceases to work.</p>
+
+<p class="prose">Transient state remains in the component that owns it. Selection, search text, the active tag and the not-visited filter are local state in <code>map-page-client.tsx</code>, and the import run is a union of screens driven only by real server responses.</p>
+
+<p class="prose">A mutation ends by revalidating <code>/map</code>. The server remains authoritative and no client cache requires synchronisation.</p>
+
+<h3>3.4 &nbsp;Persistent map instance</h3>
+
+<p class="prose">One MapLibre instance exists for the session and survives navigation because React never unmounts it. MapLibre provides no means of handing a live map to a freshly mounted component, and the only ancestor common to every map-bearing route is the root layout.</p>
+
+<p class="prose">Accordingly <code>components/shell/persistent-map.tsx</code> renders the surface once, through a React portal, into a detached container that it owns. Each route&rsquo;s shell borrows that container by appending it to its own anchor.</p>
+
+<p class="prose">React never reads a portal container&rsquo;s position, so moving the node moves the canvas and its live graphics context undisturbed. Before this arrangement, every tab-to-tab navigation constructed a new map.</p>
+
+<h3>3.5 &nbsp;Single filter path</h3>
+
+<p class="prose">Filtering occurs once. Tag, visit state and search text are applied in one location, and the single filtered array is supplied to the sheet, the desktop panel and the marker layer. No second code path exists that could narrow one surface and not the others.</p>
+  </div>
+</section>
+
+<section id="s4" class="deep" aria-labelledby="s4h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 04</p>
+      <h2 id="s4h">Database Design and Core CRUD Operations</h2>
+      <p class="lede">All persisted state is held in one Postgres database. Its shape follows from a single distinction: a place in the world is not the same entity as one person&rsquo;s decision to keep it.</p>
+    </div>
+
+    <h3>4.1 &nbsp;Table inventory</h3>
+    <div class="tbl-wrap">
+      <table class="tight">
+        <thead><tr><th style="width:26%">Table</th><th style="width:22%">Who it belongs to</th><th>What one row is</th></tr></thead>
+        <tbody>
+          <tr><td><code>profiles</code></td><td>one user</td><td>an account, paired one-to-one with the auth user</td></tr>
+          <tr><td><code>sources</code></td><td>everyone</td><td>one TikTok video &mdash; its numeric id, canonical URL, author and caption</td></tr>
+          <tr><td><code>imports</code></td><td>one user</td><td>one paste: its status, its timings, and the candidates awaiting review</td></tr>
+          <tr><td><code>places</code></td><td>everyone</td><td>one physical venue &mdash; name, category, latitude and longitude</td></tr>
+          <tr><td><code>place_provider_refs</code></td><td>everyone</td><td>one provider&rsquo;s id for a venue; many may point at one place</td></tr>
+          <tr><td><code>saved_places</code></td><td>one user</td><td>that person&rsquo;s entry for a place: their name for it, note, tags, visited state</td></tr>
+          <tr><td><code>saved_place_sources</code></td><td>one user</td><td>which video recommended which save</td></tr>
+          <tr><td><code>collections</code> and friends</td><td>several users</td><td>a shared list, with an owner, editors and viewers</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+      <figure class="figblock">
+        <svg viewBox="0 0 442 296" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="ah-ink-e" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
+  </defs>
+
+  <path class="fd-edge" d="M200,40 H242" marker-end="url(#ah-ink-e)"/>
+  <text class="fd-lab" x="221" y="32" text-anchor="middle">1:n</text>
+
+  <path class="fd-edge" d="M105,70 V110" marker-end="url(#ah-ink-e)"/>
+  <text class="fd-lab" x="113" y="94">1:n</text>
+
+  <path class="fd-edge" d="M242,140 H200" marker-end="url(#ah-ink-e)"/>
+  <text class="fd-lab" x="221" y="132" text-anchor="middle">1:n</text>
+
+  <path class="fd-edge" d="M105,170 V210" marker-end="url(#ah-ink-e)"/>
+  <text class="fd-lab" x="113" y="194">1:n</text>
+
+  <path class="fd-edge" d="M242,240 H200" marker-end="url(#ah-ink-e)"/>
+  <text class="fd-lab" x="221" y="232" text-anchor="middle">1:n</text>
+
+  <rect class="fd-node" x="10" y="10" width="190" height="60" rx="12"/>
+  <text class="fd-t sm" x="24" y="36">places</text>
+  <text class="fd-s" x="24" y="56">SHARED &middot; ONE VENUE</text>
+
+  <rect class="fd-node" x="242" y="10" width="190" height="60" rx="12"/>
+  <text class="fd-t sm" x="256" y="36">place_provider_refs</text>
+  <text class="fd-s" x="256" y="56">SHARED</text>
+
+  <rect class="fd-node act" x="10" y="110" width="190" height="60" rx="12"/>
+  <text class="fd-t sm" x="24" y="136">saved_places</text>
+  <text class="fd-s" x="24" y="156">YOURS &middot; ONE ENTRY</text>
+
+  <rect class="fd-node act" x="242" y="110" width="190" height="60" rx="12"/>
+  <text class="fd-t sm" x="256" y="136">profiles</text>
+  <text class="fd-s" x="256" y="156">YOURS</text>
+
+  <rect class="fd-node act" x="10" y="210" width="190" height="60" rx="12"/>
+  <text class="fd-t sm" x="24" y="236">saved_place_sources</text>
+  <text class="fd-s" x="24" y="256">YOURS &middot; PROVENANCE</text>
+
+  <rect class="fd-node" x="242" y="210" width="190" height="60" rx="12"/>
+  <text class="fd-t sm" x="256" y="236">sources</text>
+  <text class="fd-s" x="256" y="256">SHARED &middot; ONE POST</text>
+
+  <path class="fd-edge" d="M10,286 H432" stroke-dasharray="3 4"/>
+</svg>
+        <figcaption>One colour denotes rows shared by everyone, the other rows belonging to a single user. That division is the design.</figcaption>
+      </figure>
+
+    <h3>4.2 &nbsp;Separation of place and save</h3>
+    <p class="prose">This is the principal decision in the model. <code>places</code> is the shared, de-duplicated record of a real location. <code>saved_places</code> is one person&rsquo;s private entry pointing at it.</p>
+
+    <p class="prose">One physical venue is therefore one row, irrespective of how many videos refer to it. Three TikToks recommending the same bakery produce one place, one save for the user, and three links back to the videos.</p>
+
+    <p class="prose">The separation also determines where an edit lands. Renaming a place writes to the user&rsquo;s own row and never to the shared one, so no user can alter the map beneath another. A unique constraint on the pair of user and place makes saving the same place twice impossible rather than merely unlikely.</p>
+
+    <h3>4.3 &nbsp;Core operations</h3>
+    <div class="tbl-wrap">
+      <table class="tight">
+        <thead><tr><th style="width:32%">Operation</th><th>Mechanism</th></tr></thead>
+        <tbody>
+          <tr><td>Save places from a TikTok</td><td><code>POST /api/imports/confirm</code>, which calls <code>resolve_place()</code> to find or create the shared place, then <code>save_place()</code> once per confirmed candidate. The full request path is traced in section 5.3</td></tr>
+          <tr><td>Add a place by hand</td><td>The <code>addPlaceManually</code> server action, through the same two functions, with no source attached</td></tr>
+          <tr><td>Read the map or the list</td><td>One query joining <code>saved_places</code> to <code>places</code></td></tr>
+          <tr><td>Edit a name, category, note or visited state</td><td>A server action performing a plain update on the user&rsquo;s own row</td></tr>
+          <tr><td>Delete a save</td><td>Removes that row and its provenance links; the shared place survives for other users. Deleting an account cascades from <code>profiles</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.4 &nbsp;Integrity constraints</h3>
+    <div class="tbl-wrap">
+      <table class="tight">
+        <thead><tr><th style="width:44%">Rule</th><th>Enforcement</th></tr></thead>
+        <tbody>
+          <tr><td>Nothing is written to <code>places</code> before the user confirms</td><td>Until confirmation, candidates are held as JSON on the import row</td></tr>
+          <tr><td>De-duplication of venues</td><td>A unique constraint on the provider&rsquo;s own identifier, plus a 75-metre same-name guard inside <code>resolve_place()</code></td></tr>
+          <tr><td>A place must have at least one provider reference</td><td>A deferred trigger refuses any transaction that would leave one without</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</section>
+
+<section id="s5" aria-labelledby="s5h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 05</p>
+      <h2 id="s5h">API Routes and Data Flow</h2>
+      <p class="lede">The application exposes eight route handlers and seven server-action modules. A request becomes a route handler only where it requires elevated access or a slow external call; all other work is a server action or a plain read on the server.</p>
+    </div>
+
+<h3>5.1 &nbsp;Route inventory</h3>
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th>Route</th><th>Method</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>/api/imports/source-preview</code></td><td>POST</td><td>Fetches the video through oEmbed, so the thumbnail, handle and caption are on screen in about a second</td></tr>
+      <tr><td><code>/api/imports/probe</code></td><td>POST</td><td>The remainder of the pipeline in one request: caption, extraction, resolution, and the writes that record them</td></tr>
+      <tr><td><code>/api/imports/confirm</code></td><td>POST</td><td>Turns the reviewed selections into shared places and the user&rsquo;s own saves</td></tr>
+      <tr><td><code>/api/imports/place-search</code></td><td>POST</td><td>Search-and-add a place by name, from the no-places screen</td></tr>
+      <tr><td><code>/api/search/interpret</code></td><td>POST</td><td>Turns a typed sentence into filter values. Returns no places and writes nothing</td></tr>
+      <tr><td><code>/api/sources/thumbnail</code></td><td>POST</td><td>Re-fetches a thumbnail whose signed URL expired</td></tr>
+      <tr><td><code>/auth/callback</code></td><td>GET</td><td>Exchanges an auth code for a session</td></tr>
+      <tr><td><code>/healthz</code></td><td>GET</td><td>Liveness, revealing no configuration</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>5.2 &nbsp;Server actions</h3>
+
+<p class="prose">Server actions cover every ordinary mutation of the user&rsquo;s own rows: saved places (delete, rename, re-categorise, note, visited), manual add, collections, profile, account and sign-out.</p>
+
+<p class="prose">Each performs the same four steps in order.</p>
+
+<ol class="clean">
+  <li><strong>Validates its input</strong> before any other work runs.</li>
+  <li><strong>Identifies the user.</strong></li>
+  <li><strong>Writes through that user&rsquo;s own client,</strong> so the authorisation decision is made by the database.</li>
+  <li><strong>Revalidates the narrowest correct path.</strong></li>
+</ol>
+
+<p class="prose">No REST layer is placed over the application&rsquo;s own database. Row-level security is already the authorisation layer, and a hand-written CRUD API would be a second location in which the same rules could drift.</p>
+
+<h3>5.3 &nbsp;The confirm request path</h3>
+
+<p class="prose">Confirm is the request worth tracing, because the trust boundary sits there. The browser sends an extraction id and, per item, two integers and an optional note. It sends no place facts.</p>
+
+<p class="prose">The route parses that body against a schema, then authorises the extraction through the <em>user&rsquo;s</em> client by requiring that the user own an import row for its source. The check is performed by the database rather than by a conditional in application code.</p>
+
+<p class="prose">The stored candidates are re-parsed out of the database, and the named index is handed to the domain, which derives name, coordinates, category and country from the row the server itself wrote.</p>
+
+<p class="prose">Two Postgres functions then execute.</p>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:26%">Function</th><th style="width:30%">Privilege</th><th>Capability</th></tr></thead>
+    <tbody>
+      <tr><td><code>resolve_place()</code></td><td>Service role</td><td>The only path that can create a shared place</td></tr>
+      <tr><td><code>save_place()</code></td><td>The user&rsquo;s own session</td><td>Can write only that user&rsquo;s own library row</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="prose">This arrangement closes a confirmed exploit. While the browser supplied the place itself, the resolve step refreshed provider-owned columns on the matched row, which permitted one user to rename and relocate a venue that other users had saved.</p>
+  </div>
+</section>
+
+<section id="s6" class="deep" aria-labelledby="s6h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 06</p>
+      <h2 id="s6h">Input Validation and Error Handling</h2>
+      <p class="lede">Every input from outside the system is parsed at the boundary at which it arrives, and every failure is one of thirteen error codes carrying no provider text.</p>
+    </div>
+
+<h3>6.1 &nbsp;URL validation</h3>
+
+<p class="prose">The canonicaliser described in section 2.1 runs in the browser as the user types, so an unsupported link becomes a recognised redirect to manual add before any request is made.</p>
+
+<p class="prose">The same pure function runs again inside the routes that fetch, and that second call is the control against server-side request forgery. The host must be exactly one of a closed list of TikTok hosts, by full-string equality rather than suffix match, so <code>tiktok.com.evil.io</code> and <code>nottiktok.com</code> both fail. The check is re-applied to every redirect when a short link is followed.</p>
+
+<p class="prose">The browser-side check is a convenience. The control is the check performed on the server immediately before the network call.</p>
+
+<h3>6.2 &nbsp;Boundaries at which untrusted input is parsed</h3>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:36%">Input</th><th>Parsing behaviour</th></tr></thead>
+    <tbody>
+      <tr><td>The oEmbed payload</td><td>Deliberately tolerant of new fields, so an added field on TikTok&rsquo;s side cannot break the pipeline, while a removed title still does</td></tr>
+      <tr><td>The model&rsquo;s output</td><td>A failure becomes a named error rather than a thrown exception</td></tr>
+      <tr><td>The confirm request body</td><td>Parsed against a schema before use, as described in section 5.3</td></tr>
+      <tr><td>JSON read back out of the system&rsquo;s own database</td><td>Re-parsed, because the code that wrote it may be an older deploy</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="prose">Server actions validate through pure functions that return the message the form is to display.</p>
+
+<h3>6.3 &nbsp;The error taxonomy</h3>
+
+<p class="prose">The error code is a closed union of thirteen members. The wire format carries a code and two booleans: no message, no status, no stack and no vendor string.</p>
+
+<p class="prose">Each code has exactly one constructor, with its retryable value fixed within it, so no call site can claim that a code is retryable when the taxonomy states otherwise. Adapters catch every vendor exception and construct one of these instead, which is the boundary described in section 2.8.</p>
+
+<h3>6.4 &nbsp;Status mapping and client copy</h3>
+
+<p class="prose">Each code maps to a status that attributes the failure.</p>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th>Failure</th><th>Status</th><th>Rationale</th></tr></thead>
+    <tbody>
+      <tr><td>The video has no caption</td><td>422</td><td>The video was read successfully and contains none</td></tr>
+      <tr><td>Model quota exhausted</td><td>503</td><td>Not a 429: the exhausted quota is the system&rsquo;s own</td></tr>
+      <tr><td>Internal</td><td>500</td><td>The only code that may be a 500, which is what keeps a 500 in the logs meaningful</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="prose">User-facing copy is held on the client as a total record over that union, so a fourteenth code is a compile error rather than a silent regression to a single apologetic screen.</p>
+
+<p class="prose">Each entry names its recovery actions, and a test asserts that none is ever empty. No failure screen is a dead end.</p>
+
+<h3>6.5 &nbsp;Absence of results as a success outcome</h3>
+
+<p class="prose">&ldquo;No places found&rdquo; is not modelled as an error. It is a successful outcome with its own screen, because it is the usual result: creators name venues on screen and in speech rather than in captions, as stated in section 2.1.</p>
+
+<p class="prose">Modelling the commonest outcome as a failure would corrupt every log built on the taxonomy of section 6.3.</p>
+  </div>
+</section>
+
+<script>
+/* The crumb mark, lifted from no-crumbs-submission.html so the PRD carries the same
+   face as the product. Geometry is ratified (brand foundation §3.1 rule 1) — do not
+   edit the BODY path. */
+window.CRUMB = (function () {
+  var BODY = "M34 9C50 3 70 7 82 20 93 32 97 50 92 66 86 84 68 95 50 94 30 93 12 82 7 64 2 46 8 26 20 16 24 12 29 11 34 9Z";
+  var EYES = '<ellipse class="ink" cx="36" cy="42" rx="5.4" ry="6.6"/><ellipse class="ink" cx="58" cy="41" rx="5.4" ry="6.6"/>'
+           + '<circle class="glint" cx="38" cy="39.4" r="1.9"/><circle class="glint" cx="60" cy="38.4" r="1.9"/>';
+  var MOUTH = '<path class="inkl" d="M40 59.5q7 6 14-.4"/>';
+  var CHEEKS = '<ellipse class="cheek" cx="26.5" cy="54" rx="11" ry="7.5"/><ellipse class="cheek" cx="63.5" cy="52" rx="12" ry="8"/>';
+  function build(size) {
+    var parts = '<path class="body" d="' + BODY + '"/>'
+      + '<path class="out" d="' + BODY + '"/>' + CHEEKS
+      + '<g class="eyes">' + EYES + '</g><g class="mouth">' + MOUTH + '</g>';
+    return '<svg viewBox="-8 -8 116 116" width="' + size + '" height="' + size + '" aria-hidden="true"><g>' + parts + '</g></svg>';
+  }
+  return { render: function (sel) {
+    document.querySelectorAll(sel).forEach(function (el) { el.innerHTML = build(+el.dataset.size || 84); });
+  }};
+})();
+CRUMB.render('[data-crumb]');
+</script>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- theme ---------- */
+  function isDarkNow() {
+    var set = root.getAttribute('data-theme');
+    if (set) return set === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var next = isDarkNow() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('nc-prd-theme', next); } catch (e) {}
+  });
+
+  /* ---------- scroll-spy over the six sections ----------
+     rootMargin's -55% bottom inset means the active section is the one occupying
+     the upper part of the viewport, which is where a reader actually is. */
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section[id]'));
+  var chips = {};
+  Array.prototype.forEach.call(document.querySelectorAll('.tocbar a'), function (a) {
+    chips[a.getAttribute('href').slice(1)] = a;
+  });
+  var bar = document.querySelector('.tocbar');
+
+  function setActive(id) {
+    for (var k in chips) chips[k].removeAttribute('aria-current');
+    var chip = chips[id];
+    if (!chip) return;
+    chip.setAttribute('aria-current', 'true');
+    if (bar.scrollWidth > bar.clientWidth) {
+      chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+    }
+  }
+
+  if ('IntersectionObserver' in window) {
+    var visible = {};
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
+      for (var i = sections.length - 1; i >= 0; i--) {
+        if (visible[sections[i].id]) { setActive(sections[i].id); return; }
+      }
+    }, { rootMargin: '-60px 0px -55% 0px', threshold: 0 });
+    sections.forEach(function (s) { obs.observe(s); });
+  }
+
+  /* ---------- reading progress ---------- */
+  var prog = document.getElementById('progbar');
+  function tick() {
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    prog.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', tick, { passive: true });
+  tick();
+})();
+</script>

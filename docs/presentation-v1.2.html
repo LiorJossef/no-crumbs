@@ -1,0 +1,817 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No Crumbs — Presentation v1.2</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..900,0..100,0..1&family=Manrope:wght@400..800&display=swap">
+<style>
+/* ============================================================================
+   TOKENS — the PRODUCT's own, from src/app/globals.css. Not the document set's.
+   The deck is chrome, so it is warm paper, light only. Dark mode is recorded in
+   facelift-plan.md decision 3 as "a signed pass in stage 5, or no toggle at
+   all"; there is no signed dark palette, so this deck does not offer one.
+   ========================================================================= */
+:root {
+  color-scheme: light;
+
+  --background:#FAF9F6; --card:#FFFFFF; --card-2:#F3F1EB;
+  --foreground:#1B1B1A; --muted-foreground:#75716A; --border:#E7E3DC;
+
+  /* mint is the only brand colour. globals.css: --primary is mint-400,
+     --brand is mint-700, --accent is mint-100. */
+  --mint-100:#F1FBF9; --mint-200:#DAF5EF; --mint-300:#C0EFE5; --mint-400:#A8ECE2;
+  --mint-600:#469B8E; --mint-700:#2E7A70; --mint-900:#215F56;
+  --brand:var(--mint-700); --primary:var(--mint-400); --accent:var(--mint-100);
+
+  /* what a place IS — ui/place/palette.ts, shipped ink steps. These appear on
+     exactly one slide, because on the map colour is the entire encoding. */
+  --cat-restaurant:#D9482A; --cat-cafe:#6C430B; --cat-bar:#6A4BD0; --cat-none:#2E7A70;
+  --cat-restaurant-100:#FDECE7; --cat-cafe-100:#FBF0DE; --cat-bar-100:#EFEBFB; --cat-none-100:#F1FBF9;
+
+  /* who we are — mascot-colors.ts. Gold lives here and nowhere else. */
+  --crumb-gold:#F2C46B; --crumb-crust:#E0A845; --crumb-keyline:#3A2A15; --crumb-blush:#F0866A;
+
+  /* round when it floats, squared-off when it is attached */
+  --radius-xs:.625rem; --radius-sm:.75rem; --radius-md:.875rem; --radius:1rem; --radius-xl:1.5rem;
+
+  /* elevation ink is derived from --muted-foreground, never black: on warm
+     paper a black shadow reads as a smudge */
+  --shadow-raised:0 1px 2px -1px rgba(117,113,106,.20), 0 2px 6px -4px rgba(117,113,106,.24);
+  --shadow-sheet:0 14px 28px -18px rgba(117,113,106,.36);
+  --shadow-overlay:0 24px 48px -24px rgba(117,113,106,.52);
+
+  /* three easings, and only three */
+  --ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-emphasised:cubic-bezier(.05,.7,.1,1);
+  --ease-exit:cubic-bezier(.3,0,1,1);
+  /* the product's durations, by name */
+  --d-press:90ms; --d-enter:140ms; --d-couple:160ms; --d-settle:180ms;
+  --d-cross:200ms; --d-base:220ms; --d-surface:300ms; --d-screen:440ms; --d-flight:900ms;
+
+  --font-display:"Fraunces","Iowan Old Style",Georgia,serif;
+  --font-sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+
+  --text-micro:.6875rem; --text-caption:.8125rem; --text-reading:.96875rem;
+
+  --chrome-grain-strength:.20;
+}
+
+* { box-sizing:border-box; }
+html,body { height:100%; }
+body {
+  margin:0; background:var(--background); color:var(--foreground);
+  font-family:var(--font-sans); -webkit-font-smoothing:antialiased; overflow:hidden;
+}
+/* Fraunces carries the wordmark and large editorial headings only. Two SOFT
+   settings, not one: facelift decision 6 — shipping every call site at the
+   wordmark's 60 gave a headline that read as a slab. */
+.wordmark { font-family:var(--font-display); font-variation-settings:"SOFT" 60,"WONK" 1; font-weight:800; letter-spacing:-.022em; }
+h1,h2 {
+  font-family:var(--font-display); font-optical-sizing:auto;
+  font-variation-settings:"SOFT" 44,"WONK" 1; font-weight:700;
+  letter-spacing:-.02em; line-height:1.04; text-wrap:balance; margin:0;
+}
+/* functional labels stay in Manrope — a serif at 15-17px turns to mud */
+h3,h4 { font-family:var(--font-sans); font-weight:800; letter-spacing:-.012em; line-height:1.25; margin:0; }
+p { margin:0; }
+:focus-visible { outline:2px solid var(--brand); outline-offset:3px; border-radius:var(--radius-xs); }
+
+/* ============================================================================
+   CHROME GROUND — the product's four-layer treatment for its flat brand
+   screens (sign-in, landing, error, not-found), from components/brand/
+   chrome-ground.tsx. Mesh, then an etched city, then two drifting blooms, then
+   grain. The map surface gets none of it: warm grained paper on the chrome,
+   clean flat data on the map. A deck is chrome.
+   ========================================================================= */
+.ground { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+.g-mesh {
+  position:absolute; inset:0; background:
+    radial-gradient(60% 50% at 8% 4%,   rgba(168,236,226,.34), transparent 70%),
+    radial-gradient(52% 44% at 96% 10%, rgba(240,134,106,.13), transparent 70%),
+    radial-gradient(58% 50% at 4% 96%,  rgba(242,196,107,.14), transparent 70%),
+    radial-gradient(64% 54% at 92% 94%, rgba(168,236,226,.24), transparent 70%),
+    var(--background);
+}
+#city { position:absolute; inset:0; width:100%; height:100%; opacity:.5; }
+/* the blooms are indigo, not mint — they are the room's light, not the brand */
+.g-bloom { position:absolute; width:78vmax; height:78vmax; border-radius:50%; will-change:transform; }
+.g-a { left:-14vmax; top:-20vmax; background:radial-gradient(closest-side, rgba(91,108,255,.30) 0%, rgba(91,108,255,0) 100%);
+       animation:drift-a 24s ease-in-out infinite alternate; }
+.g-b { right:-16vmax; bottom:-22vmax; background:radial-gradient(closest-side, rgba(91,108,255,.22) 0%, rgba(91,108,255,0) 100%);
+       animation:drift-b 24s ease-in-out infinite alternate; }
+@keyframes drift-a { from { transform:translate3d(-2vmax,0,0) scale(.94); } to { transform:translate3d(4vmax,5vmax,0) scale(1.06); } }
+@keyframes drift-b { from { transform:translate3d(2vmax,0,0) scale(1.06); } to { transform:translate3d(-4vmax,-5vmax,0) scale(.94); } }
+/* 160x160 turbulence tile — what stops four radials reading as banding on an
+   8-bit panel. Inlined; nothing here loads from the network but the fonts. */
+.g-grain {
+  position:absolute; inset:0; opacity:var(--chrome-grain-strength); mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:160px 160px;
+}
+
+/* ============================================================================
+   SLIDES — the composition the sign-in screen established, which §5 says other
+   full-screen surfaces follow rather than inventing their own: editorial column
+   (mark, uppercase kicker, extrabold headline, muted subhead) beside a panel.
+   ========================================================================= */
+.deck { position:fixed; inset:0; z-index:1; }
+.slide {
+  position:absolute; inset:0; display:grid; align-content:center;
+  padding:clamp(30px,4.4vw,76px) clamp(26px,5.4vw,96px) clamp(80px,7vw,104px);
+  opacity:0; visibility:hidden;
+  transition:opacity var(--d-cross) var(--ease-exit), visibility 0s var(--d-cross);
+}
+.slide.on { opacity:1; visibility:visible; transition:opacity var(--d-surface) var(--ease-emphasised); transition-delay:0s; }
+.slide-in { width:min(100%,1180px); margin-inline:auto; }
+
+/* "enter": opacity + a 4px rise. One rule, used everywhere, never elaborated. */
+.rise { opacity:0; transform:translateY(4px); transition:opacity var(--d-enter) var(--ease-standard), transform var(--d-enter) var(--ease-standard); }
+.slide.on .rise { opacity:1; transform:none; transition-delay:calc(var(--k,0) * 40ms + 60ms); }
+
+.kicker { font-size:var(--text-micro); font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); }
+.kicker.mute { color:var(--muted-foreground); }
+.head { font-size:clamp(30px,4.3vw,58px); }
+.sub { font-size:clamp(15px,1.45vw,21px); line-height:1.5; color:var(--muted-foreground); max-width:56ch; }
+.sub strong { color:var(--foreground); font-weight:700; }
+.small { font-size:var(--text-reading); line-height:1.62; color:var(--muted-foreground); }
+.small strong { color:var(--foreground); font-weight:700; }
+em.hl { font-style:normal; color:var(--brand); }
+
+/* ---------------------------------------------------------------- blocks
+   Separation is hairline, never fill. Fills are reserved for STATE — an active
+   chip, a selected row — never for structure. No default card shadow;
+   elevation is for surfaces that actually float.
+   ------------------------------------------------------------------------ */
+.cols { display:grid; gap:clamp(22px,3.2vw,52px); align-items:center; }
+.c-6-6 { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.c-7-5 { grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); }
+.c-5-7 { grid-template-columns:minmax(0,1fr) minmax(0,1.35fr); }
+@media (max-width:920px),(max-aspect-ratio:1/1) { .c-6-6,.c-7-5,.c-5-7 { grid-template-columns:1fr; } }
+
+/* the frosted panel the desktop sign-in split established */
+.panel { background:color-mix(in srgb, var(--card) 82%, transparent); backdrop-filter:blur(14px) saturate(1.2);
+         border:1px solid var(--border); border-radius:var(--radius-xl); padding:clamp(18px,2vw,30px); box-shadow:var(--shadow-sheet); }
+
+.rows { display:grid; }
+.rows > div { display:grid; grid-template-columns:auto minmax(0,1fr); gap:14px; align-items:baseline;
+              padding:clamp(10px,1.1vw,15px) 0; border-top:1px solid var(--border); }
+.rows > div:last-child { border-bottom:1px solid var(--border); }
+.rows .k { font-size:var(--text-micro); font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--brand); white-space:nowrap; }
+.rows .v { font-size:clamp(13.5px,1.1vw,17px); line-height:1.5; color:var(--muted-foreground); }
+.rows .v strong { color:var(--foreground); font-weight:700; }
+
+.figs { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; border:1px solid var(--border); border-radius:var(--radius); background:var(--card); overflow:hidden; }
+.figs > div { padding:clamp(13px,1.5vw,20px); border-left:1px solid var(--border); }
+.figs > div:first-child { border-left:0; }
+.figs .n { font-family:var(--font-display); font-variation-settings:"SOFT" 44,"WONK" 1; font-size:clamp(24px,3vw,40px); font-weight:800; letter-spacing:-.03em; line-height:1; font-variant-numeric:tabular-nums; }
+.figs .k { margin-top:8px; font-size:var(--text-caption); color:var(--muted-foreground); line-height:1.4; }
+@media (max-width:760px) { .figs { grid-template-columns:repeat(2,minmax(0,1fr)); } .figs > div:nth-child(3) { border-left:0; } .figs > div:nth-child(n+3) { border-top:1px solid var(--border); } }
+
+/* round when it floats: chips are the product's, 32px paint in a 44px target */
+.chips { display:flex; flex-wrap:wrap; gap:8px; }
+.chip { display:inline-flex; align-items:center; gap:7px; height:32px; padding:0 12px; border-radius:999px;
+        border:1px solid var(--border); background:var(--card); font-size:var(--text-caption); font-weight:500; color:var(--foreground); }
+/* an active chip fills with its own colour — that is what fill means here */
+.chip.on { border-color:transparent; background:var(--brand); color:#fff; font-weight:600; }
+.chip .sw { width:9px; height:9px; border-radius:2px; }
+
+.quote { font-family:var(--font-display); font-variation-settings:"SOFT" 44,"WONK" 1; font-weight:700;
+         font-size:clamp(19px,2.5vw,33px); line-height:1.16; letter-spacing:-.018em; text-wrap:balance; }
+.quote em { font-style:normal; color:var(--brand); }
+
+/* ---------------------------------------------------------------- the mark
+   One closed path. Mascot at 96px, marker at 13px, and the same path at both.
+   Gold belongs to the mascot alone and never shares a surface with mint —
+   which is why every marker below is a mono silhouette in currentColor.
+   ------------------------------------------------------------------------ */
+.crumb svg { display:block; overflow:visible; }
+.crumb .body { fill:var(--crumb-gold); }
+.crumb .out  { fill:none; stroke:var(--crumb-keyline); stroke-width:4.5; stroke-linejoin:round; }
+.crumb .ink  { fill:var(--crumb-keyline); }
+.crumb .inkl { fill:none; stroke:var(--crumb-keyline); stroke-width:4.2; stroke-linecap:round; stroke-linejoin:round; }
+.crumb .cheek{ fill:var(--crumb-blush); opacity:.5; }
+.crumb .glint{ fill:#fff; }
+.crumb .spark{ fill:var(--crumb-crust); }
+.crumb .halo { fill:none; stroke:var(--crumb-crust); stroke-width:3; opacity:0; }
+.crumb.mono .body { fill:currentColor; }
+.crumb.mono .out, .crumb.mono .ink, .crumb.mono .inkl, .crumb.mono .cheek, .crumb.mono .glint { display:none; }
+
+/* the seven named animations, at their measured timings */
+.a-stir .all   { animation:c-stir 17s ease-in-out infinite; transform-origin:50px 94px; }
+.a-bob .all    { animation:c-bob 1.15s cubic-bezier(.4,0,.3,1) infinite; transform-origin:50px 94px; }
+.a-wobble .all { animation:c-wobble 1.8s ease-in-out infinite; transform-origin:50px 90px; }
+.a-scan .eyes  { animation:c-scan 1.5s ease-in-out infinite; }
+.a-halo .halo  { animation:c-halo 1.9s ease-in-out infinite; transform-origin:50px 50px; }
+.slide.on .a-land .all { animation:c-land .78s cubic-bezier(.3,1.1,.4,1) 1 both; }
+/* sparks are one-shot with `both`, not looped: the celebration ends on the
+   sparks rather than on the landing, and a looped spark is wallpaper */
+.slide.on .a-land .sp1 { animation:c-spark 1.6s ease-in-out 1 both; transform-origin:16px 20px; }
+.slide.on .a-land .sp2 { animation:c-spark 1.6s ease-in-out .35s 1 both; transform-origin:86px 28px; }
+.crumb .sp1,.crumb .sp2 { opacity:0; }
+
+@keyframes c-stir {
+  0%,5.5%{transform:rotate(0)} 7.2%{transform:rotate(-4.2deg)} 9.1%{transform:rotate(2.8deg)}
+  10.8%{transform:rotate(-1.1deg)} 12.5%,57%{transform:rotate(0)}
+  60.5%{transform:rotate(3.4deg)} 64%{transform:rotate(1.2deg)} 67.5%,100%{transform:rotate(0)}
+}
+@keyframes c-bob { 0%,100%{transform:none} 45%{transform:translateY(-8px) scale(.97,1.04)} 70%{transform:scale(1.05,.94)} }
+@keyframes c-wobble { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
+@keyframes c-scan { 0%,100%{transform:translateX(-2.6px)} 50%{transform:translateX(3.2px)} }
+@keyframes c-halo { 0%,100%{opacity:.18;transform:scale(1)} 50%{opacity:.42;transform:scale(1.14)} }
+@keyframes c-land {
+  0%{transform:translateY(-46px) scale(.86,1.16);opacity:0}
+  55%{transform:translateY(0) scale(1.12,.88);opacity:1}
+  75%{transform:translateY(-7px) scale(.98,1.02)}
+  100%{transform:none;opacity:1}
+}
+@keyframes c-spark { 0%{opacity:0;transform:scale(.4)} 30%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(.7)} }
+
+/* the trail — the only animation that draws the brand idea rather than moving
+   the mark. It is a shape and never a sentence: the negation is the copy, the
+   trail is the mark. */
+.trail { display:flex; align-items:center; gap:7px; }
+.trail .t { width:7px; height:7px; color:var(--muted-foreground); opacity:.30; transition:opacity var(--d-couple) var(--ease-standard), color var(--d-couple) var(--ease-standard); }
+.trail .t.done { opacity:.55; color:var(--brand); }
+.trail .t.now { opacity:1; color:var(--brand); transform:scale(1.5); }
+.trail button { all:unset; cursor:pointer; display:grid; place-items:center; width:20px; height:26px; }
+.trail button:hover .t { opacity:.8; }
+
+/* ---------------------------------------------------------------- the pin
+   The comparison every competitor loses: a teardrop belongs to nobody.
+   ------------------------------------------------------------------------ */
+.pins { display:flex; gap:clamp(20px,3vw,44px); align-items:flex-end; }
+.pins figure { margin:0; display:grid; gap:10px; justify-items:center; }
+.pins svg { display:block; }
+.pins figcaption { font-size:var(--text-micro); font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted-foreground); text-align:center; }
+.pins .them { opacity:.42; }
+
+/* ---------------------------------------------------------------- diagram */
+.fig svg { display:block; width:100%; height:auto; }
+.fd-node { fill:var(--card); stroke:var(--border); stroke-width:1.5; }
+.fd-node.act { fill:var(--mint-100); stroke:var(--mint-600); stroke-width:1.6; }
+.fd-node.end { fill:var(--mint-200); stroke:var(--brand); stroke-width:2; }
+.fd-node.alt { fill:var(--card); stroke:var(--muted-foreground); stroke-width:1.5; stroke-dasharray:5 4; }
+.fd-edge { fill:none; stroke:var(--muted-foreground); stroke-width:1.5; }
+.fd-edge.alt { stroke-dasharray:5 4; }
+.fd-t { fill:var(--foreground); font-family:var(--font-sans); font-size:13px; font-weight:700; }
+.fd-s { fill:var(--muted-foreground); font-family:var(--font-sans); font-size:10.5px; font-weight:600; letter-spacing:.09em; }
+.ah { fill:var(--muted-foreground); }
+.stg { opacity:0; transform:translateY(4px); transition:opacity var(--d-enter) var(--ease-standard), transform var(--d-enter) var(--ease-standard); }
+.slide.on .stg { opacity:1; transform:none; transition-delay:calc(var(--s,1) * 70ms + 180ms); }
+
+/* ---------------------------------------------------------------- chrome bar
+   A floating pill over the ground, hairline plus shadow — the shape signature
+   of the product on a phone.
+   ------------------------------------------------------------------------ */
+.bar {
+  position:fixed; left:50%; bottom:clamp(14px,2vw,26px); transform:translateX(-50%); z-index:30;
+  display:flex; align-items:center; gap:12px; max-width:calc(100vw - 28px);
+  padding:8px 8px 8px 14px; border-radius:999px;
+  border:1px solid var(--border); background:color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter:blur(12px); box-shadow:var(--shadow-sheet);
+}
+.bar .wm { display:flex; align-items:center; gap:8px; font-size:15px; }
+.bar .sep { width:1px; height:18px; background:var(--border); }
+.bar .n { font-size:var(--text-micro); font-weight:700; letter-spacing:.1em; color:var(--muted-foreground); font-variant-numeric:tabular-nums; }
+.bar .go { all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 14px; border-radius:999px;
+           background:var(--primary); color:var(--foreground); font-size:var(--text-caption); font-weight:700;
+           transition:transform var(--d-press) var(--ease-standard), box-shadow var(--d-press) var(--ease-standard); }
+.bar .go:hover { box-shadow:var(--shadow-raised); }
+.bar .go:active { transform:scale(.98); }
+@media (max-width:620px) { .bar .wm span:last-child, .bar .go span { display:none; } }
+.nav { position:fixed; top:0; bottom:0; width:12%; z-index:20; border:0; background:none; cursor:pointer; opacity:0; }
+.nav.prev { left:0; } .nav.next { right:0; }
+
+/* Reduced motion: everything collapses to the opacity change alone — not to
+   nothing, because the thing that just changed still has to be findable. */
+@media (prefers-reduced-motion: reduce) {
+  .g-bloom { animation:none; }
+  .rise,.stg { transform:none; transition:opacity var(--d-enter) linear; }
+  .a-stir .all,.a-bob .all,.a-wobble .all,.a-scan .eyes,.a-halo .halo { animation:none; }
+  .slide.on .a-land .all { animation:c-appear 140ms ease-out 1 both; }
+  .slide.on .a-land .sp1,.slide.on .a-land .sp2 { animation:none; opacity:1; }
+  .trail .t.now { transform:none; }
+}
+@keyframes c-appear { from { opacity:0 } to { opacity:1 } }
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  @page { size:landscape; margin:12mm; }
+  html,body { height:auto; overflow:visible; background:#fff; }
+  .ground,.bar,.nav { display:none !important; }
+  .deck { position:static; }
+  .slide { position:static; opacity:1 !important; visibility:visible !important; padding:0 0 16mm; break-after:page; }
+  .slide:last-child { break-after:auto; }
+  .rise,.stg { opacity:1 !important; transform:none !important; }
+  .panel { backdrop-filter:none; background:#fff; box-shadow:none; }
+  .crumb .all,.crumb .eyes,.crumb .halo,.crumb .sp1,.crumb .sp2 { animation:none !important; }
+  .crumb .sp1,.crumb .sp2 { opacity:1; }
+}
+</style>
+
+<div class="ground" aria-hidden="true">
+  <div class="g-mesh"></div>
+  <canvas id="city"></canvas>
+  <div class="g-bloom g-a"></div>
+  <div class="g-bloom g-b"></div>
+  <div class="g-grain"></div>
+</div>
+<button class="nav prev" id="navPrev" aria-label="Previous" tabindex="-1"></button>
+<button class="nav next" id="navNext" aria-label="Next" tabindex="-1"></button>
+
+<main class="deck" id="deck">
+
+<!-- 01 · TITLE — mood idle, animation stir: the shell wordmark's own pairing -->
+<section class="slide" aria-label="Title">
+  <div class="slide-in cols c-7-5">
+    <div style="display:grid;gap:clamp(15px,1.9vw,26px)">
+      <p class="kicker rise" style="--k:0">A personal map of places worth going</p>
+      <h1 class="head rise" style="--k:1">People save the video.<br>What they wanted was <em class="hl">the place</em>.</h1>
+      <p class="sub rise" style="--k:2">A TikTok video becomes a real place on your map &mdash; name, category,
+        coordinates, your note, and the video it came from. One link. Nothing tidied up first.</p>
+      <div class="chips rise" style="--k:3">
+        <span class="chip on">Live &middot; no-crumbss.vercel.app</span>
+        <span class="chip">Next.js &middot; TypeScript</span>
+        <span class="chip">Supabase Postgres</span>
+        <span class="chip">MapLibre GL</span>
+      </div>
+      <p class="small rise" style="--k:4;font-size:var(--text-caption);letter-spacing:.06em;text-transform:uppercase;font-weight:700">Lior Jossef &middot; 5 September 2026</p>
+    </div>
+    <div class="rise" style="--k:2;display:grid;justify-items:center;gap:18px">
+      <span class="crumb a-stir" data-crumb data-mood="idle" data-size="188"></span>
+      <p class="wordmark" style="font-size:clamp(26px,3vw,40px)">No Crumbs</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 · PROBLEM — mood nothingFound. Flat eyes, flat mouth. Not a frown, not
+     a shrug: the face bound to the state this slide is about. -->
+<section class="slide" aria-label="The problem and the business need">
+  <div class="slide-in cols c-6-6">
+    <div style="display:grid;gap:clamp(14px,1.8vw,24px)">
+      <p class="kicker rise" style="--k:0">01 &middot; The problem</p>
+      <h2 class="head rise" style="--k:1">A folder sorted by <em class="hl">when</em>, when the question is always <em class="hl">where</em>.</h2>
+      <p class="sub rise" style="--k:2">People save videos of places constantly. Saving is instant;
+        getting one back is not. The folder is ordered by the moment you tapped it, so a bakery you
+        saved in March sits <strong>hundreds of videos</strong> below the day you are standing outside it.</p>
+    </div>
+    <div style="display:grid;gap:clamp(16px,2vw,26px)">
+      <div class="panel rise" style="--k:3;display:grid;gap:16px;justify-items:start">
+        <span class="crumb" data-crumb data-mood="nothingFound" data-size="72"></span>
+        <p class="quote">The realistic outcome is not a slow search. It is <em>no search at all</em>.</p>
+        <p class="small">Dinner somewhere you never saved. That is the loss &mdash; not storage, and not
+          elapsed seconds, but a decision made without the thing you deliberately kept.</p>
+      </div>
+      <div class="rows rise" style="--k:4">
+        <div><span class="k">Ordered by</span><span class="v">Time. <strong>Never by where you are.</strong></span></div>
+        <div><span class="k">Findable by</span><span class="v">The caption's words &mdash; not a place's name, and not its position on a map.</span></div>
+        <div><span class="k">Lasts</span><span class="v">Only as long as the account and the video do.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 · SOLUTION — mood found, animation land, with the one-shot spark pair.
+     Timed the way the product times it: the body settles at 0.78s and the
+     sparks outlast it, so the celebration ends on the sparks. -->
+<section class="slide" aria-label="Product solution and value">
+  <div class="slide-in" style="display:grid;gap:clamp(16px,2.1vw,32px)">
+    <div class="cols c-7-5" style="align-items:end">
+      <div style="display:grid;gap:11px">
+        <p class="kicker rise" style="--k:0">02 &middot; The solution</p>
+        <h2 class="head rise" style="--k:1">One link, one confirmation. <em class="hl">The app does the rest.</em></h2>
+      </div>
+      <div class="rise" style="--k:2;display:flex;align-items:center;gap:16px;justify-content:flex-end">
+        <span class="crumb a-land" data-crumb data-mood="found" data-size="78"></span>
+        <div class="pins">
+          <figure><svg width="30" height="41" viewBox="0 0 89 120" aria-hidden="true"><path d="M44.5 118C39 100 30 92 22 84A38 38 0 1 1 67 84C59 92 50 100 44.5 118Z" fill="#D9482A"/><circle cx="44.5" cy="53" r="13" fill="#fff" opacity=".95"/></svg><figcaption class="them">Everyone else</figcaption></figure>
+          <figure><span data-pin data-size="34"></span><figcaption>Ours</figcaption></figure>
+        </div>
+      </div>
+    </div>
+
+    <div class="cols c-5-7" style="align-items:stretch">
+      <div class="panel rise" style="--k:3;display:grid;gap:12px;align-content:center">
+        <p class="kicker mute">The exchange</p>
+        <div class="rows">
+          <div><span class="k">You give</span><span class="v"><strong>One link, and a tap to confirm.</strong></span></div>
+          <div><span class="k">You get</span><span class="v">A permanent, private, <strong>location-indexed</strong> library of places you chose &mdash; back in seconds, each keeping the video that recommended it.</span></div>
+        </div>
+      </div>
+      <div class="rows rise" style="--k:4;align-self:center">
+        <div><span class="k">Get it in</span><span class="v"><strong>The app reads the video.</strong> Any link shape, nothing tidied up first &mdash; and a caption naming no place is a screen of its own, not a failure.</span></div>
+        <div><span class="k">Decide &amp; keep</span><span class="v"><strong>Nothing is saved until you confirm it.</strong> One place is one pin however many videos name it, and the link back can never be lost.</span></div>
+        <div><span class="k">Get it back</span><span class="v"><strong>Your map is the home surface.</strong> Three zoom tiers, a list that always agrees with the pins, and a sentence that narrows what is there without inventing anything.</span></div>
+      </div>
+    </div>
+
+    <div class="figs rise" style="--k:5">
+      <div><p class="n">22</p><p class="k">capabilities, each traced to a business goal</p></div>
+      <div><p class="n">5</p><p class="k">goals &mdash; and the fifth carries the other four</p></div>
+      <div><p class="n" style="color:var(--brand)">1</p><p class="k">field: your half of the work is one paste</p></div>
+      <div><p class="n">0</p><p class="k">rows written before a person confirms them</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 · ARCHITECTURE — mood reading, animation scan. The only animation that
+     says working on YOUR thing rather than working. -->
+<section class="slide" aria-label="Architecture and data pipeline">
+  <div class="slide-in" style="display:grid;gap:clamp(15px,1.9vw,28px)">
+    <div class="cols c-7-5" style="align-items:end">
+      <div style="display:grid;gap:11px">
+        <p class="kicker rise" style="--k:0">03 &middot; Architecture</p>
+        <h2 class="head rise" style="--k:1">Four layers, one direction, <em class="hl">no way back up</em>.</h2>
+      </div>
+      <div class="rise" style="--k:2;display:flex;gap:16px;align-items:center">
+        <span class="crumb a-scan" data-crumb data-mood="reading" data-size="60" style="flex:none"></span>
+        <p class="small">A single Next.js application. <strong>The domain layer has no outgoing edge</strong> &mdash;
+          it cannot reach the network or the database, so the rules stay testable on their own.</p>
+      </div>
+    </div>
+
+    <div class="fig rise" style="--k:3">
+      <svg viewBox="0 0 1000 286" role="img" aria-label="A link is read, names are found in the caption, each name is matched to a real place, and you review before anything is saved. A branch from the finding stage leads to the no-places screen.">
+        <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah"/></marker></defs>
+        <g class="stg" style="--s:1"><path class="fd-edge" d="M170,95 H210" marker-end="url(#a1)"/></g>
+        <g class="stg" style="--s:2"><path class="fd-edge" d="M375,95 H415" marker-end="url(#a1)"/></g>
+        <g class="stg" style="--s:3"><path class="fd-edge" d="M580,95 H620" marker-end="url(#a1)"/></g>
+        <g class="stg" style="--s:4"><path class="fd-edge" d="M785,95 H825" marker-end="url(#a1)"/></g>
+        <g class="stg" style="--s:1"><rect class="fd-node" x="10" y="60" width="160" height="70" rx="14"/><text class="fd-t" x="26" y="92">Add a link</text><text class="fd-s" x="26" y="112">ONE FIELD</text></g>
+        <g class="stg" style="--s:2"><rect class="fd-node" x="215" y="60" width="160" height="70" rx="14"/><text class="fd-t" x="231" y="92">Reading</text><text class="fd-s" x="231" y="112">THE VIDEO ITSELF</text></g>
+        <g class="stg" style="--s:3"><rect class="fd-node act" x="420" y="60" width="160" height="70" rx="14"/><text class="fd-t" x="436" y="92">Names found</text><text class="fd-s" x="436" y="112">IN THE CAPTION</text></g>
+        <g class="stg" style="--s:4"><rect class="fd-node act" x="625" y="60" width="160" height="70" rx="14"/><text class="fd-t" x="641" y="92">Matching</text><text class="fd-s" x="641" y="112">TO A REAL PLACE</text></g>
+        <g class="stg" style="--s:5"><rect class="fd-node end" x="830" y="60" width="160" height="70" rx="14"/><text class="fd-t" x="846" y="92">You review</text><text class="fd-s" x="846" y="112">NOT SAVED YET</text></g>
+        <g class="stg" style="--s:6">
+          <path class="fd-edge alt" d="M500,130 V190" marker-end="url(#a1)"/>
+          <rect class="fd-node alt" x="330" y="190" width="340" height="66" rx="14"/>
+          <text class="fd-t" x="352" y="222">&ldquo;No places in this one.&rdquo;</text>
+          <text class="fd-s" x="352" y="242">THREE ADDS IN FOUR &mdash; A DESTINATION, NOT AN ERROR</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="figs rise" style="--k:4">
+      <div><p class="n">4</p><p class="k">source layers; the rule is held by a test, not by convention</p></div>
+      <div><p class="n">6</p><p class="k">routes, every one of them POST-only</p></div>
+      <div><p class="n">36</p><p class="k">migrations &mdash; the schema is the source of truth</p></div>
+      <div><p class="n">13</p><p class="k">error codes; a fourteenth is a compile error</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 · SECURITY — no face. Face on chrome, silhouette on data. -->
+<section class="slide" aria-label="Security and authorization">
+  <div class="slide-in" style="display:grid;gap:clamp(15px,1.9vw,28px)">
+    <div class="cols c-6-6" style="align-items:end">
+      <div style="display:grid;gap:11px">
+        <p class="kicker rise" style="--k:0">04 &middot; Security</p>
+        <h2 class="head rise" style="--k:1">Your map is private because <em class="hl">the data refuses to be read</em>.</h2>
+      </div>
+      <p class="sub rise" style="--k:2">Not because each screen remembers to check. Isolation is held in
+        Postgres, on every table, under a policy <strong>forced even for the table's owner</strong> &mdash; so a
+        route that forgets its filter returns nothing rather than everything.</p>
+    </div>
+
+    <div class="figs rise" style="--k:3">
+      <div><p class="n">17</p><p class="k">tables with row-level security enabled <em style="font-style:normal;color:var(--brand)">and</em> forced</p></div>
+      <div><p class="n">38</p><p class="k">policies, each proved by making it fail first</p></div>
+      <div><p class="n" style="color:var(--brand)">0</p><p class="k">grants to the anonymous role. None, anywhere</p></div>
+      <div><p class="n">277</p><p class="k">assertions run against a real database</p></div>
+    </div>
+
+    <div class="cols c-6-6 rise" style="--k:4;align-items:start">
+      <div class="rows">
+        <div><span class="k">The key</span><span class="v"><strong>The privileged database key never reaches the browser.</strong> Its module is server-only, its name carries no public prefix so it cannot be inlined into a bundle, and all eight callers identify the person first.</span></div>
+        <div><span class="k">Sharing</span><span class="v">People you share with see the places. <strong>Not your note, your tags, your Been marks, or the video you added it from.</strong></span></div>
+      </div>
+      <div class="panel" style="align-self:center">
+        <p class="kicker mute">On text we did not write</p>
+        <p class="quote" style="margin-top:10px;font-size:clamp(17px,1.9vw,26px)">A caption is <em>words to read</em>, never instructions to follow.</p>
+        <p class="small" style="margin-top:11px">The words belong to somebody else, and they are handled that
+          way at every boundary they cross.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 · SCALABILITY — silhouette only. -->
+<section class="slide" aria-label="Scalability and performance">
+  <div class="slide-in" style="display:grid;gap:clamp(15px,1.9vw,30px)">
+    <div class="cols c-6-6" style="align-items:end">
+      <div style="display:grid;gap:11px">
+        <p class="kicker rise" style="--k:0">05 &middot; Scalability</p>
+        <h2 class="head rise" style="--k:1">The ceiling is <em class="hl">a quota</em>, not the database.</h2>
+      </div>
+      <p class="sub rise" style="--k:2">Load grows with adds, not with accounts. Every read is scoped to one
+        person at the index, so <strong>a hundredth account adds rows no query walks</strong>. What runs out
+        first is a third-party allowance, and that is a billing decision.</p>
+    </div>
+
+    <div class="cols c-6-6 rise" style="--k:3;align-items:start">
+      <div class="rows">
+        <div><span class="k">Cost axis</span><span class="v">One add is three outside calls. <strong>Account count is not the axis.</strong></span></div>
+        <div><span class="k">No queue</span><span class="v">By decision. <strong>No job outlives its request</strong>, and the four tables a queue would have needed already exist as caches inside the source of truth.</span></div>
+        <div><span class="k">Your map</span><span class="v">Read once, whole. <strong>The drawing is bounded, not the reading</strong> &mdash; so the list, the pins and search can never disagree.</span></div>
+      </div>
+      <div class="panel">
+        <p class="kicker mute">Measured, not estimated</p>
+        <div class="rows" style="margin-top:4px">
+          <div><span class="k">2,000 pins</span><span class="v"><strong>19.0 ms median, 60.5 ms p95</strong> with labels tiered by zoom. Forced on, the same 2,000 cost 34.0 ms &mdash; about 29 fps.</span></div>
+          <div><span class="k">Landing</span><span class="v">Eight waves, 60 ms apart. <strong>480 ms whatever the library size</strong>, from the middle outward.</span></div>
+          <div><span class="k">Next limit</span><span class="v">A hundred lookups a day. Raise it, and cap each person in the same change.</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="small rise" style="--k:4;max-width:92ch">None of that is &ldquo;the database at hundreds of people&rdquo;. The
+      architecture is not what limits this product today.</p>
+  </div>
+</section>
+
+<!-- 07 · TESTING — the category-colour test is the story worth telling, because
+     it is a test about a person, not about a function. -->
+<section class="slide" aria-label="Testing strategy">
+  <div class="slide-in" style="display:grid;gap:clamp(15px,1.9vw,28px)">
+    <div class="cols c-6-6" style="align-items:end">
+      <div style="display:grid;gap:11px">
+        <p class="kicker rise" style="--k:0">06 &middot; Testing</p>
+        <h2 class="head rise" style="--k:1">Every control is proved by <em class="hl">making it fail first</em>.</h2>
+      </div>
+      <p class="sub rise" style="--k:2">A policy test that only ever passes proves nothing &mdash; it may be
+        asserting against an empty table. Each one here <strong>denies before it allows</strong>, so green means
+        the rule fired, not that nothing happened.</p>
+    </div>
+
+    <div class="cols c-5-7 rise" style="--k:3;align-items:start">
+      <div class="rows">
+        <div><span class="k">Level 1</span><span class="v"><strong>Unit and domain</strong> &mdash; 250 files. No network, no database.</span></div>
+        <div><span class="k">Level 2</span><span class="v"><strong>Component render</strong> &mdash; what a person actually sees.</span></div>
+        <div><span class="k">Level 3</span><span class="v"><strong>In a browser</strong> &mdash; 13 specifications, at phone and desktop width.</span></div>
+        <div><span class="k">Level 4</span><span class="v"><strong>Database policy</strong> &mdash; 8 suites, 277 assertions, two real people and the attempt by one to read the other.</span></div>
+        <div><span class="k">Level 5</span><span class="v"><strong>Written procedure</strong> &mdash; for what a suite honestly cannot judge.</span></div>
+      </div>
+      <div class="panel">
+        <p class="kicker mute">One test, and why it exists</p>
+        <p class="quote" style="margin-top:9px;font-size:clamp(16px,1.75vw,24px)">On your map, colour is the <em>whole</em> encoding. So a test asserts two categories stay apart.</p>
+        <div class="chips" style="margin-top:16px">
+          <span class="chip"><span class="sw" style="background:var(--cat-restaurant)"></span>Restaurant</span>
+          <span class="chip"><span class="sw" style="background:var(--cat-cafe)"></span>Caf&eacute;</span>
+          <span class="chip"><span class="sw" style="background:var(--cat-bar)"></span>Bar</span>
+          <span class="chip"><span class="sw" style="background:var(--cat-none)"></span>Not known yet</span>
+        </div>
+        <p class="small" style="margin-top:14px">The café amber first drawn sat <strong>1.3 lightness steps</strong> from the
+          restaurant persimmon &mdash; indistinguishable under deuteranopia, <strong>about one man in twelve</strong>.
+          The shipped step is 19.0 apart. The test fails the drawn pair.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 · FUTURE — back to the face, idle. -->
+<section class="slide" aria-label="Future architecture">
+  <div class="slide-in" style="display:grid;gap:clamp(16px,2.1vw,32px)">
+    <div class="cols c-6-6" style="align-items:end">
+      <div style="display:grid;gap:11px">
+        <p class="kicker rise" style="--k:0">07 &middot; What comes next</p>
+        <h2 class="head rise" style="--k:1">In order, and <em class="hl">for a stated reason</em>.</h2>
+      </div>
+      <p class="sub rise" style="--k:2">Not a wish list. Each item is the answer to a limit already measured,
+        sequenced by the condition that triggers it.</p>
+    </div>
+
+    <div class="rows rise" style="--k:3">
+      <div><span class="k">First</span><span class="v"><strong>Raise the lookup quota and cap each person daily, together</strong> &mdash; so one account cannot spend everyone's allowance.</span></div>
+      <div><span class="k">Then</span><span class="v"><strong>Set a maximum duration, and build the streaming route</strong> that was specified and cut &mdash; turning the longest wait in the product into visible progress.</span></div>
+      <div><span class="k">At scale</span><span class="v"><strong>Pagination and a viewport read</strong>, once a library passes a few hundred places, keeping the bounds the camera needs.</span></div>
+      <div><span class="k">Cleanup</span><span class="v"><strong>Count collections instead of loading them</strong>, add the one missing index, drop the one that earns nothing.</span></div>
+    </div>
+
+    <div class="cols c-7-5" style="align-items:center">
+      <div class="panel rise" style="--k:4">
+        <p class="kicker mute">The rule every one of them is held to</p>
+        <p class="quote" style="margin-top:9px">No change may increase <em>what the product asserts</em>.</p>
+        <p class="small" style="margin-top:11px">The failure mode is not an ugly product. It is a beautiful one
+          that fakes progress it cannot measure, and makes the most common outcome feel like a bug.</p>
+      </div>
+      <div class="rise" style="--k:5;display:grid;justify-items:center;gap:14px">
+        <span class="crumb a-stir" data-crumb data-mood="idle" data-size="104"></span>
+        <p class="wordmark" style="font-size:clamp(21px,2.3vw,31px)">No Crumbs</p>
+        <p class="small" style="font-size:var(--text-caption)">no-crumbss.vercel.app</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="bar">
+  <span class="wm"><span class="crumb" data-crumb data-mood="idle" data-size="20"></span><span class="wordmark">No&nbsp;Crumbs</span></span>
+  <span class="sep"></span>
+  <nav class="trail" id="trail" aria-label="Slides"></nav>
+  <span class="sep"></span>
+  <span class="n" id="count">01 / 08</span>
+  <button type="button" class="go" id="goNext">Next <span>&rarr;</span></button>
+</div>
+
+<script>
+/* ============================================================================
+   THE MARK — one closed path. It is the mascot at 188px, the marker at 34px and
+   the trail dot at 7px, and that is the whole system: change the outline and
+   the pin is lost, and the product is back to the teardrop everyone else draws.
+   Faces and animations follow src/components/brand/crumb-path.ts.
+   ========================================================================= */
+window.CRUMB = (function () {
+  var BODY = "M34 9C50 3 70 7 82 20 93 32 97 50 92 66 86 84 68 95 50 94 30 93 12 82 7 64 2 46 8 26 20 16 24 12 29 11 34 9Z";
+  var TAIL = "M50 126C44 106 34 98 26 90L74 90C66 98 56 106 50 126Z";
+
+  var EYES = {
+    dot:   '<ellipse class="ink" cx="36" cy="42" rx="5.4" ry="6.6"/><ellipse class="ink" cx="58" cy="41" rx="5.4" ry="6.6"/>'
+         + '<circle class="glint" cx="38" cy="39.4" r="1.9"/><circle class="glint" cx="60" cy="38.4" r="1.9"/>',
+    wide:  '<ellipse class="ink" cx="36" cy="42" rx="6.6" ry="8"/><ellipse class="ink" cx="58" cy="41" rx="6.6" ry="8"/>'
+         + '<circle class="glint" cx="38.4" cy="38.8" r="2.3"/><circle class="glint" cx="60.4" cy="37.8" r="2.3"/>',
+    happy: '<path class="inkl" d="M30.5 45Q36 37.6 41.5 45"/><path class="inkl" d="M52.5 44Q58 36.6 63.5 44"/>',
+    closed:'<path class="inkl" d="M30.5 40Q36 46.4 41.5 40"/><path class="inkl" d="M52.5 39Q58 45.4 63.5 39"/>',
+    flat:  '<path class="inkl" d="M30.5 42H41.5"/><path class="inkl" d="M52.5 41H63.5"/>',
+    wink:  '<ellipse class="ink" cx="36" cy="42" rx="5.4" ry="6.6"/><circle class="glint" cx="38" cy="39.4" r="1.9"/>'
+         + '<path class="inkl" d="M52.5 41Q58 47.4 63.5 41"/>'
+  };
+  var MOUTH = {
+    smile:  '<path class="inkl" d="M40 59.5q7 6 14-.4"/>',
+    content:'<path class="inkl" d="M41 60q6 3.6 12-.3"/>',
+    grin:   '<path class="ink" d="M36 57.5Q47 71 58 57.5Z"/>',
+    flat:   '<path class="inkl" d="M41 61H55"/>',
+    o:      '<ellipse class="ink" cx="47" cy="62" rx="3.4" ry="4.2"/>',
+    wiggle: '<path class="inkl" d="M39 60q3.5 4 7 0t7 0"/>',
+    small:  '<path class="inkl" d="M44 60q3 2.6 6-.2"/>'
+  };
+  /* eight moods, each bound to a real product state — not to an emotion */
+  var MOODS = {
+    idle:        { eyes:'dot',    mouth:'smile' },
+    reading:     { eyes:'dot',    mouth:'small' },
+    found:       { eyes:'happy',  mouth:'grin',    spark:true },
+    nothingFound:{ eyes:'flat',   mouth:'flat' },
+    beenThere:   { eyes:'closed', mouth:'content' },
+    nearMe:      { eyes:'wide',   mouth:'o',       halo:true },
+    offline:     { eyes:'flat',   mouth:'wiggle' },
+    saved:       { eyes:'wink',   mouth:'smile' }
+  };
+  var CHEEKS = '<ellipse class="cheek" cx="26.5" cy="54" rx="11" ry="7.5"/><ellipse class="cheek" cx="63.5" cy="52" rx="12" ry="8"/>';
+  var SPARK  = function (x, y, c) {
+    return '<path class="spark '+c+'" d="M'+x+' '+(y-7)+'q1.6 5.4 7 7-5.4 1.6-7 7-1.6-5.4-7-7 5.4-1.6 7-7Z"/>';
+  };
+
+  function face(size, moodKey) {
+    var m = MOODS[moodKey] || MOODS.idle;
+    var inner = '<path class="body" d="'+BODY+'"/><path class="out" d="'+BODY+'"/>' + CHEEKS
+      + '<g class="eyes">' + EYES[m.eyes] + '</g><g class="mouth">' + MOUTH[m.mouth] + '</g>';
+    var extra = (m.halo ? '<circle class="halo" cx="50" cy="50" r="54"/>' : '')
+      + (m.spark ? SPARK(16,20,'sp1') + SPARK(86,28,'sp2') : '');
+    return '<svg viewBox="-14 -14 128 128" width="'+size+'" height="'+size+'" aria-hidden="true">'
+      + extra + '<g class="all">' + inner + '</g></svg>';
+  }
+
+  /* the marker: the same closed path, plus a tail and an aperture. No face —
+     thirty-one smiling faces over a city is a toy, and a pin with eyes cannot
+     carry a category colour. */
+  function pin(size, colour) {
+    var h = Math.round(size * 142 / 116);
+    return '<svg viewBox="-8 -8 116 142" width="'+size+'" height="'+h+'" aria-hidden="true">'
+      + '<path d="'+TAIL+'" fill="'+colour+'"/><path d="'+BODY+'" fill="'+colour+'"/>'
+      + '<circle cx="50" cy="50" r="17" fill="#fff" opacity=".95"/></svg>';
+  }
+  function dot(size) {
+    return '<svg viewBox="-8 -8 116 116" width="'+size+'" height="'+size+'" aria-hidden="true">'
+      + '<path d="'+BODY+'" fill="currentColor"/></svg>';
+  }
+  return { face:face, pin:pin, dot:dot };
+})();
+
+document.querySelectorAll('[data-crumb]').forEach(function (el) {
+  el.innerHTML = CRUMB.face(+el.dataset.size || 96, el.dataset.mood || 'idle');
+});
+document.querySelectorAll('[data-pin]').forEach(function (el) {
+  el.innerHTML = CRUMB.pin(+el.dataset.size || 34, getComputedStyle(document.documentElement).getPropertyValue('--cat-restaurant').trim());
+});
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------------------------------------------------------- the etched city
+     Layer 2 of the chrome ground: a street network drawn into the paper, under
+     the blooms and over the mesh. Deterministic, so it is the same room every
+     time the deck is opened. */
+  var cv = document.getElementById('city'), ctx = cv.getContext('2d');
+  var seed = 20260905;
+  function rnd() { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }
+  function city() {
+    var w = window.innerWidth, h = window.innerHeight;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+    seed = 20260905;
+    var ink = getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim();
+    ctx.strokeStyle = ink; ctx.lineWidth = 1;
+
+    var step = 108, jitter = 34;
+    ctx.globalAlpha = .085;
+    for (var y = -step; y < h + step; y += step) {
+      ctx.beginPath();
+      for (var x = -step; x <= w + step; x += step) {
+        var yy = y + (rnd()-.5)*jitter;
+        if (x === -step) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+    for (var x2 = -step; x2 < w + step; x2 += step) {
+      ctx.beginPath();
+      for (var y2 = -step; y2 <= h + step; y2 += step) {
+        var xx = x2 + (rnd()-.5)*jitter;
+        if (y2 === -step) ctx.moveTo(xx, y2); else ctx.lineTo(xx, y2);
+      }
+      ctx.stroke();
+    }
+    /* a few heavier arteries, so it reads as a city rather than as graph paper */
+    ctx.globalAlpha = .13; ctx.lineWidth = 2.2;
+    for (var k = 0; k < 5; k++) {
+      ctx.beginPath();
+      var sy = rnd()*h, dy = (rnd()-.5)*h*.5;
+      ctx.moveTo(-20, sy);
+      ctx.bezierCurveTo(w*.33, sy+dy, w*.66, sy-dy, w+20, sy+dy*.4);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ------------------------------------------------------------- navigation */
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var NAMES = ['Title','The problem','The solution','Architecture','Security','Scalability','Testing','What next'];
+  var trailEl = document.getElementById('trail');
+  var countEl = document.getElementById('count');
+  var i = 0;
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  slides.forEach(function (s, n) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Go to ' + NAMES[n]);
+    b.innerHTML = '<span class="t">' + CRUMB.dot(7) + '</span>';
+    b.addEventListener('click', function () { go(n); });
+    trailEl.appendChild(b);
+  });
+  var crumbs = Array.prototype.map.call(trailEl.children, function (b) { return b.firstChild; });
+
+  function go(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, k) {
+      var on = k === i;
+      s.classList.toggle('on', on);
+      s.setAttribute('aria-hidden', on ? 'false' : 'true');
+      s.inert = !on;
+    });
+    crumbs.forEach(function (c, k) {
+      c.className = 't' + (k === i ? ' now' : (k < i ? ' done' : ''));
+    });
+    Array.prototype.forEach.call(trailEl.children, function (b, k) {
+      if (k === i) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current');
+    });
+    countEl.textContent = pad(i+1) + ' / ' + pad(slides.length);
+    if (location.hash !== '#'+(i+1)) history.replaceState(null, '', '#'+(i+1));
+  }
+
+  document.getElementById('navPrev').addEventListener('click', function () { go(i-1); });
+  document.getElementById('navNext').addEventListener('click', function () { go(i+1); });
+  document.getElementById('goNext').addEventListener('click', function () { go(i+1); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter') { e.preventDefault(); go(i+1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { e.preventDefault(); go(i-1); }
+    else if (k === 'Home') { e.preventDefault(); go(0); }
+    else if (k === 'End') { e.preventDefault(); go(slides.length-1); }
+    else if (k >= '1' && k <= '8') { e.preventDefault(); go(+k - 1); }
+    else if (k === 'f' || k === 'F') {
+      if (!document.fullscreenElement) { (document.documentElement.requestFullscreen || function(){}).call(document.documentElement); }
+      else { document.exitFullscreen(); }
+    }
+  });
+
+  var x0 = null, y0 = null;
+  document.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive:true });
+  document.addEventListener('touchend', function (e) {
+    if (x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy)) go(i + (dx < 0 ? 1 : -1));
+    x0 = y0 = null;
+  }, { passive:true });
+
+  window.addEventListener('resize', city);
+  city();
+  var start = parseInt((location.hash || '').slice(1), 10);
+  go(isNaN(start) ? 0 : start - 1);
+})();
+</script>
