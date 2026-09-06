@@ -494,6 +494,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>4.1 &nbsp;How API calls are protected</h3>
+<p class="prose">All six route handlers under <code>/api</code> are built the same way, so there is no odd one out to forget.</p>
 <ul class="clean">
   <li><strong>POST-only endpoints,</strong> which blocks cross-site request forgery: another site can trigger a GET with an image tag, but not a JSON POST.</li>
   <li><strong>Server-side authentication on every call:</strong> each route begins with <code>getUser()</code> and returns 401 if there is no verified user.</li>
