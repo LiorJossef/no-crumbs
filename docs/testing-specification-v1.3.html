@@ -378,9 +378,9 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <section class="introblock" aria-label="How to read this">
   <div class="wrap">
-    <p class="prose small">Every figure here was counted at commit <code>601cebf</code>, or against
-      continuous-integration run <code>33912752591</code> of 4 September 2026, which gated it into
-      <code>main</code>. Section 06 gives the command that reproduces each one.</p>
+    <p class="prose small">Every figure here was counted on a clean run of the full suite on
+      4&nbsp;September 2026, on the version that continuous integration passed into <code>main</code>.
+      Section 06 gives the command that reproduces each one.</p>
 
     <p class="prose" style="margin-top:22px">The tooling is ordinary. Unit and domain tests run in
       Vitest &mdash; <strong>250 files, 4,087 tests</strong> &mdash; and component tests render to a
@@ -392,7 +392,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       judgement.</p>
 
     <p class="prose" style="margin-top:22px">Each catches what the others cannot. The unit tests reach
-      every error code and every URL shape; the browser tests catch assembly &mdash; routing, focus, a
+      every failure reason and every URL shape; the browser tests catch assembly &mdash; routing, focus, a
       double submission, a stale response; the SQL tests are the only place authorisation is executed
       as a second real user.</p>
 
@@ -413,25 +413,27 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">Partial resolution counts too. If three candidates resolve and one does not, the import is complete: an unresolved name still tells the user something, a failure screen tells them nothing.</p>
 
 <h3>1.2 &nbsp;The pipeline test</h3>
-<p class="prose">One file drives the whole process: <code>tests/unit/import/pipeline.test.ts</code>. It is a Vitest file at the unit level. It calls the real <code>runImport</code> generator and the real URL canonicaliser, and supplies every adapter &mdash; TikTok source, caption reader, model, place resolver, store &mdash; as a mocked port. It is not a browser test.</p>
+<p class="prose">One test drives the whole process. It runs the real import and the real link handling, and stands in for everything outside our control &mdash; TikTok, the caption reader, the model, the place lookup, the database &mdash; with a substitute we can steer. So it is fast, it is deterministic, and it can force situations a live run would give us only by luck.</p>
 
 <p class="prose">It asserts the stages emit in order, that zero candidates ends on the no-places screen, and that partial resolution ends in success rather than failure.</p>
 
-<h3>1.3 &nbsp;The error codes</h3>
-<p class="prose">Thirteen error codes are defined in <code>src/domain/errors.ts</code>, and the list is asserted closed. The pipeline test reaches twelve of them through real code paths and the thirteenth, <code>NOT_AUTHENTICATED</code>, at the route handler that raises it in production. It records each code as it goes, then asserts the set it reached is exactly the set declared &mdash; so a fourteenth code fails the suite until a path to it is shown.</p>
+<h3>1.3 &nbsp;When an import stops</h3>
+<p class="prose">An import that cannot finish stops for one of thirteen named reasons: the link was not a TikTok link, the platform is one we do not support, there was no link in the pasted text at all, the caption could not be read, the model did not answer, the user was not signed in, and so on. Each reason has its own message written for it. Nothing falls through to a generic failure.</p>
 
-<p class="prose"><code>tests/unit/errors-have-producers.test.ts</code> closes the other end: every code must be constructed somewhere under <code>src/</code>, so a code nothing can raise is a failure rather than dead weight.</p>
+<p class="prose">Two tests keep that list honest, from opposite ends. The first runs the import until it has triggered every reason on the list, then checks that the set it managed to reach is exactly the set we declared &mdash; add a fourteenth reason and the suite fails until someone shows a real path to it. The second checks the reverse: every reason on the list must be raised somewhere in shipped code, so a reason nothing can cause is a failure rather than dead weight.</p>
 
 <h3>1.4 &nbsp;The browser tests</h3>
-<p class="prose">Thirteen Playwright specifications drive the built application, seven of them the import flow: the happy path, the paste gate, a double submission, a stale response arriving after the user changed the link, the failure screens, the error copy, and the status shown against the status on the wire. In the run cited above, 56 passed and 2 skipped, both on viewport rather than credentials.</p>
+<p class="prose">Thirteen browser specifications drive the built application the way a person does &mdash; loading pages, pasting, clicking, waiting &mdash; rather than calling functions directly. Seven cover the import: the happy path, the paste field refusing to submit until it holds a link, the same link submitted twice before the first attempt returns, a slow response arriving after the user has already changed the link, the failure screens, their wording, and the status shown on screen against the status actually on the wire.</p>
 
-<p class="prose">That distinction had to be earned: the pipeline once set no <code>E2E_PASSWORD</code>, so most of the suite skipped on every run and the check still went green. <code>tests/e2e/global-setup.ts</code> now fails the job outright when a skip would be dishonest. Locally, without <code>E2E_PASSWORD</code>, the signed-in tests skip by design and only the signed-out ones run.</p>
+<p class="prose">This is the level that catches assembly. Every part can pass on its own and the product still be broken by the way the parts are wired together: a route that does not exist, focus landing nowhere, a second click doing the work twice.</p>
+
+<p class="prose">One thing had to be fixed before these tests meant anything. The signed-in tests need a password for the seeded demo account, and when it was missing they skipped themselves quietly while the run still reported green. The suite now fails outright rather than skipping when it is run without one, so the pipeline can no longer pass by testing nothing.</p>
 
 <h3>1.5 &nbsp;What this level does not show</h3>
-<p class="prose">It shows the import finishes in a defined state, not that the result is any good. Pinning one caption to one venue would pin the output of a third-party model and break on an upgrade that was an improvement, so extraction quality is measured by the manual drivers in section 06 instead.</p>
+<p class="prose">It shows that an import finishes in a defined state, not that the answer is any good. Locking one caption to one expected venue would lock in the output of a third-party model, and the test would then fail on a model upgrade that was an improvement. Extraction quality is measured separately, by hand, against a corpus of real saved videos.</p>
 
 <h3>1.6 &nbsp;Coverage by requirement area</h3>
-<div class="tbl-wrap"><table class="tight"><thead><tr><th style="width:20%">Requirement area</th><th>What we check</th><th style="width:34%">Where</th></tr></thead><tbody><tr><td>Core features</td><td>The import runs end to end; the built application still works</td><td><code>tests/unit/import/pipeline.test.ts</code>, <code>tests/e2e/</code></td></tr><tr><td>Business process</td><td>Stages fire in order; the import ends in a defined state</td><td><code>tests/unit/import/pipeline.test.ts</code></td></tr><tr><td>Invalid input</td><td>Six hosts allowed; refusals stay distinguishable; model output schema-checked</td><td><code>tests/unit/source/canonicalise-tiktok-url.test.ts</code>, <code>source/extract-pasted-url.test.ts</code>, <code>extraction/schema.test.ts</code></td></tr><tr><td>Error taxonomy</td><td>Thirteen codes, all reachable, and all produced by shipped code</td><td><code>tests/unit/errors.test.ts</code>, <code>errors-have-producers.test.ts</code></td></tr><tr><td>Edge cases</td><td>Eight named cases, listed in section 2.5</td><td><code>tests/unit/</code>, <code>tests/e2e/</code>, <code>supabase/tests/</code></td></tr><tr><td>Permissions</td><td>277 assertions, run as a second signed-in user attacking the first&rsquo;s rows</td><td><code>supabase/tests/</code>, eight files</td></tr><tr><td>Database integrity</td><td>Deletions performed, absences asserted, new tables gated by a script</td><td><code>supabase/tests/0031_place_mentions_policy_tests.sql</code>, <code>scripts/check-migration-grants.sh</code></td></tr><tr><td>User interface</td><td>Accessible names asserted, copy pinned, two viewport sizes</td><td><code>tests/unit/sheet/</code>, <code>import/no-places-screen.test.ts</code>, <code>tests/e2e/gates/</code></td></tr></tbody></table></div>
+<div class="tbl-wrap"><table class="tight"><thead><tr><th style="width:22%">Requirement area</th><th>What we check</th><th style="width:26%">Tested at</th></tr></thead><tbody><tr><td>Core features</td><td>The import runs end to end; the built application still works</td><td>Unit and browser</td></tr><tr><td>Business process</td><td>Stages fire in order; the import ends in a defined state</td><td>Unit</td></tr><tr><td>Bad input</td><td>Six hosts allowed; refusals stay distinguishable; model output schema-checked</td><td>Unit</td></tr><tr><td>Failure reasons</td><td>Thirteen reasons, all reachable, and all raised by shipped code</td><td>Unit</td></tr><tr><td>Awkward cases</td><td>Eight named cases, each with a defined outcome</td><td>Unit, browser and database</td></tr><tr><td>Access control</td><td>277 assertions, run as a second signed-in user attacking the first&rsquo;s rows</td><td>Database</td></tr><tr><td>Data integrity</td><td>Deletions performed and dependent rows observed gone; new tables gated by a script</td><td>Database and a static check</td></tr><tr><td>Screens</td><td>Accessible names asserted, copy pinned, two viewport sizes</td><td>Component and browser</td></tr></tbody></table></div>
   </div>
 </section>
 
@@ -449,20 +451,20 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <h3>2.2 &nbsp;The link</h3>
 <p class="prose">Only six hosts are allowed, and membership is decided by comparing the whole host. Never a suffix, never a substring. A parser matching anything <em>ending in</em> <code>tiktok.com</code> would pass every functional test and still be wrong: <code>tiktok.com.evil.io</code> ends in it, <code>nottiktok.com</code> contains it. Both are in the tests, with embedded credentials, an explicit port, an IP literal and any non-HTTP scheme.</p>
 
-<p class="prose">Another test asserts the allow-list <em>is</em> that set of six and that the short-link resolver shares it, so a second adapter cannot quietly widen the boundary. All of it is in <code>tests/unit/source/canonicalise-tiktok-url.test.ts</code>.</p>
+<p class="prose">Another test asserts the allow-list <em>is</em> that set of six and that the short-link resolver shares it, so a second adapter cannot quietly widen the boundary.</p>
 
 <h3>2.3 &nbsp;Refusals have to stay apart</h3>
-<p class="prose">An Instagram or YouTube link is a platform we do not support, not a broken link: it gets its own code and a route to adding the place by hand. Text with no link in it gets a different code and different copy. Collapse the two into one code and we tell the user to fix an input that was not broken, so <code>tests/unit/source/extract-pasted-url.test.ts</code> holds them apart.</p>
+<p class="prose">An Instagram or YouTube link is a platform we do not support, not a broken link: it gets its own code and a route to adding the place by hand. Text with no link in it gets a different code and different copy. Collapse the two into one code and we tell the user to fix an input that was not broken, so the tests hold the two apart.</p>
 
 <h3>2.4 &nbsp;The model&rsquo;s reply</h3>
-<p class="prose">Every reply is checked against a schema before anything is stored. A category outside our vocabulary is rejected, so is a latitude out of range, and so is a string that fits its length limit as written but exceeds it once NFKC-normalised &mdash; normalisation expands some characters, and the two sides of a write have to agree.</p>
+<p class="prose">Every reply is checked against a schema before anything is stored. A category outside our vocabulary is rejected, so is a latitude out of range, and so is a name that looks short enough as typed but grows past its length limit once its characters are written out in the standard form we store them in. Accented letters and ligatures expand when that happens, and the check in front of the write and the column behind it have to agree on the length, or a perfectly valid name is refused at the last moment.</p>
 
-<p class="prose">Null coordinates are accepted, but the field must be present: an explicit null says &ldquo;no basis for a coordinate&rdquo;, a missing field says nothing at all, and they are not the same claim. When a reply is cut off mid-list we keep the candidates that parsed and record how many we dropped, so a partial answer is never shown as a complete one. Both are in <code>tests/unit/extraction/schema.test.ts</code> and <code>partial-parse.test.ts</code>.</p>
+<p class="prose">Null coordinates are accepted, but the field must be present: an explicit null says &ldquo;no basis for a coordinate&rdquo;, a missing field says nothing at all, and they are not the same claim. When a reply is cut off mid-list we keep the candidates that parsed and record how many we dropped, so a partial answer is never shown as a complete one.</p>
 
 <h3>2.5 &nbsp;Edge cases</h3>
 <p class="prose">Each has a defined outcome, and that is the condition: a case that ends nowhere, or ends looking like an error when it is not one, fails.</p>
 
-<p class="prose">Six sit in the import and are covered by <code>tests/unit/import/pipeline.test.ts</code> and <code>tests/unit/extraction/</code>: zero candidates, partial resolution, more candidates than the cap of eight, every resolver lookup failing, a reply truncated mid-list, and a string that fits its length bound until it is normalised. Two are in the browser: the same link submitted twice before the first request returns, and a stale response arriving after the user changed the link. One is in the database: a deferred constraint trigger firing at commit time under a different role from the one that queued it.</p>
+<p class="prose">Six sit in the import: no candidates at all, only some of them resolving, more candidates than the cap of eight, every location lookup failing, a model reply cut off mid-list, and a name that fits its length limit until it is normalised. Two are in the browser: the same link submitted twice before the first request returns, and a stale response arriving after the user changed the link.</p>
   </div>
 </section>
 
@@ -475,16 +477,16 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>3.1 &nbsp;The tests run in the database</h3>
-<p class="prose">Authorisation is enforced by row-level security in Postgres, so that is where it is tested: eight SQL files in <code>supabase/tests/</code> carrying 277 assertions. Continuous integration rebuilds the schema from migration <code>0001</code> and runs all eight on every pull request and every push to <code>main</code>.</p>
+<p class="prose">Authorisation is enforced by row-level security in Postgres, so that is where it is tested: eight SQL files carrying 277 assertions. Continuous integration rebuilds the schema from migration <code>0001</code> and runs all eight on every pull request and every push to <code>main</code>.</p>
 
 <p class="prose">All eight create at least two real users in <code>auth.users</code> and run the attacker&rsquo;s queries under the attacker&rsquo;s own role: set <code>request.jwt.claims</code> to their user id, then <code>set local role authenticated</code>. Those are the two steps PostgREST performs for a signed-in browser, so the attack is the real one. Each file runs in one transaction ending in <code>ROLLBACK</code>.</p>
 
 <h3>3.2 &nbsp;Prove the read works before proving it is blocked</h3>
 <p class="prose">&ldquo;User B sees zero of user A&rsquo;s rows&rdquo; is also true of a database where nobody can read anything, so every file proves the positive case first.</p>
 
-<p class="prose">In <code>supabase/tests/0008_policy_tests.sql</code>, run by <code>npm run db:test:0008</code>: assertion <code>P0b</code> requires A to see exactly one row through each of the six gated tables. Only then does <code>P1</code> require B to see zero <code>saved_places</code>, and <code>P4</code> that B&rsquo;s unqualified <code>update</code> and <code>delete</code> against A&rsquo;s library change no rows. A failure prints what it saw: <code>FAIL P1: B sees 1 saved_places rows of A</code>.</p>
+<p class="prose">The founding file does it in that order. First, user A has to see exactly one row through each of the six protected tables &mdash; the reads work. Only then is user B required to see none of A&rsquo;s saved places, and B&rsquo;s attempts to update and delete across A&rsquo;s whole library required to change no rows at all. A failure prints what it actually saw, not just that it failed: <code>FAIL P1: B sees 1 saved_places rows of A</code>.</p>
 
-<p class="prose">We checked these the other way round too: drop the <code>saved_places_select_own</code> policy on a throwaway database and <code>P1</code> fails with exactly that line. A control nobody has watched fail is not evidence.</p>
+<p class="prose">We checked these the other way round too. On a throwaway database we removed the rule that keeps a user&rsquo;s saved places private, re-ran the file, and watched it fail with exactly that line. A control nobody has watched fail is not evidence.</p>
 
 <h3>3.3 &nbsp;Writes, not just reads</h3>
 <p class="prose">Read isolation is the easier half. The suite also inserts, as B, a provenance row carrying A&rsquo;s user id; a provenance row attached to a place B does not own; and a save borrowing A&rsquo;s source row. All three are refused, and the last is checked twice &mdash; once that it failed, once that it left no row behind in B&rsquo;s library. Invite tokens cannot be chosen by the client, and an unknown, a revoked and an expired token all fail identically so nobody can probe for which tokens exist.</p>
@@ -499,21 +501,19 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     <div class="sec-head">
       <p class="eyebrow">Section 04</p>
       <h2 id="s4h">The Database Keeps Its Promises</h2>
-      <p class="lede">The condition is that a guarantee counts only once it has been executed: a deletion actually performed and the dependent rows observed gone, never a foreign key read as evidence of what it would do.</p>
+      <p class="lede">A database can be told to promise things &mdash; that deleting an account takes its data with it, that a table is not readable by a stranger. The condition here is that a promise counts only once we have watched it kept. We delete the account and then go looking for the rows, rather than reading the rule in the schema and concluding that they would have gone.</p>
     </div>
 
 <h3>4.1 &nbsp;Promises proved by running them</h3>
-<p class="prose">We promise caption text does not outlive the account it belongs to. The test deletes a profile and asserts the dependent rows are gone, rather than checking that a foreign key is declared to cascade.</p>
+<p class="prose">We promise that caption text does not outlive the account it belongs to. So the test creates an account, saves data under it, deletes the account, and then goes looking for the rows that hung off it. They have to be gone. What it deliberately does not do is read the schema, see that a cascading delete is declared there, and call that evidence.</p>
 
-<p class="prose">The same file asserts a set of <em>absences</em> &mdash; no coordinate column, no import reference &mdash; because a table that can quietly acquire a location column is a privacy promise decaying over later migrations. Both are in <code>supabase/tests/0031_place_mentions_policy_tests.sql</code>.</p>
+<p class="prose">The same test also asserts a set of <em>absences</em>: this table has no coordinate column, and no reference back to an import. Asserting that something does not exist reads oddly at first, but a table that quietly acquires a location column two migrations later is a privacy promise decaying with nobody noticing.</p>
 
 <h3>4.2 &nbsp;New tables arrive open</h3>
-<p class="prose">Hosted Postgres grants broad privileges on new tables to the roles a browser can reach, so a new table is readable by <code>anon</code> until a migration revokes it. A local database does not show you this, because row-level security passes either way, and no policy test can catch it.</p>
+<p class="prose">Hosted Postgres is generous by default. A table created by a migration is readable by the public web role until that migration explicitly takes the privilege away. Worse, a local database will not show you the mistake &mdash; the row-level rules pass either way &mdash; so no amount of policy testing catches it.</p>
 
-<p class="prose">So it is checked statically: <code>scripts/check-migration-grants.sh</code> rejects any migration creating a table or view without forcing row-level security and revoking those grants. It runs as <code>npm run check:migrations</code>, inside <code>npm run verify</code> and inside continuous integration.</p>
+<p class="prose">So it is caught before it ships instead. A script reads every migration and rejects any that creates a table or view without locking it down first. It runs alongside the ordinary checks, on every change.</p>
 
-<h3>4.3 &nbsp;The layer guard checks itself</h3>
-<p class="prose">The rule keeping input and output out of <code>src/domain/</code> is enforced by ESLint. <code>scripts/check-layer-guard.sh</code> writes four deliberate violations into <code>src/</code>, asserts ESLint rejects each, then removes them &mdash; a rule nobody has watched fail is not relied on to pass.</p>
   </div>
 </section>
 
@@ -526,20 +526,21 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>5.1 &nbsp;Component render</h3>
-<p class="prose">Components are rendered to a static HTML string and the markup and accessible name asserted. The case worth naming: a pin we are unsure about must look different from a matched pin <em>and</em> keep its screen-reader name.</p>
+<p class="prose">Components are rendered to HTML and checked for their markup and for the name a screen reader would announce. The case worth naming: when we are unsure of a place&rsquo;s exact location, the row&rsquo;s accessible name ends in &ldquo;approximate location&rdquo;, and when the location is a confirmed match it does not &mdash; so the uncertainty reaches someone who cannot see the row at all.</p>
 
-<p class="prose">That is easy to break: an <code>aria-label</code> replaces a button&rsquo;s contents, so a glyph inside it is announced nowhere. <code>tests/unit/sheet/place-row.test.ts</code> asserts the accessible name ends in &ldquo;approximate location&rdquo; when the pin is a guess and does not contain it when the pin is matched. No styling is applied here, so nothing follows about layout, size or contrast.</p>
+<p class="prose">That is easy to lose by accident, because an <code>aria-label</code> replaces everything inside the element it sits on: anything shown inside is then announced nowhere. Nothing about appearance is established here. No styling is applied at this level, so these tests say nothing about layout, size or contrast.</p>
 
-<h3>5.2 &nbsp;Pinned copy</h3>
-<p class="prose">The no-places screen is asserted word for word against its copy specification in <code>tests/unit/import/no-places-screen.test.ts</code>, in all three of its cases &mdash; no caption, a caption that named nothing, an area but no venue &mdash; together with a ban on the vocabulary that would make it read as an error.</p>
+<h3>5.2 &nbsp;Copy and viewport</h3>
+<p class="prose">Two smaller checks sit alongside, both about things that drift silently.</p>
 
-<h3>5.3 &nbsp;Viewport gates</h3>
-<p class="prose">Playwright&rsquo;s device presets are 412&times;839 and 1280&times;720. Our design is specified at 390&times;844 and 1440&times;900, and the 22-pixel difference lands exactly where the layout picks its column count. Two extra browser projects exist only to assert the viewport before anything is measured in it.</p>
+<p class="prose">The first pins wording. The &ldquo;no places found&rdquo; screen is compared word for word against its copy specification in all three of its cases &mdash; no caption at all, a caption that named nothing, an area but no venue &mdash; together with a ban on the vocabulary that would make it read as an error.</p>
 
-<h3>5.4 &nbsp;What automation does not cover</h3>
-<p class="prose">No test here shows the map opened somewhere useful. An import that saved eight correct rows while the camera sat on another continent passes everything in this suite and is obviously broken.</p>
+<p class="prose">The second pins the window. The browser tool&rsquo;s built-in phone and desktop sizes are close to the ones our design is specified at, but not equal, and the difference of about twenty pixels lands exactly where the layout decides how many columns to draw. Two extra browser runs exist only to assert the window is the size we designed for, before anything is measured inside it.</p>
 
-<p class="prose">Screenshot comparison is deliberately excluded: a pixel baseline against a product mid-redesign needs re-approval on nearly every commit, costing the maintenance of a baseline and buying the evidence of none. Instead the working agreement requires the app to be run, the feature used and the saved rows read before a change is accepted.</p>
+<h3>5.3 &nbsp;What automation does not cover</h3>
+<p class="prose">No test here shows the map opened somewhere useful. An import that saved eight correct places while the camera sat on another continent passes everything in this suite and is obviously broken to anyone looking at it.</p>
+
+<p class="prose">Screenshot comparison is deliberately excluded: a pixel baseline against a product still being redesigned needs re-approving on nearly every change, which costs real maintenance and buys almost no evidence. Instead the rule is that the app is run, the feature used and the saved rows read before a change is accepted.</p>
   </div>
 </section>
 
@@ -548,51 +549,30 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     <div class="sec-head">
       <p class="eyebrow">Section 06</p>
       <h2 id="s6h">Running the Suite</h2>
-      <p class="lede">Paths are relative to the repository root at commit <code>601cebf</code>.</p>
+      <p class="lede">Everything below is run from the repository root.</p>
     </div>
 
 <h3>6.1 &nbsp;The commands</h3>
 <div class="tbl-wrap">
   <table class="tight">
-    <thead><tr><th style="width:26%">Command</th><th>What it runs</th><th style="width:26%">Configuration</th></tr></thead>
+    <thead><tr><th style="width:26%">Command</th><th>What it runs</th></tr></thead>
     <tbody>
-      <tr><td><code>npm run test</code></td><td>The unit and component tests</td><td><code>vitest.config.ts</code></td></tr>
-      <tr><td><code>npm run test:e2e</code></td><td>The browser tests, across four Playwright projects</td><td><code>playwright.config.ts</code></td></tr>
-      <tr><td><code>npm run db:test</code></td><td>The eight SQL policy files, each in a transaction that rolls back</td><td><code>psql</code> against <code>DATABASE_URL</code></td></tr>
-      <tr><td><code>npm run db:inventory</code></td><td>The deployed grants against the designed ones. Read-only, so it is safe against production</td><td><code>supabase/tests/inventory.sql</code></td></tr>
-      <tr><td><code>npm run check:migrations</code></td><td>The static gate on every new table and view</td><td><code>scripts/check-migration-grants.sh</code></td></tr>
-      <tr><td><code>npm run check:layers</code></td><td>The self-checking layer guard</td><td><code>scripts/check-layer-guard.sh</code></td></tr>
-      <tr><td><code>npm run verify</code></td><td>Lint, the TypeScript check, five repository gates and <code>npm run test</code></td><td><code>package.json</code></td></tr>
+      <tr><td><code>npm run test</code></td><td>The unit and component tests</td></tr>
+      <tr><td><code>npm run test:e2e</code></td><td>The browser tests</td></tr>
+      <tr><td><code>npm run db:test</code></td><td>The eight SQL policy files, each in a transaction that rolls back</td></tr>
+      <tr><td><code>npm run verify</code></td><td>Lint, the TypeScript check, the repository gates and the unit tests</td></tr>
+      <tr><td><code>npm run db:inventory</code></td><td>The deployed database grants against the designed ones. Read-only, so it is safe against production</td></tr>
     </tbody>
   </table>
 </div>
 
-<p class="prose" style="margin-top:22px">Set <code>E2E_PASSWORD</code> for the seeded demo user before <code>npm run test:e2e</code>, or the signed-in tests skip and only the signed-out ones run.</p>
+<p class="prose" style="margin-top:22px">Set <code>E2E_PASSWORD</code> for the seeded demo user before running the browser tests, or the signed-in ones will not run.</p>
 
-<h3>6.2 &nbsp;The eight policy files</h3>
-<p class="prose"><code>npm run db:test</code> runs all eight; <code>npm run db:test:0008</code> and its siblings run one at a time. The count is the <code>PASS</code> lines each emits on a clean run.</p>
+<h3>6.2 &nbsp;Where everything lives</h3>
+<p class="prose">Unit and component tests are in <code>tests/unit/</code>, browser specifications in <code>tests/e2e/</code>, and the eight database policy files in <code>supabase/tests/</code>. Between them those eight cover: the founding proof that an owner can read their own library and a second user can read, change and delete none of it; collection membership and invite tokens, where a live, a revoked and an unknown token all fail identically so nobody can probe for which ones exist; caption retention; re-pointing a saved place without destroying attribution that is still true; a user&rsquo;s own note surviving a second import of the same post; profile names; tag ownership; and model-written prose staying labelled and removable.</p>
 
-<div class="tbl-wrap">
-  <table class="tight">
-    <thead><tr><th style="width:38%">File, under <code>supabase/tests/</code></th><th style="width:12%">Assertions</th><th>What it establishes</th></tr></thead>
-    <tbody>
-      <tr><td><code>0008_policy_tests.sql</code></td><td>85</td><td>The founding proof: owner reads through all six gates, then the cross-user read and write denials and provenance forgery</td></tr>
-      <tr><td><code>0024_collections_policy_tests.sql</code></td><td>43</td><td>Collection membership, and live, revoked and expired invite tokens failing identically</td></tr>
-      <tr><td><code>0031_place_mentions_policy_tests.sql</code></td><td>38</td><td>The caption retention bound of section 4.1, structural absences included</td></tr>
-      <tr><td><code>0032_repoint_saved_place_policy_tests.sql</code></td><td>34</td><td>Re-pointing a save without destroying attribution that is still true</td></tr>
-      <tr><td><code>0034_note_precedence_tests.sql</code></td><td>17</td><td>The note a user wrote survives a second import of the same post</td></tr>
-      <tr><td><code>0035_profile_names_policy_tests.sql</code></td><td>21</td><td>The name a user gives the product is not a name the product gives away</td></tr>
-      <tr><td><code>0036_tag_ownership_policy_tests.sql</code></td><td>18</td><td>Tags are the user&rsquo;s vocabulary; the model&rsquo;s proposal stays on the record separately</td></tr>
-      <tr><td><code>0037_model_prose_policy_tests.sql</code></td><td>21</td><td>Model-authored prose is labelled, removable, and cannot be put back</td></tr>
-      <tr><td><code>inventory.sql</code></td><td>18, read-only</td><td>Not a policy file; outside the 277</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<h3>6.3 &nbsp;Where everything lives</h3>
-<p class="prose">Unit and component tests are in <code>tests/unit/</code>, browser specifications in <code>tests/e2e/</code> with the viewport gates in <code>tests/e2e/gates/</code>, and policy tests in <code>supabase/tests/</code>. Manual drivers are in <code>tests/manual/</code>, named <code>*.manual.*</code> and kept out of <code>npm run test</code> by <code>vitest.config.ts</code>, because each spends a real quota, drives a real browser, or asks for a judgement no assertion can make. <code>import-e2e.manual.mjs</code> and <code>crud-e2e.manual.mjs</code> drive the running app and read back the rows they saved; <code>owner-corpus.manual.ts</code> is where extraction quality is measured.</p>
-  </div>
-</section>
+<p class="prose">Manual drivers are in <code>tests/manual/</code>, kept out of the automated run because each one spends a real quota, drives a real browser, or asks for a judgement no assertion can make. Two of them drive the running app and read back the rows they saved; a third is where extraction quality is measured against a corpus of real videos.</p>
+  </section>
 
 <script>
 /* The crumb mark, lifted from no-crumbs-submission.html so the PRD carries the same
