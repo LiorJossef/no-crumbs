@@ -292,6 +292,11 @@ ol.questions li::after { content:"\201D"; color:var(--mint-mid); }
    print a black page. Re-declare the light palette outright.
    ========================================================================= */
 @media print {
+  /* Code blocks and the wide schema figure scroll on screen; paper cannot scroll,
+     so they wrap and shrink to the column instead of being clipped at its edge. */
+  pre, pre code { overflow:visible; white-space:pre-wrap; word-break:break-word; break-inside:avoid; }
+  figure div[style*="overflow"] { overflow:visible !important; }
+  figure svg { max-width:100% !important; height:auto; }
   :root:root {
     --bg:#fff; --bg-deep:#fff; --raised:#fff; --card:#fff; --card-2:#F4F2EC;
     --line:#D8D4CC; --line-soft:#E7E3DC;
