@@ -869,56 +869,7 @@ footer .tiny { font-size:13.5px; color:var(--ink-3); }
 
 <p class="prose">Five supporting tables sit behind these, for seventeen in all. <code>place_lookups</code> caches provider answers. <code>profile_names</code> holds the name given at sign-up. <code>poi_index</code> and <code>poi_regions</code> are the local copy of open places data the second resolver adapter reads. And <code>place_mentions</code> is where a place we could not identify is meant to be kept honestly rather than discarded &mdash; its schema, its grants and its policies are written and tested, but nothing on a screen reads it yet, so it is the one table in this list that is not carrying the product.</p>
 
-<h3>6.3 &nbsp;The two tables the product turns on</h3>
-
-<p class="prose">Abridged to the columns that matter &mdash; the constraints and the two keys are verbatim. Later migrations add the tag, why-go and provenance columns, and <code>supabase/migrations/</code> is the full definition of every table here.</p>
-
-<pre><code><span class="c">-- the shared record. One row is one real place in the world.</span>
-<span class="k">create table</span> public.places (
-  id                uuid <span class="k">primary key</span> default gen_random_uuid(),
-  name              text <span class="k">not null</span> check (length(btrim(name)) between 1 and 200),
-  name_key          text generated always as (public.place_name_key(name)) stored,
-  category          text,            <span class="c">-- our normalised taxonomy</span>
-  provider_category text,            <span class="c">-- the provider's own value, kept verbatim</span>
-  address_line      text,
-  locality          text,
-  region            text,
-  country_code      char(2) check (country_code is null or country_code ~ '^[A-Z]{2}$'),
-  <span class="c">-- WGS84 decimal degrees, the one representation used everywhere</span>
-  lat               double precision <span class="k">not null</span> check (lat between  -90 and  90),
-  lng               double precision <span class="k">not null</span> check (lng between -180 and 180),
-  provider_payload  jsonb,           <span class="c">-- the raw provider response</span>
-  <span class="c">-- tombstone: set when this row loses a merge. Nothing is ever deleted.</span>
-  merged_into_place_id uuid <span class="k">references</span> public.places (id) on delete restrict,
-  created_at        timestamptz <span class="k">not null</span> default now(),
-  updated_at        timestamptz <span class="k">not null</span> default now()
-);
-<span class="k">create index</span> places_name_key_idx on public.places (name_key, country_code);
-
-
-<span class="c">-- one person's entry pointing at one shared place.</span>
-<span class="k">create table</span> public.saved_places (
-  id                uuid <span class="k">primary key</span> default gen_random_uuid(),
-  user_id           uuid <span class="k">not null</span> <span class="k">references</span> public.profiles (id) on delete cascade,
-  place_id          uuid <span class="k">not null</span> <span class="k">references</span> public.places   (id) on delete restrict,
-
-  <span class="c">-- the per-user overlay. Editing these never touches the shared row.</span>
-  display_name      text,
-  category_override text,
-  note              text check (note is null or length(note) &lt;= 2000),
-  tags              text[],
-  visit_state       text <span class="k">not null</span> default 'want_to_go'
-                      check (visit_state in ('want_to_go', 'visited')),
-  visited_at        timestamptz,
-  origin            text <span class="k">not null</span> check (origin in ('import', 'manual')),
-  created_at        timestamptz <span class="k">not null</span> default now(),
-  updated_at        timestamptz <span class="k">not null</span> default now(),
-
-  <span class="c">-- one person cannot save one place twice.</span>
-  <span class="k">constraint</span> saved_places_user_place_unique <span class="k">unique</span> (user_id, place_id)
-);</code></pre>
-
-<h3>6.4 &nbsp;The main operations</h3>
+<h3>6.3 &nbsp;The main operations</h3>
 
 <div class="tbl-wrap">
   <table class="tight">
