@@ -95,7 +95,9 @@ section > .wrap > h3:first-child { margin-top:0; }
 section > .wrap > h3 + * { margin-top:12px; }
 /* `p { margin:0 }` means body paragraphs only separated when one carried an inline
    style; without this every subsection reads as a single block. */
-section > .wrap > p + p { margin-top:22px; }
+section > .wrap > p + p,
+section > .wrap > p + ul,
+section > .wrap > ul + p { margin-top:22px; }
 section + section { border-top:1px solid var(--line-soft); }
 section.deep { background:var(--bg-deep); }
 .sec-head { display:flex; flex-direction:column; gap:10px; margin-bottom:clamp(30px,3.5vw,44px); }
@@ -382,19 +384,24 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       4&nbsp;September 2026, on the version that continuous integration passed into <code>main</code>.
       Section 06 gives the command that reproduces each one.</p>
 
-    <p class="prose" style="margin-top:22px">The tooling is ordinary. Unit and domain tests run in
-      Vitest &mdash; <strong>250 files, 4,087 tests</strong> &mdash; and component tests render to a
-      static HTML string in the same runner. Browser tests run in Playwright against the built
-      application: <strong>13 specification files, 58 tests</strong>. Database policy tests are plain
-      SQL run by <code>psql</code>: <strong>8 files, 277 assertions</strong>. Continuous integration
-      runs all three on every pull request and every push to <code>main</code>. A fourth level,
-      <strong>23 documented manual drivers</strong>, covers what needs a live third party or a human
-      judgement.</p>
+    <p class="prose" style="margin-top:22px">The tooling is ordinary. There are four levels, and each
+      one catches what the others cannot.</p>
 
-    <p class="prose" style="margin-top:22px">Each catches what the others cannot. The unit tests reach
-      every failure reason and every URL shape; the browser tests catch assembly &mdash; routing, focus, a
-      double submission, a stale response; the SQL tests are the only place authorisation is executed
-      as a second real user.</p>
+    <ul class="clean prose" style="margin-top:16px">
+      <li><strong>Unit and domain tests</strong> &mdash; 250 files, 4,087 tests, in Vitest. They reach
+        every failure reason and every URL shape. Component tests render to a static HTML string in the
+        same runner.</li>
+      <li><strong>Browser tests</strong> &mdash; 13 specification files, 58 tests, in Playwright against
+        the built application. They catch assembly: routing, focus, a double submission, a stale
+        response.</li>
+      <li><strong>Database policy tests</strong> &mdash; 8 files, 277 assertions, in plain SQL. The only
+        place authorisation is executed as a second real user.</li>
+      <li><strong>Manual drivers</strong> &mdash; 23 of them, documented, for what needs a live third
+        party or a judgement no assertion can make.</li>
+    </ul>
+
+    <p class="prose" style="margin-top:22px">Continuous integration runs the first three on every pull
+      request and every push to <code>main</code>.</p>
 
   </div>
 </section>
@@ -423,7 +430,17 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">Two tests keep that list honest, from opposite ends. The first runs the import until it has triggered every reason on the list, then checks that the set it managed to reach is exactly the set we declared &mdash; add a fourteenth reason and the suite fails until someone shows a real path to it. The second checks the reverse: every reason on the list must be raised somewhere in shipped code, so a reason nothing can cause is a failure rather than dead weight.</p>
 
 <h3>1.4 &nbsp;The browser tests</h3>
-<p class="prose">Thirteen browser specifications drive the built application the way a person does &mdash; loading pages, pasting, clicking, waiting &mdash; rather than calling functions directly. Seven cover the import: the happy path, the paste field refusing to submit until it holds a link, the same link submitted twice before the first attempt returns, a slow response arriving after the user has already changed the link, the failure screens, their wording, and the status shown on screen against the status actually on the wire.</p>
+<p class="prose">Thirteen browser specifications drive the built application the way a person does &mdash; loading pages, pasting, clicking, waiting &mdash; rather than calling functions directly. Seven of them cover the import:</p>
+
+<ul class="clean prose">
+  <li>the happy path, all the way to a saved place;</li>
+  <li>the paste field refusing to submit until it holds a link;</li>
+  <li>the same link submitted twice, before the first attempt has returned;</li>
+  <li>a slow response arriving after the user has already changed the link;</li>
+  <li>the failure screens;</li>
+  <li>their wording;</li>
+  <li>and the status shown on screen against the status actually on the wire.</li>
+</ul>
 
 <p class="prose">This is the level that catches assembly. Every part can pass on its own and the product still be broken by the way the parts are wired together: a route that does not exist, focus landing nowhere, a second click doing the work twice.</p>
 
@@ -457,9 +474,25 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">An Instagram or YouTube link is a platform we do not support, not a broken link: it gets its own code and a route to adding the place by hand. Text with no link in it gets a different code and different copy. Collapse the two into one code and we tell the user to fix an input that was not broken, so the tests hold the two apart.</p>
 
 <h3>2.4 &nbsp;The model&rsquo;s reply</h3>
-<p class="prose">Every reply is checked against a schema before anything is stored. A category outside our vocabulary is rejected, so is a latitude out of range, and so is a name that looks short enough as typed but grows past its length limit once its characters are written out in the standard form we store them in. Accented letters and ligatures expand when that happens, and the check in front of the write and the column behind it have to agree on the length, or a perfectly valid name is refused at the last moment.</p>
+<p class="prose">Every reply is checked against a schema before anything is stored. Three things are refused outright:</p>
 
-<p class="prose">Null coordinates are accepted, but the field must be present: an explicit null says &ldquo;no basis for a coordinate&rdquo;, a missing field says nothing at all, and they are not the same claim. When a reply is cut off mid-list we keep the candidates that parsed and record how many we dropped, so a partial answer is never shown as a complete one.</p>
+<ul class="clean prose">
+  <li><strong>A category outside our vocabulary.</strong> We can only draw the ones we have.</li>
+  <li><strong>A latitude out of range.</strong> A number that cannot be a place on Earth.</li>
+  <li><strong>A name that grows past its limit.</strong> It fits as typed, then exceeds the limit once
+    its characters are written out in the standard form we store them in &mdash; accented letters and
+    ligatures expand. The check in front of the write and the column behind it have to agree on the
+    length, or a perfectly good name is refused at the last moment.</li>
+</ul>
+
+<p class="prose">And two are accepted, carefully:</p>
+
+<ul class="clean prose">
+  <li><strong>No coordinate, as long as the field is there.</strong> An explicit null says &ldquo;no
+    basis for a coordinate&rdquo;; a missing field says nothing at all. They are not the same claim.</li>
+  <li><strong>A reply cut off mid-list.</strong> We keep the candidates that parsed and record how many
+    we dropped, so a partial answer is never shown as a complete one.</li>
+</ul>
 
 <h3>2.5 &nbsp;Edge cases</h3>
 <p class="prose">Each has a defined outcome, and that is the condition: a case that ends nowhere, or ends looking like an error when it is not one, fails.</p>
@@ -569,7 +602,17 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose" style="margin-top:22px">Set <code>E2E_PASSWORD</code> for the seeded demo user before running the browser tests, or the signed-in ones will not run.</p>
 
 <h3>6.2 &nbsp;Where everything lives</h3>
-<p class="prose">Unit and component tests are in <code>tests/unit/</code>, browser specifications in <code>tests/e2e/</code>, and the eight database policy files in <code>supabase/tests/</code>. Between them those eight cover: the founding proof that an owner can read their own library and a second user can read, change and delete none of it; collection membership and invite tokens, where a live, a revoked and an unknown token all fail identically so nobody can probe for which ones exist; caption retention; re-pointing a saved place without destroying attribution that is still true; a user&rsquo;s own note surviving a second import of the same post; profile names; tag ownership; and model-written prose staying labelled and removable.</p>
+<p class="prose">Unit and component tests are in <code>tests/unit/</code>, browser specifications in <code>tests/e2e/</code>, and the eight database policy files in <code>supabase/tests/</code>. Between them those eight cover:</p>
+
+<ul class="clean prose">
+  <li><strong>The founding proof.</strong> An owner can read their own library, and a second user can read, change and delete none of it.</li>
+  <li><strong>Collections.</strong> Membership, and invite tokens where a live, a revoked and an unknown token all fail identically, so nobody can probe for which ones exist.</li>
+  <li><strong>Caption retention.</strong> Caption text does not outlive the account it came from.</li>
+  <li><strong>Re-pointing a save</strong> onto a different place without destroying attribution that is still true.</li>
+  <li><strong>Note precedence.</strong> A user&rsquo;s own note survives a second import of the same post.</li>
+  <li><strong>Profile names, and tag ownership.</strong> The tags are the user&rsquo;s vocabulary; the model&rsquo;s proposal stays on the record separately.</li>
+  <li><strong>Model-written prose</strong> staying labelled, removable, and not quietly restorable.</li>
+</ul>
 
 <p class="prose">Manual drivers are in <code>tests/manual/</code>, kept out of the automated run because each one spends a real quota, drives a real browser, or asks for a judgement no assertion can make. Two of them drive the running app and read back the rows they saved; a third is where extraction quality is measured against a corpus of real videos.</p>
   </section>
