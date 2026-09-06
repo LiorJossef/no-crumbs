@@ -425,16 +425,26 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">Shared collections are the deliberate exception: there the rule asks whether the caller holds a live role in the collection. All 38 policies are written for the signed-in role; none for the anonymous role.</p>
 
 <h3>2.2 &nbsp;Why the database, and not our code</h3>
-<p class="prose">Row-level security is enabled on all 17 tables and <em>forced</em> on all 17 &mdash; forcing removes the table owner&rsquo;s exemption, so the rules bind everybody. Three tables carry row-level security with no policy at all, the strictest setting there is.</p>
-<p class="prose">The anonymous role, which a browser holds before signing in, has no privileges on any table, column or function. That is why the publishable Supabase key sitting in the browser bundle is not a leak: it names the project and grants nothing.</p>
-<p class="prose">Two mechanisms sit underneath. Grants are made column by column: on your own saved place you may update the display name, category, note, visit state and visit date, and nothing else &mdash; there is no grant on the owner column, so moving a saved place into another account cannot even be expressed. And <code>SECURITY DEFINER</code> functions are special functions that update shared tables safely on the caller&rsquo;s behalf, re-checking their identity internally, without giving users any direct write permission on those tables.</p>
-<p class="prose">If we forgot a check or wrote the wrong filter in application code, the database would still refuse. The page renders an empty list, not somebody else&rsquo;s places.</p>
+<p class="prose">Four things make the isolation hold even if our application code is wrong.</p>
+<ul class="clean">
+  <li><strong>Enabled and forced on all 17 tables.</strong> Forcing binds the table owner too. Three tables carry no policy at all &mdash; the strictest setting there is.</li>
+  <li><strong>The anonymous role has nothing.</strong> No privileges on any table, column or function. The publishable key in the browser names the project and grants nothing.</li>
+  <li><strong>Grants are column by column.</strong> You may change a saved place&rsquo;s name, category, note and visit state &mdash; never its owner column, so moving a place into another account cannot be expressed.</li>
+  <li><strong><code>SECURITY DEFINER</code> functions guard shared tables.</strong> They update shared rows on your behalf and re-check your identity internally, so you need no write permission of your own.</li>
+</ul>
+<p class="prose">The result: a forgotten check in our code renders an empty list, not somebody else&rsquo;s places.</p>
 
 <h3>2.3 &nbsp;What happened when we attacked it</h3>
-<p class="prose">We built a database with every migration applied, created two users, gave one saved places and a collection, then signed in as the other and attacked. We tried reading the victim&rsquo;s saved places directly, and sideways through the tables they join to. We tried counting them, in case an aggregate revealed what a select would not. We tried updating them, deleting them, and reassigning one into the attacker&rsquo;s account. We tried taking over the victim&rsquo;s collection, by writing ourselves in as owner and by choosing our own invite token. We called every stored function a signed-in user may call, aimed at the victim&rsquo;s rows. Then we repeated all of it with no account at all.</p>
-<p class="prose">Every read returned zero rows. Every write was refused. The reassignment and the collection takeover failed before any policy was consulted, because those columns carry no grant. The functions refused with <em>no such saved place for this user</em>. Signed out, everything failed a step earlier still, at <em>permission denied for table</em>.</p>
-<p class="prose">Eight SQL suites keep this honest as the schema changes: each creates its own users, tries the cross-user read, write and delete, and rolls back.</p>
-<p class="prose">One property does favour an attacker, and we name it: knowing a venue&rsquo;s id lets you read that venue row &mdash; but venues are public places, so an id reveals only the venue&rsquo;s public name and location, never who saved it or their private notes.</p>
+<p class="prose">Two users on a database with every migration applied. One held saved places and a collection; we signed in as the other and went after them.</p>
+<ul class="clean">
+  <li><strong>Read</strong> their saved places directly, and sideways through the tables they join to.</li>
+  <li><strong>Count</strong> them, in case an aggregate revealed what a select would not.</li>
+  <li><strong>Update, delete and reassign</strong> a place into the attacker&rsquo;s own account.</li>
+  <li><strong>Take over</strong> their collection, by writing ourselves in as owner and by choosing our own invite token.</li>
+  <li><strong>Call every stored function</strong> a signed-in user may call, aimed at their rows &mdash; then repeat all of it with no account at all.</li>
+</ul>
+<p class="prose">Every read returned zero rows and every write was refused. The reassignment and the takeover failed before any policy was consulted, because those columns carry no grant. The functions refused with <em>no such saved place for this user</em>; signed out, everything failed a step earlier at <em>permission denied for table</em>.</p>
+<p class="prose">Eight SQL suites keep this honest as the schema changes: each creates its own users, tries the cross-user read, write and delete, and rolls back. One caveat we name rather than hide &mdash; knowing a venue&rsquo;s id lets you read that venue row, but venues are public places, so an id reveals only the venue&rsquo;s public name and location, never who saved it or their private notes.</p>
   </div>
 </section>
 
@@ -492,10 +502,12 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">Most of the product has no API surface at all: pages load their data on the server under the signed-in user&rsquo;s own token, so those reads meet the policies in section 2 like everything else.</p>
 
 <h3>4.2 &nbsp;Where secrets are kept</h3>
-<p class="prose">All secrets are environment variables. The <code>.env</code> files are gitignored, only an example with empty values is committed, and in production the real values live in Vercel&rsquo;s encrypted environment store.</p>
-<p class="prose">One rule enforces the rest: a variable without the <code>NEXT_PUBLIC_</code> prefix must never reach the browser. Next.js inlines only prefixed variables into client code, and every importable module that reads a secret imports <code>server-only</code>, so importing it from a client component is a build failure rather than a shipped credential.</p>
-<p class="prose">The Supabase service-role key bypasses row-level security completely, so nothing in section 2 restrains a query made with it. We use it on the server only, for account deletion and writes to shared tables; it is never in the bundle, the repository or an error response.</p>
-<p class="prose">One variable is awkward, so we name it. The Google Maps key carries the public prefix but is read only as a server-side fallback, inside a <code>server-only</code> module. No client code references it, so it is not in the bundle &mdash; but the prefix means it would be inlined the moment some did, and unlike the publishable Supabase key this one costs money. See 5.2.</p>
+<p class="prose">Every secret is an environment variable. The <code>.env</code> files are gitignored, only an empty example is committed, and in production the real values live in Vercel&rsquo;s encrypted environment store.</p>
+<ul class="clean">
+  <li><strong>One rule, enforced twice.</strong> Anything without the <code>NEXT_PUBLIC_</code> prefix must never reach the browser. Next.js inlines only prefixed variables, and every module reading a secret imports <code>server-only</code> &mdash; so a slip is a build failure, not a shipped credential.</li>
+  <li><strong>The service-role key never leaves the server.</strong> It bypasses row-level security entirely, so it is used only for account deletion and shared-table writes &mdash; never in the bundle, the repository or an error response.</li>
+  <li><strong>The Google Maps key is the awkward one.</strong> Public prefix, but read only on the server, so it is not in the bundle today &mdash; and unlike the Supabase key, this one costs money. See 5.2.</li>
+</ul>
   </div>
 </section>
 
