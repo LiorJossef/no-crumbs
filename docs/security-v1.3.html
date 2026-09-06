@@ -497,7 +497,8 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <ul class="clean">
   <li><strong>POST-only endpoints,</strong> which blocks cross-site request forgery: another site can trigger a GET with an image tag, but not a JSON POST.</li>
   <li><strong>Server-side authentication on every call:</strong> each route begins with <code>getUser()</code> and returns 401 if there is no verified user.</li>
-  <li><strong>Generic error codes and standard security headers:</strong> failures return a short code from a closed set &mdash; never a stack trace, provider message or environment-variable name &mdash; and every response carries <code>nosniff</code>, <code>frame-ancestors 'none'</code>, a tightened <code>Referrer-Policy</code> on the invite route, and a <code>Permissions-Policy</code> denying camera, microphone and payment.</li>
+  <li><strong>Generic error codes.</strong> Failures return a short code from a closed set &mdash; never a stack trace, a provider message or an environment-variable name.</li>
+  <li><strong>Standard security headers on every response:</strong> <code>nosniff</code>, <code>frame-ancestors 'none'</code>, a tightened <code>Referrer-Policy</code> on the invite route, and a <code>Permissions-Policy</code> denying camera, microphone and payment.</li>
 </ul>
 <p class="prose">Most of the product has no API surface at all: pages load their data on the server under the signed-in user&rsquo;s own token, so those reads meet the policies in section 2 like everything else.</p>
 
