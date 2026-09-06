@@ -1,4 +1,5 @@
 <!doctype html>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>No Crumbs Submission</title>
@@ -15,7 +16,7 @@ try {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..900,0..100,0..1&family=Manrope:wght@400..800&family=JetBrains+Mono:wght@400..700&display=swap">
 <style>
 /* ============================================================================
-   TOKENS — inherited verbatim from no-crumbs-submission.html. Do not retune a
+   TOKENS — the shared design system, identical in all six documents. Do not retune a
    value here: the two documents are read side by side and any drift shows.
    ========================================================================= */
 :root {
@@ -126,6 +127,23 @@ h1 { font-size:clamp(32px,5vw,52px); }
 }
 .deck h3 { font-size:16px; color:var(--ink); }
 .deck p { font-size:15px; color:var(--ink-2); }
+.extras { margin-top:30px; padding-top:24px; border-top:1px solid var(--line-soft); }
+.extras h3 { font-size:17px; color:var(--ink); }
+.extras .small { margin-top:6px; }
+.linklist { list-style:none; margin:14px 0 0; padding:0; }
+.linklist li { font-size:15.5px; line-height:1.75; }
+.linklist li + li { margin-top:6px; }
+.rq { font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; color:var(--ink-3); border:1px solid var(--line); border-radius:999px; padding:2px 7px; margin-left:6px; }
+@media print {
+  :root:root {
+    --bg:#fff; --bg-deep:#fff; --raised:#fff; --card:#fff; --card-2:#fff;
+    --line:#d8d5cf; --line-soft:#e8e5df;
+    --ink:#000; --ink-2:#333; --ink-3:#555; --mint-mid:#12554c;
+    --shadow-1:none; --shadow-2:none;
+  }
+  body { background:#fff; color:#000; }
+  .doc:hover { transform:none; }
+}
 footer { padding-block:34px; border-top:1px solid var(--line-soft); }
 footer p + p { margin-top:8px; }
 footer .tiny { font-size:13.5px; color:var(--ink-3); }
@@ -133,7 +151,7 @@ footer .tiny { font-size:13.5px; color:var(--ink-3); }
 
 <header class="cover">
   <div class="wrap">
-    <p class="eyebrow">RUNI CS &middot; Internet Technologies &middot; final project</p>
+    <p class="eyebrow">RUNI CS &middot; Internet Technologies &middot; final project &middot; Lior Jossef &middot; 6 September 2026</p>
     <div class="cover-row" style="margin-top:14px">
       <span class="rig" data-crumb data-size="46" style="flex:none;margin-top:6px"></span>
       <h1>No Crumbs<br><em>Submission</em></h1>
@@ -166,9 +184,11 @@ footer .tiny { font-size:13.5px; color:var(--ink-3); }
          names, matches them to real coordinates, and &mdash; once you confirm them &mdash; puts
          them on your own private map. You reach them by where they are, instead of by remembering
          when you saved them.</p>
-      <p class="last">Not every video names its place in words; plenty say it out loud or show it on
-         screen, and we read captions. So &ldquo;no places in this one&rdquo; is an ordinary result
-         rather than an error &mdash; it has a screen of its own, with three ways forward.</p>
+      <p class="last">Most videos name the place only out loud or on screen, and we read captions
+         &mdash; so roughly three links in four yield no place. That is why &ldquo;no places in
+         this one&rdquo; is an ordinary result rather than an error: it has a screen of its own,
+         with three ways forward. The measurement, and how small the sample is, are in the
+         product specification.</p>
     </div>
   </div>
 </section>
@@ -176,57 +196,73 @@ footer .tiny { font-size:13.5px; color:var(--ink-3); }
 <section>
   <div class="wrap">
     <p class="eyebrow">Start here</p>
-    <h2 class="sec" style="margin-top:10px">The five documents</h2>
+    <h2 class="sec" style="margin-top:10px">The documents</h2>
     <p class="lede" style="margin-top:12px">Each is written to be read on its own. This page holds
        no figures of its own: every measured number lives in the document that measured it, next to
        how it was measured.</p>
 
     <div class="docs">
-      <a class="doc" href="product-requirements-v1.3.html">
-        <span class="n">01</span>
+      <a class="doc" href="product-requirements-v1.4.html">
+        <span class="n">01 &middot; M2</span>
         <h3>Product Specification</h3>
         <p>What problem the product solves, who its users are, who the customer is, what the
            business goals are, the capabilities that meet them, and the core things a person
            actually does with it.</p>
       </a>
 
-      <a class="doc" href="technical-design-document-v1.3.html">
-        <span class="n">02</span>
+      <a class="doc" href="technical-design-document-v1.4.html">
+        <span class="n">02 &middot; M3 + M4</span>
         <h3>Technical Design</h3>
         <p>How the system is built: the components and layers, the database and its central tables,
            the pages, the API routes and server actions, how data moves between browser, server and
            database, who may do what, and every external service with the reason for choosing it.</p>
       </a>
 
-      <a class="doc" href="testing-specification-v1.3.html">
-        <span class="n">03</span>
+      <a class="doc" href="testing-specification-v1.4.html">
+        <span class="n">03 &middot; M6</span>
         <h3>Test Specification</h3>
         <p>What &ldquo;working&rdquo; means here and how each part is checked &mdash; the core
            features, invalid input, the central process, permissions between two real accounts, the
            database, edge cases and the interface &mdash; naming the test file behind each one.</p>
       </a>
 
-      <a class="doc" href="scalability-v1.3.html">
-        <span class="n">04</span>
+      <a class="doc" href="scalability-v1.4.html">
+        <span class="n">04 &middot; M8 + M10</span>
         <h3>Scale</h3>
         <p>What happens at tens or hundreds of users, which queries could be heavy, which indexes
            exist, how over-fetching is avoided, where the split between client and server falls,
            what limits the product today, and what would be done for a larger one.</p>
       </a>
 
-      <a class="doc" href="security-v1.3.html">
-        <span class="n">05</span>
+      <a class="doc" href="security-v1.4.html">
+        <span class="n">05 &middot; M9</span>
         <h3>Security</h3>
         <p>How signing in works, how permission is decided in the database rather than in
            application code, what stops one account reading another&rsquo;s data, how input we did
            not write is validated, where the secrets are kept &mdash; and the risks that remain.</p>
       </a>
+      <a class="doc" href="presentation-v1.4.html">
+        <span class="n">06 &middot; M11</span>
+        <h3>Presentation</h3>
+        <p>The 10&ndash;15 minute deck, built from the five documents above: the problem, the
+           users, the architecture, the database, a worked example end to end, the tests, scale
+           and security.</p>
+      </a>
     </div>
 
-    <div class="deck">
-      <h3>Presentation</h3>
-      <p>The 10&ndash;15 minute deck, built from the five documents above &mdash;
-         <a href="presentation-v1.3.html">open it</a>.</p>
+    <div class="extras">
+      <h3>The code, and running it</h3>
+      <p class="small">The rest of what the submission has to hand over, linked rather than described.</p>
+      <ul class="linklist">
+        <li><a href="https://github.com/LiorJossef/no-crumbs/tree/main/tests">The test code</a>
+            &mdash; unit, browser and manual tiers <span class="rq">M7</span></li>
+        <li><a href="https://github.com/LiorJossef/no-crumbs/tree/main/supabase/tests">The database and permission suites</a>
+            &mdash; SQL, run against a real database <span class="rq">M7</span></li>
+        <li><a href="https://github.com/LiorJossef/no-crumbs/blob/main/README.md">Run it locally, and the environment variables it needs</a>
+            <span class="rq">M10</span></li>
+        <li><a href="https://no-crumbss.vercel.app">The live app</a> &nbsp;&middot;&nbsp;
+            <a href="https://github.com/LiorJossef/no-crumbs">The repository</a> <span class="rq">M5, M10</span></li>
+      </ul>
     </div>
   </div>
 </section>
