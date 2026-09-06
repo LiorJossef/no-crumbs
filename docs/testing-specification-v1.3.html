@@ -344,7 +344,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <span class="tiny">Testing Specification &middot; 1.3</span>
     </span>
     <nav class="tocbar" aria-label="Sections">
-      <a href="#s1"><b>01</b><span>The import</span></a>
+      <a href="#s1"><b>01</b><span>Core loop</span></a>
       <a href="#s2"><b>02</b><span>Bad input</span></a>
       <a href="#s3"><b>03</b><span>Access</span></a>
       <a href="#s4"><b>04</b><span>Database</span></a>
@@ -410,7 +410,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
   <div class="wrap">
     <div class="sec-head">
       <p class="eyebrow">Section 01</p>
-      <h2 id="s1h">The Import, and What Counts as Working</h2>
+      <h2 id="s1h">The Core Loop, and What Counts as Working</h2>
       <p class="lede">The product does one thing. A user pastes a TikTok link; it becomes a video identity, then a caption, then a structured extraction, then resolved real places, and finally rows on that user&rsquo;s private map. The condition is that the import finishes every stage without inventing anything on the way.</p>
     </div>
 
@@ -449,8 +449,19 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <h3>1.5 &nbsp;What this level does not show</h3>
 <p class="prose">It shows that an import finishes in a defined state, not that the answer is any good. Locking one caption to one expected venue would lock in the output of a third-party model, and the test would then fail on a model upgrade that was an improvement. Extraction quality is measured separately, by hand, against a corpus of real saved videos.</p>
 
-<h3>1.6 &nbsp;Coverage by requirement area</h3>
-<div class="tbl-wrap"><table class="tight"><thead><tr><th style="width:22%">Requirement area</th><th>What we check</th><th style="width:26%">Tested at</th></tr></thead><tbody><tr><td>Core features</td><td>The import runs end to end; the built application still works</td><td>Unit and browser</td></tr><tr><td>Business process</td><td>Stages fire in order; the import ends in a defined state</td><td>Unit</td></tr><tr><td>Bad input</td><td>Six hosts allowed; refusals stay distinguishable; model output schema-checked</td><td>Unit</td></tr><tr><td>Failure reasons</td><td>Thirteen reasons, all reachable, and all raised by shipped code</td><td>Unit</td></tr><tr><td>Awkward cases</td><td>Eight named cases, each with a defined outcome</td><td>Unit, browser and database</td></tr><tr><td>Access control</td><td>277 assertions, run as a second signed-in user attacking the first&rsquo;s rows</td><td>Database</td></tr><tr><td>Data integrity</td><td>Deletions performed and dependent rows observed gone; new tables gated by a script</td><td>Database and a static check</td></tr><tr><td>Screens</td><td>Accessible names asserted, copy pinned, two viewport sizes</td><td>Component and browser</td></tr></tbody></table></div>
+<h3>1.6 &nbsp;Editing and deleting what you saved</h3>
+<p class="prose">An import you cannot undo is not something anybody would trust, so the writes that come after it are tested too.</p>
+
+<ul class="clean prose">
+  <li><strong>Every write a saved place accepts.</strong> Deleting one, deleting a selection, editing the note, changing the category, marking somewhere visited. Each is checked against the exact statement sent to the database &mdash; which table, which columns, and nothing else.</li>
+  <li><strong>Someone else&rsquo;s row reads as gone, not as an error.</strong> The database answers a write you are not allowed to make with zero rows rather than a refusal, so the code has to ask for an exact count to tell the two apart.</li>
+  <li><strong>No database error text reaches the user.</strong> What they see is a sentence we wrote.</li>
+  <li><strong>Collections, the same way.</strong> Creating one, renaming it, deleting it, adding and removing a place. The checks that carry the most weight here are absences: no action works out for itself whether the user is allowed &mdash; that belongs to the database &mdash; and adding or removing a place never touches the saved places or the places themselves, so nothing here can cost somebody their library.</li>
+  <li><strong>And once for real.</strong> A manual driver runs the delete and the note edit against the real application and the real database, at a phone width and a desktop width, reloading the page each time. So what it proves is that the change was written, not that the screen redrew.</li>
+</ul>
+
+<h3>1.7 &nbsp;Coverage by requirement area</h3>
+<div class="tbl-wrap"><table class="tight"><thead><tr><th style="width:22%">Requirement area</th><th>What we check</th><th style="width:26%">Tested at</th></tr></thead><tbody><tr><td>Core features</td><td>The import runs end to end; saved places and collections can be changed and deleted</td><td>Unit, browser and manual</td></tr><tr><td>Business process</td><td>Stages fire in order; the import ends in a defined state</td><td>Unit</td></tr><tr><td>Bad input</td><td>Six hosts allowed; refusals stay distinguishable; model output schema-checked</td><td>Unit</td></tr><tr><td>Failure reasons</td><td>Thirteen reasons, all reachable, and all raised by shipped code</td><td>Unit</td></tr><tr><td>Awkward cases</td><td>Eight named cases, each with a defined outcome</td><td>Unit, browser and database</td></tr><tr><td>Access control</td><td>277 assertions, run as a second signed-in user attacking the first&rsquo;s rows</td><td>Database</td></tr><tr><td>Data integrity</td><td>Deletions performed and dependent rows observed gone; new tables gated by a script</td><td>Database and a static check</td></tr><tr><td>Screens</td><td>Accessible names asserted, copy pinned, two viewport sizes</td><td>Component and browser</td></tr></tbody></table></div>
   </div>
 </section>
 
@@ -498,6 +509,18 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">Each has a defined outcome, and that is the condition: a case that ends nowhere, or ends looking like an error when it is not one, fails.</p>
 
 <p class="prose">Six sit in the import: no candidates at all, only some of them resolving, more candidates than the cap of eight, every location lookup failing, a model reply cut off mid-list, and a name that fits its length limit until it is normalised. Two are in the browser: the same link submitted twice before the first request returns, and a stale response arriving after the user changed the link.</p>
+
+<h3>2.6 &nbsp;When the place lookup is slow</h3>
+<p class="prose">Looking up a real place is the one step that waits on somebody else&rsquo;s service, so it is held to five seconds. Past that the lookup is abandoned and reported as a timeout.</p>
+
+<ul class="clean prose">
+  <li><strong>The deadline is tested by making it fire.</strong> Not a check that the number is written down somewhere &mdash; the lookup runs against a service that never answers, and the test waits for the timeout to happen.</li>
+  <li><strong>A user pressing Back is not a slow provider.</strong> The two look identical to the code doing the fetching, so we ask the timeout directly rather than inferring it from the error.</li>
+  <li><strong>A failed lookup does not fail the import.</strong> A place the model found in the caption is still saveable. The pin is labelled as coming from the caption rather than from a provider, and it is stored with no provider identity and no score attached to it.</li>
+  <li><strong>Nothing is invented.</strong> When the model found nothing to place, no coordinate is produced at all.</li>
+</ul>
+
+<p class="prose">A slow lookup costs the user some precision. It never costs them the import, and it never produces a confident location that nobody actually established.</p>
   </div>
 </section>
 
