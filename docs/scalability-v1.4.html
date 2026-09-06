@@ -472,7 +472,7 @@ footer .tiny { font-size:13.5px; color:var(--ink-3); }
 <h3>2.1 &nbsp;The ordinary arrangement</h3>
 <p class="prose">Each page builds a cookie-bound database client and reads under the user&rsquo;s own token, so row-level security applies to every query a page makes. No page can return another user&rsquo;s rows.</p>
 
-<p class="prose">Client components exist for two reasons: the map needs browser APIs, and the sheets, filter chips and search field hold local state. They receive already-fetched arrays as props and filter in memory &mdash; search, category, tag and visited are all array operations over that one array. Because the list and the markers come from the same array they cannot disagree, which two separately issued queries could.</p>
+<p class="prose">Client components exist for two reasons: the map needs browser APIs, and the sheets, filter chips and search field hold local state. They receive already-fetched arrays as props and filter in memory &mdash; search, category, tag and Been there are all array operations over that one array. Because the list and the markers come from the same array they cannot disagree, which two separately issued queries could.</p>
 
 <h3>2.2 &nbsp;Calls the browser makes</h3>
 <p class="prose">A few things start in the browser rather than in a page load:</p>
@@ -755,8 +755,8 @@ limit 50       402 buffers   0.251 ms   saved_places_user_recent_idx, no sort at
 </footer>
 
 <script>
-/* The crumb mark, lifted from no-crumbs-submission.html so the PRD carries the same
-   face as the product. Geometry is ratified (brand foundation §3.1 rule 1) — do not
+/* The crumb mark, so every document in the set carries the same face as the
+   product. Geometry is ratified (brand foundation §3.1 rule 1) — do not
    edit the BODY path. */
 window.CRUMB = (function () {
   var BODY = "M34 9C50 3 70 7 82 20 93 32 97 50 92 66 86 84 68 95 50 94 30 93 12 82 7 64 2 46 8 26 20 16 24 12 29 11 34 9Z";
