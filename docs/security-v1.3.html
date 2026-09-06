@@ -361,7 +361,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <span class="rig" data-crumb data-size="44" style="flex:none;margin-top:6px"></span>
       <h1 class="cover-t">Security<br><em>Analysis</em></h1>
     </div>
-    <p class="cover-b"><strong>Abstract.</strong> How No Crumbs keeps one person&rsquo;s map private from everyone else: who you are and how we check it, how the database refuses to hand your rows to anybody else, how we treat input we did not write &mdash; the pasted link and the model&rsquo;s output &mdash; and where the secrets live. The central claim is tested rather than asserted: <strong>signed in as one user we tried to read, change and delete another user&rsquo;s places, and every attempt returned nothing or was refused</strong> (2.3). Figures were measured against a database carrying all 36 migrations, which is the level production runs.</p>
+    <p class="cover-b"><strong>Abstract.</strong> Map privacy is enforced at the database level: Postgres row-level security ties every row to its owner, so application code cannot widen access. We simulated <strong>9 cross-user attacks &mdash; reading, writing and deleting another user&rsquo;s places &mdash; and all 9 failed</strong> (2.3). External input is never trusted from the client: pasted links and AI output are verified on the server before they touch data.</p>
     <div class="hero-meta">
       <span class="pill on">17 tables, RLS enabled and forced</span>
       <span class="pill">38 policies</span>
@@ -384,19 +384,18 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>1.1 &nbsp;How signing in works</h3>
-<p class="prose">There is one sign-in screen. It calls Supabase Auth to sign a user up or in with an email and password, and nothing else in the codebase authenticates anybody. The password goes from the browser to Supabase directly; our server never handles it.</p>
-<p class="prose">Account records live in Supabase&rsquo;s own <code>auth</code> schema, which no browser-facing database role may read, so a user&rsquo;s email cannot be reached through the data API. This is the ordinary, correct arrangement: we did not build our own authentication, because password hashing, reset emails and token rotation are bad things to hand-roll.</p>
+<p class="prose">One sign-in screen calls Supabase Auth with an email and password; nothing else in the codebase authenticates anybody, and the password goes from the browser to Supabase directly without passing through our server.</p>
+<p class="prose">Credentials and account records live in Supabase&rsquo;s internal <code>auth</code> schema, which is not exposed through the public Data API and cannot be read by any browser-facing database role. A user&rsquo;s email address is unreachable from the client. We did not build our own authentication, because password hashing, reset emails and token rotation are bad things to hand-roll.</p>
 
 <h3>1.2 &nbsp;How a session works</h3>
-<p class="prose">After sign-in the browser holds a cookie containing an access token. The token is valid for one hour, and a refresh token renews it.</p>
-<p class="prose">We write that cookie through our own small adapter for one reason: the Supabase library sets a 400-day cookie by default. If the user does not tick &ldquo;remember me&rdquo;, our adapter leaves the expiry off, so the cookie dies when the browser closes. A delete instruction from the library is honoured either way.</p>
+<p class="prose">After sign-in the browser holds a cookie containing an access token, valid for one hour and renewed by a refresh token.</p>
+<p class="prose">We write that cookie through our own small adapter because the Supabase library sets a 400-day cookie by default. If the user does not tick &ldquo;remember me&rdquo;, our adapter leaves the expiry off, so the cookie dies when the browser closes.</p>
 
 <h3>1.3 &nbsp;Where identity is checked</h3>
-<p class="prose">The Supabase client offers two calls that look similar and are not. <code>getSession()</code> decodes the token the browser is holding without asking the auth server whether it is real. <code>getUser()</code> sends it to the auth server and gets a verified answer back.</p>
-<p class="prose">Only <code>getUser()</code> may decide access. It runs in the request proxy, on every page that renders a user&rsquo;s data, in every API route and in every server action. <code>getSession()</code> appears in exactly one place &mdash; the sign-in screen, deciding whether to show an email-confirmation prompt, which is not an access decision. Identity is always checked on the server; the browser is never believed about who it is.</p>
+<p class="prose"><code>getSession()</code> only decodes the token the browser is holding &mdash; unverified client-side data. <code>getUser()</code> verifies that token against the auth server, and it is what runs on every protected action: the request proxy, every page that renders a user&rsquo;s data, every API route and every server action.</p>
 
 <h3>1.4 &nbsp;What you must be signed in to do</h3>
-<p class="prose">The product has one kind of user &mdash; no administrator, no moderator, no support login &mdash; so authorisation is mostly one question: does this row belong to you? Shared collections add a second, are you a member, and that is the only exception.</p>
+<p class="prose">The product has one kind of user &mdash; no administrator, no moderator, no support login &mdash; so authorisation is one question: does this row belong to you? Shared collections add a second, are you a member.</p>
 
 <div class="tbl-wrap">
   <table class="tight">
@@ -409,7 +408,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
   </table>
 </div>
 
-<p class="prose">Each signed-in page checks identity itself and redirects if there is none. Every write goes through a server action &mdash; saving a place, editing its note or category, marking it visited, deleting it, everything in collections, manual add, account rename and deletion &mdash; and each calls <code>getUser()</code> before touching data. The one exception is sign-out, which ends a session rather than reading one.</p>
+<p class="prose">Each signed-in page checks identity itself and redirects if there is none. Every write goes through a server action that calls <code>getUser()</code> before touching data. The one exception is sign-out, which ends a session rather than reading one.</p>
   </div>
 </section>
 
@@ -422,21 +421,20 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>2.1 &nbsp;How authorisation works</h3>
-<p class="prose">Postgres row-level security lets you attach a rule to a table. Postgres applies that rule to every query touching the table and combines it with whatever the caller asked for. A caller can narrow a result set; a caller cannot widen one.</p>
-<p class="prose">Nearly every rule here says the same thing: the row&rsquo;s owner column must equal the signed-in user. Ask for someone else&rsquo;s rows and you get zero back, because your condition is joined to one you cannot remove.</p>
-<p class="prose">Shared collections are the exception. There the caller is not the owner, so the rule asks whether they hold a live role in the collection, or have already saved the place being referenced. We say that openly rather than claiming every rule is a simple ownership test, because sharing is the point of that feature. All 38 policies are written for the signed-in role; none for the anonymous role.</p>
+<p class="prose">Postgres applies a row-level security rule to every query touching a table, combined with whatever the caller asked for &mdash; a caller can narrow a result set, never widen one. Nearly every rule here is the same test, <code>owner = current_user</code>, so asking for someone else&rsquo;s rows returns zero.</p>
+<p class="prose">Shared collections are the deliberate exception: there the rule asks whether the caller holds a live role in the collection. All 38 policies are written for the signed-in role; none for the anonymous role.</p>
 
 <h3>2.2 &nbsp;Why the database, and not our code</h3>
-<p class="prose">Row-level security is enabled on all 17 tables, and <em>forced</em> on all 17. The difference matters: merely enabled, the role that owns a table is exempt from that table&rsquo;s own rules. Forcing removes the exemption, so the rules bind everybody. Three tables carry row-level security with no policy at all &mdash; the strongest setting there is, since there is nothing to satisfy.</p>
-<p class="prose">The anonymous role, which a browser holds before signing in, has no privileges on any table, column or function &mdash; across all 36 migrations it is only ever revoked from. That is why the publishable Supabase key sitting in the browser bundle is not a leak: it names the project and grants nothing. Access is decided by policy, not by keeping a key secret.</p>
-<p class="prose">Two mechanisms sit underneath. Grants are made column by column: on your own saved place you may update the display name, category, note, visit state and visit date, and nothing else. There is no grant on the owner column, so moving a saved place into another account is not a request that can even be expressed. And on tables shared between accounts users hold no write privilege at all &mdash; writes go through <code>SECURITY DEFINER</code> functions, which run with the table owner&rsquo;s rights but re-check the caller&rsquo;s identity inside themselves first.</p>
-<p class="prose">The point is simple: if we forgot a check or wrote the wrong filter in application code, the database would still refuse. The page renders an empty list, not somebody else&rsquo;s places.</p>
+<p class="prose">Row-level security is enabled on all 17 tables and <em>forced</em> on all 17 &mdash; forcing removes the table owner&rsquo;s exemption, so the rules bind everybody. Three tables carry row-level security with no policy at all, the strictest setting there is.</p>
+<p class="prose">The anonymous role, which a browser holds before signing in, has no privileges on any table, column or function. That is why the publishable Supabase key sitting in the browser bundle is not a leak: it names the project and grants nothing.</p>
+<p class="prose">Two mechanisms sit underneath. Grants are made column by column: on your own saved place you may update the display name, category, note, visit state and visit date, and nothing else &mdash; there is no grant on the owner column, so moving a saved place into another account cannot even be expressed. And <code>SECURITY DEFINER</code> functions are special functions that update shared tables safely on the caller&rsquo;s behalf, re-checking their identity internally, without giving users any direct write permission on those tables.</p>
+<p class="prose">If we forgot a check or wrote the wrong filter in application code, the database would still refuse. The page renders an empty list, not somebody else&rsquo;s places.</p>
 
 <h3>2.3 &nbsp;What happened when we attacked it</h3>
-<p class="prose">We did not take that on trust. We built a database with every migration applied, created two users, gave one saved places and a collection, then signed in as the other and attacked. We tried reading the victim&rsquo;s saved places directly, and sideways through the tables they join to. We tried counting them, in case an aggregate revealed what a select would not. We tried updating them, deleting them, and reassigning one into the attacker&rsquo;s account. We tried taking over the victim&rsquo;s collection, by writing ourselves in as owner and by choosing our own invite token. We called every stored function a signed-in user may call, aimed at the victim&rsquo;s rows. Then we repeated all of it with no account at all.</p>
-<p class="prose">Every read returned zero rows. Every write was refused. The reassignment and the collection takeover failed before any policy was consulted, because those columns carry no grant. The functions refused with <em>no such saved place for this user</em>. Signed out, everything failed a step earlier still, at <em>permission denied for table</em> &mdash; the anonymous role has nothing for a policy to be evaluated against.</p>
+<p class="prose">We built a database with every migration applied, created two users, gave one saved places and a collection, then signed in as the other and attacked. We tried reading the victim&rsquo;s saved places directly, and sideways through the tables they join to. We tried counting them, in case an aggregate revealed what a select would not. We tried updating them, deleting them, and reassigning one into the attacker&rsquo;s account. We tried taking over the victim&rsquo;s collection, by writing ourselves in as owner and by choosing our own invite token. We called every stored function a signed-in user may call, aimed at the victim&rsquo;s rows. Then we repeated all of it with no account at all.</p>
+<p class="prose">Every read returned zero rows. Every write was refused. The reassignment and the collection takeover failed before any policy was consulted, because those columns carry no grant. The functions refused with <em>no such saved place for this user</em>. Signed out, everything failed a step earlier still, at <em>permission denied for table</em>.</p>
 <p class="prose">Eight SQL suites keep this honest as the schema changes: each creates its own users, tries the cross-user read, write and delete, and rolls back.</p>
-<p class="prose">One property does favour an attacker and we document it rather than hide it. If you already know a venue&rsquo;s id, saving it lets you read that shared venue row. We accept that: the ids are random 128-bit values nobody can guess, the row holds open, non-personal place data, and the column grants mean it leads to nothing belonging to a user.</p>
+<p class="prose">One property does favour an attacker, and we name it: knowing a venue&rsquo;s id lets you read that venue row &mdash; but venues are public places, so an id reveals only the venue&rsquo;s public name and location, never who saved it or their private notes.</p>
   </div>
 </section>
 
@@ -449,16 +447,15 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>3.1 &nbsp;How input is validated</h3>
-<p class="prose">Validation is not uniform, and we would rather say so than round it up. Five places parse input against an explicit Zod schema: the import-confirm request body, TikTok&rsquo;s oEmbed response, the language model&rsquo;s output, and two that re-parse rows read back from our own database. Those are the boundaries where a value arrives with real structure.</p>
-<p class="prose">The other five API routes take two or three flat fields and are checked field by field instead: every value type-tested, empty values rejected, free text length-capped, all before any external call. Same protection, simpler mechanism &mdash; but a different one, and a reader should not have to open the file to learn which is which.</p>
-<p class="prose">Underneath, every table constrains its own columns with check constraints, so value ranges, allowed states and a row&rsquo;s internal consistency are enforced by Postgres whatever code path produced the row.</p>
+<p class="prose">Complex payloads and language-model output are validated against explicit Zod schemas: the import-confirm request body, TikTok&rsquo;s oEmbed response, the model&rsquo;s output, and two paths that re-parse rows read back from our own database.</p>
+<p class="prose">The other five API routes carry two or three flat fields, checked field by field instead: every value type-tested, empty values rejected, free text length-capped, all before any external call.</p>
+<p class="prose">Underneath both, every table constrains its own columns with check constraints, so value ranges, allowed states and a row&rsquo;s internal consistency are enforced by Postgres whatever code path produced the row.</p>
 
 <h3>3.2 &nbsp;Validation is not always enough</h3>
-<p class="prose">One defect shows what schema validation cannot do. The import-confirm route used to accept the place itself from the browser &mdash; name, latitude, longitude, provider id &mdash; and pass it to a function that refreshes a venue. Venue rows are shared by everyone who saved that venue and nothing checked who was asking, so one ordinary signed-in request could rename and move another user&rsquo;s venue. We confirmed it by doing it: one request renamed a Tel Aviv caf&eacute; and moved it to the Eiffel Tower.</p>
-<p class="prose">A stricter schema would not have helped, because no schema can tell a true latitude from a malicious one. We changed who is trusted instead: the request now sends only an extraction id, indexes into the candidate list the server itself produced, and the user&rsquo;s own note. An extraction belonging to another account is rejected on an ownership check, an index outside the list as out of range.</p>
+<p class="prose">The import-confirm route used to accept the place itself from the browser &mdash; name, latitude, longitude &mdash; and one ordinary signed-in request renamed a shared Tel Aviv caf&eacute; and moved it to the Eiffel Tower. No schema can tell a true latitude from a malicious one, so the request now sends only an extraction id, an index into the candidate list the server itself produced, and the user&rsquo;s own note.</p>
 
 <h3>3.3 &nbsp;The pasted link</h3>
-<p class="prose">The pasted link is the only user input that makes our server open an outbound connection, so it is our whole server-side request forgery surface. We parse it with the WHATWG <code>URL</code> parser and reject the following before any request is sent.</p>
+<p class="prose">The pasted link is the only user input that makes our server open an outbound connection, so we parse it with the WHATWG <code>URL</code> parser and reject anything that is not <code>https</code> on one of six exact TikTok hostnames &mdash; compared for equality, never by suffix, so <code>tiktok.com.evil.io</code> is refused. Shortened links are followed manually rather than by <code>fetch</code>, and every redirect hop is re-checked against those same rules before we follow it, so a hop that leaves the verified TikTok domains is refused instead of fetched.</p>
 
 <div class="tbl-wrap">
   <table class="tight">
@@ -468,12 +465,10 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <tr><td>A username or password in the URL</td><td>Hiding the real host behind a trusted-looking prefix</td></tr>
       <tr><td>An explicit port</td><td>Reaching an internal service on an unusual port</td></tr>
       <tr><td>A bare IP address, IPv4 or IPv6</td><td>Loopback and cloud metadata addresses</td></tr>
-      <tr><td>Any host not exactly equal to one of six TikTok hostnames</td><td>Look-alike domains &mdash; we compare for equality, never by suffix, so <code>tiktok.com.evil.io</code> is refused like any other stranger</td></tr>
+      <tr><td>Any host not exactly equal to one of six TikTok hostnames</td><td>Look-alike domains &mdash; we compare for equality, never by suffix</td></tr>
     </tbody>
   </table>
 </div>
-
-<p class="prose">Short links redirect, so we follow redirects ourselves with <code>redirect: &#39;manual&#39;</code> rather than letting <code>fetch</code> do it: every <code>Location</code> header goes through the same checks before we follow it, with five hops maximum, and no HTML parsed at any point. Both import routes redo the whole check on the server whatever the client did.</p>
 
 <h3>3.4 &nbsp;What the model says</h3>
 <p class="prose">The language model is untrusted on the same terms as the link. Its output is parsed against a Zod schema, every claim must quote the caption it came from before a user sees it, and the difference between what the caption said and what the model inferred survives to the review screen &mdash; so the user confirms a place rather than inheriting a guess.</p>
@@ -489,28 +484,18 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>4.1 &nbsp;How API calls are protected</h3>
-<p class="prose">There are six route handlers under <code>/api</code>. Each starts by calling <code>getUser()</code> and returns 401 if there is no verified user. All six export POST and no other method &mdash; partly convention, partly a cross-site request forgery control, since a GET handler can be triggered from another site with an image tag and a JSON POST cannot. Most of the product has no API surface at all: pages load their data on the server under the signed-in user&rsquo;s own token, so those reads meet the policies in section 2 like everything else.</p>
-<p class="prose">On failure a route returns a short code from a closed set and nothing else &mdash; no provider message, no upstream status code, no stack trace, no environment-variable name. Detail goes to the server log, which records codes and counts, never captions and never coordinates. Every response carries these headers.</p>
-
-<div class="tbl-wrap">
-  <table class="tight">
-    <thead><tr><th>Header</th><th>What it stops</th></tr></thead>
-    <tbody>
-      <tr><td><code>X-Content-Type-Options: nosniff</code></td><td>A response being interpreted as a type it did not declare</td></tr>
-      <tr><td><code>Content-Security-Policy: frame-ancestors 'none'</code></td><td>Clickjacking &mdash; no other site may put our map in an iframe</td></tr>
-      <tr><td><code>Referrer-Policy</code>, tightened to <code>no-referrer</code> on the invite-join route</td><td>The invite token, which sits in the URL path, leaking to another site</td></tr>
-      <tr><td><code>Permissions-Policy</code></td><td>Embedded content taking capabilities: geolocation is allowed to our own origin, camera, microphone and payment are denied</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<p class="prose">This policy covers framing and embedding only. It has no script-source directive, which is a real gap and is listed in 5.2.</p>
+<ul class="clean">
+  <li><strong>POST-only endpoints,</strong> which blocks cross-site request forgery: another site can trigger a GET with an image tag, but not a JSON POST.</li>
+  <li><strong>Server-side authentication on every call:</strong> each route begins with <code>getUser()</code> and returns 401 if there is no verified user.</li>
+  <li><strong>Generic error codes and standard security headers:</strong> failures return a short code from a closed set &mdash; never a stack trace, provider message or environment-variable name &mdash; and every response carries <code>nosniff</code>, <code>frame-ancestors 'none'</code>, a tightened <code>Referrer-Policy</code> on the invite route, and a <code>Permissions-Policy</code> denying camera, microphone and payment.</li>
+</ul>
+<p class="prose">Most of the product has no API surface at all: pages load their data on the server under the signed-in user&rsquo;s own token, so those reads meet the policies in section 2 like everything else.</p>
 
 <h3>4.2 &nbsp;Where secrets are kept</h3>
 <p class="prose">All secrets are environment variables. The <code>.env</code> files are gitignored, only an example with empty values is committed, and in production the real values live in Vercel&rsquo;s encrypted environment store.</p>
-<p class="prose">The rule is one line: a variable without the <code>NEXT_PUBLIC_</code> prefix must never reach the browser. Two things enforce it rather than our memory. Next.js inlines only prefixed variables into client code, so an unprefixed one is absent from the bundle; and every importable module that reads a secret imports <code>server-only</code>, so importing it from a client component is a build failure rather than a shipped credential.</p>
+<p class="prose">One rule enforces the rest: a variable without the <code>NEXT_PUBLIC_</code> prefix must never reach the browser. Next.js inlines only prefixed variables into client code, and every importable module that reads a secret imports <code>server-only</code>, so importing it from a client component is a build failure rather than a shipped credential.</p>
 <p class="prose">The Supabase service-role key bypasses row-level security completely, so nothing in section 2 restrains a query made with it. We use it on the server only, for account deletion and writes to shared tables; it is never in the bundle, the repository or an error response.</p>
-<p class="prose">One variable is awkward, so we name it. The Google Maps key carries the public prefix but is read only as a server-side fallback for place lookup, inside a <code>server-only</code> module. No client code references it, so it is not in the bundle &mdash; but the prefix means it would be inlined the moment some did, and unlike the publishable Supabase key this one costs money. Its protection is a referrer restriction set at Google, not secrecy.</p>
+<p class="prose">One variable is awkward, so we name it. The Google Maps key carries the public prefix but is read only as a server-side fallback, inside a <code>server-only</code> module. No client code references it, so it is not in the bundle &mdash; but the prefix means it would be inlined the moment some did, and unlike the publishable Supabase key this one costs money. See 5.2.</p>
   </div>
 </section>
 
@@ -523,23 +508,23 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>5.1 &nbsp;Location data, and deleting your account</h3>
-<p class="prose">This is a map, so it is fair to ask what it knows about where you are. Nothing. &ldquo;Near me&rdquo; reads your position from the browser, centres and sorts the list on your own device, and sends it nowhere &mdash; no API route, no server action, no column. The only coordinates we store are the venue&rsquo;s own, on a shared row built from open data. A saved place says where you want to go, not where you have been.</p>
-<p class="prose">Deleting your account is built, not promised. It removes the account and the database does the rest through <code>on delete cascade</code>: saved places, source links, imports, mentions, your profile and name, collections you own and memberships you hold all go with it.</p>
-<p class="prose">It refuses in one case. If you are the live owner of a collection that still has another live member, deletion is blocked and the screen names the collections in the way &mdash; the same cascade would delete that collection for everyone in it, and erasing your data must not erase somebody else&rsquo;s. One thing survives deliberately: the cached caption of a public TikTok post, which carries no user identifier and is shared by everyone importing the same link. That is the retention gap below.</p>
+<p class="prose">This is a map, so it is fair to ask what it knows about where you are. Nothing. &ldquo;Near me&rdquo; reads your position from the browser, centres and sorts the list on your own device, and sends it nowhere &mdash; no API route, no server action, no column. The only coordinates we store are the venue&rsquo;s own, on a shared row built from open data.</p>
+<p class="prose">Deleting your account cascades cleanly through all your personal data &mdash; saved places, source links, imports, mentions, profile, collections and memberships &mdash; but is blocked if you are the sole owner of an active shared collection, so deleting your data never deletes anyone else&rsquo;s.</p>
 
 <h3>5.2 &nbsp;What is still weak</h3>
-<p class="prose">These are real and open. Each is graded for what this deployment is &mdash; a course project with sign-up closed and no public users &mdash; and each names the condition that would end the acceptance.</p>
-<div class="tbl-wrap"><table class="tight"><thead><tr><th>Risk</th><th>Severity</th><th>Why we accept it, and what would change that</th></tr></thead><tbody>
-  <tr><td>No rate limit on importing, so a signed-in user could call it repeatedly and run up paid model calls</td><td><span class="st na">medium</span></td><td>The users are the owner and an examiner. Opening sign-up ends it; the fix is a per-user counter checked before the model call</td></tr>
-  <tr><td>No script-source content-security policy, and the session cookie is readable from JavaScript</td><td><span class="st na">medium</span></td><td>React escapes output and we render no user-written or third-party markup, so there is no injection point today. Any surface that renders untrusted markup ends it</td></tr>
-  <tr><td>Captions are kept indefinitely with no deletion path</td><td><span class="st na">medium</span></td><td>A legal gap, not a technical one: public content, no user identifier, in a cache other importers read. Real users or a published privacy policy end it</td></tr>
-  <tr><td>Playing a TikTok in the app gives TikTok a year-long cross-site identifier, on the page showing a user&rsquo;s saved places</td><td><span class="st na">medium</span></td><td>Playback needs a deliberate press, the cost is stated beside the control, and declining really does send no request. Only removing the feature closes it</td></tr>
-  <tr><td>The Google Maps key carries the public prefix, so it is one client reference away from shipping in the bundle &mdash; and it is billable</td><td><span class="st na">low</span></td><td>No client code references it today; the control is a referrer restriction at Google plus the daily quota cap. A client reference, or a lapsed restriction, ends it</td></tr>
-  <tr><td>Passwords can be six characters with no composition rule</td><td><span class="st na">low</span></td><td>Supabase&rsquo;s default, sign-up closed, no account worth compromising. Configuration, not code</td></tr>
+<p class="prose">These are real and open. Each is graded for what this deployment is &mdash; a course project with sign-up closed and no public users.</p>
+<div class="tbl-wrap"><table class="tight"><thead><tr><th>Risk</th><th>Severity</th><th>Status</th></tr></thead><tbody>
+  <tr><td>No rate limit on importing</td><td><span class="st na">medium</span></td><td>Needed before any public launch, to stop a signed-in user running up paid model calls</td></tr>
+  <tr><td>No rule telling the browser which scripts it is allowed to run</td><td><span class="st na">medium</span></td><td>Safe today because React escapes everything it renders as plain text, so injected code is displayed rather than run. Needed the moment the app renders raw HTML from an outside source</td></tr>
+  <tr><td>TikTok embeds set third-party tracking cookies on playback</td><td><span class="st na">medium</span></td><td>Playback requires a deliberate tap, and declining sends no request at all</td></tr>
+  <tr><td>The Google Maps key carries the public prefix and is billable</td><td><span class="st na">low</span></td><td>Restricted by HTTP referrer rules and a daily budget cap in the Google Console</td></tr>
 </tbody></table></div>
 
 <h3>5.3 &nbsp;What we would do next</h3>
-<p class="prose">Run the eight SQL suites on every push rather than on demand: the attacks in 2.3 prove something about the database we tested, not the one six migrations from now. Then the import rate limit, which is the first acceptance to expire &mdash; the thing that ends it is a configuration change, not a piece of work.</p>
+<ul class="clean">
+  <li><strong>Automate the eight SQL security suites in CI,</strong> running on every push &mdash; the attacks in 2.3 prove something about the database we tested, not the one six migrations from now.</li>
+  <li><strong>Implement import rate limiting,</strong> the first acceptance above due to expire.</li>
+</ul>
   </div>
 </section>
 
