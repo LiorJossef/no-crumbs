@@ -93,6 +93,11 @@ section { padding-block:clamp(72px,7vw,96px); position:relative; scroll-margin-t
 section > .wrap > h3 { font-size:clamp(21px,2vw,25px); letter-spacing:-.02em; margin-top:clamp(34px,4.5vw,52px); }
 section > .wrap > h3:first-child { margin-top:0; }
 section > .wrap > h3 + * { margin-top:12px; }
+/* `p { margin:0 }` means body paragraphs are only separated where one happens to
+   carry an inline style; without this every subsection renders as one block. */
+section > .wrap > p + p,
+section > .wrap > p + ul,
+section > .wrap > ul + p { margin-top:22px; }
 section + section { border-top:1px solid var(--line-soft); }
 section.deep { background:var(--bg-deep); }
 .sec-head { display:flex; flex-direction:column; gap:10px; margin-bottom:clamp(30px,3.5vw,44px); }
