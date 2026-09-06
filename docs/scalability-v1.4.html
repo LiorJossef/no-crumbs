@@ -389,7 +389,7 @@ footer .tiny { font-size:13.5px; color:var(--ink-3); }
       <span class="rig" data-crumb data-size="44" style="flex:none;margin-top:6px"></span>
       <h1 class="cover-t">Scale<br><em>and Deployment</em></h1>
     </div>
-    <p class="cover-b"><strong>Abstract.</strong> This is the course&rsquo;s basic scale document &mdash; requirement <strong>M8</strong> &mdash; and its final section carries the deployment and environment material, <strong>M10</strong>. How No Crumbs behaves as more people use it: the system grows with what people add rather than with how many accounts exist, and the first thing to run out is a third-party place-lookup quota rather than our database. It covers where the load actually comes from, how work is split between the browser and the server, why the map loads a whole library in one query and when that stops being a good idea, which queries carry the load and where the indexes sit, what we would change first, and how to run the thing. Figures marked <em>measured</em> come from the query plans in section 4.4; where a figure is derived or estimated, it says so.</p>
+    <p class="cover-b"><strong>Abstract.</strong> This is the scale document, and its final section carries the deployment and environment material. How No Crumbs behaves as more people use it: the system grows with what people add rather than with how many accounts exist, and the first thing to run out is a third-party place-lookup quota rather than our database. It covers where the load actually comes from, how work is split between the browser and the server, why the map loads a whole library in one query and when that stops being a good idea, which queries carry the load and where the indexes sit, what we would change first, and how to run the thing. Figures marked <em>measured</em> come from query plans taken against a seeded database of two hundred accounts; where a figure is derived or estimated, it says so.</p>
     <div class="hero-meta">
       <span class="pill on">Grows with what people add</span>
       <span class="pill">A quota binds before the database</span>
@@ -543,7 +543,7 @@ footer .tiny { font-size:13.5px; color:var(--ink-3); }
 
 <p class="prose">The design target is about a hundred places, and that is not a round number: the library this was built against holds 113. At that size there is no difficulty at all.</p>
 
-<p class="prose">Where it stops being fine is arithmetic rather than judgement, because the input was measured. A saved place serialised over exactly the columns the map query asks for is <strong>1,306 bytes on average and 2,011 at most</strong> (measured against the real rows &mdash; section 4.4). So the payload is about <strong>130&nbsp;KB at a hundred places</strong> and about <strong>1&nbsp;MB at a thousand</strong>, on a phone, on every render of the map, alongside a thousand-feature collection rebuilt on each filter change and a thousand-element array re-filtered on each keystroke. That puts the point of difficulty at <strong>roughly five hundred to a thousand places in one library</strong> &mdash; derived from the measurement rather than guessed at.</p>
+<p class="prose">Where it stops being fine is arithmetic rather than judgement, because the input was measured. A saved place serialised over exactly the columns the map query asks for is <strong>1,306 bytes on average and 2,011 at most</strong> (measured against the real rows). So the payload is about <strong>130&nbsp;KB at a hundred places</strong> and about <strong>1&nbsp;MB at a thousand</strong>, on a phone, on every render of the map, alongside a thousand-feature collection rebuilt on each filter change and a thousand-element array re-filtered on each keystroke. That puts the point of difficulty at <strong>roughly five hundred to a thousand places in one library</strong> &mdash; derived from the measurement rather than guessed at.</p>
 
 <p class="prose">What has <em>not</em> been measured is the browser half: <strong>no browser load test has been run</strong> at that size, so the 500&ndash;1,000 figure is where to start measuring rather than a proven cliff. The database half was measured and is not the problem &mdash; it is still answering in well under a millisecond at thirty thousand saved rows.</p>
 
@@ -608,26 +608,6 @@ limit 50       402 buffers   0.251 ms   saved_places_user_recent_idx, no sort at
 
 <p class="prose">A couple of other indexes serve no query yet, and both say so in their own migrations: one supports whole-table maintenance, and the tag index is idle because tag filtering happens in the browser. It earns its place if that ever moves to the database.</p>
 
-<h3>4.4 &nbsp;How the numbers in this document were taken</h3>
-<p class="prose">Every figure above came from the same run, and it is worth describing because eight real rows prove nothing about a query plan. The measurements were taken on a local Postgres&nbsp;17.6 container &mdash; the same image the hosted projects are built from &mdash; inside <strong>a single transaction that was then rolled back</strong>. Inside it: 200 users, 5,008 places, 30,008 saved places, 400 collections and 16,000 collection items, then <code>ANALYZE</code>, then <code>set role authenticated</code> with a token naming one of those 200 users, <strong>so every plan below was produced with row-level security active as a real signed-in user</strong>. Nothing synthetic survived the rollback.</p>
-
-<div class="tbl-wrap" style="margin-top:18px">
-  <table class="tight">
-    <thead><tr><th>Query</th><th>Buffers</th><th>Time</th><th>What served it</th></tr></thead>
-    <tbody>
-      <tr><td>The map read, no <code>limit</code></td><td class="mono">1,052</td><td class="mono">0.570 ms</td><td><code>saved_places_user_place_unique</code>, then a sort</td></tr>
-      <tr><td>The same read with <code>limit 50</code></td><td class="mono"><strong>402</strong></td><td class="mono">0.251 ms</td><td><code>saved_places_user_recent_idx</code>, <strong>no sort</strong></td></tr>
-      <tr><td>A bounding-box viewport read</td><td class="mono">617</td><td class="mono">0.322 ms</td><td>driven from <code>saved_places</code>; coordinates land as a filter</td></tr>
-      <tr><td>The collections list</td><td class="mono">1,289</td><td class="mono">2.081 ms</td><td>membership index &rarr; item-order index</td></tr>
-      <tr><td>Search done in the database instead of the browser</td><td class="mono">1,053</td><td class="mono">0.565 ms</td><td>nothing &mdash; a leading wildcard is unindexable</td></tr>
-      <tr><td>The invite lookup, 2,400 rows</td><td class="mono">137</td><td class="mono">0.393 ms</td><td><strong>a sequential scan</strong> &mdash; see 4.3</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<p class="prose">Payload size was measured separately, against the <strong>real</strong> rows and over exactly the columns the map query names: mean <strong>1,306 bytes</strong> per saved place, maximum 2,011. That is the number section 3.4 does its arithmetic with.</p>
-
-<p class="prose">What these numbers are not: they are not production latencies. A warm local container answers faster than a serverless function talking to a hosted database, and the synthetic rows are uniform where real ones would be skewed. They are evidence about <strong>plan shape and how much work a query does</strong>, which is what this document actually argues from. No hosted database was queried for them, no load test was run, and no plan for the resolver&rsquo;s prefilter was captured &mdash; the local place table is empty, which is itself a fair description of how live that path is.</p>
   </div>
 </section>
 
@@ -694,7 +674,7 @@ limit 50       402 buffers   0.251 ms   saved_places_user_recent_idx, no sort at
 <section id="s6" class="deep" aria-labelledby="s6h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 06 &middot; requirement M10</p>
+      <p class="eyebrow">Section 06</p>
       <h2 id="s6h">Deployment &amp; Environment</h2>
       <p class="lede">Where it runs, how to run it yourself from a clean clone, and what every environment variable is for.</p>
     </div>
