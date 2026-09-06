@@ -581,7 +581,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <h3>5.3 &nbsp;What we would do next</h3>
 <ul class="clean">
-  <li><strong>Automate the eight SQL security suites in CI,</strong> running on every push &mdash; the attacks in 2.3 prove something about the database we tested, not the one six migrations from now.</li>
+  <li><strong>Run the eight SQL security suites on pushes to <code>main</code>, not only on pull requests.</strong> They are automated already and rebuild the schema from the first migration on every pull request; they are held to pull requests to stay inside the monthly build allowance. A merge is therefore covered by the run on the branch that produced it, which <code>scripts/merge-pr.sh</code> keeps honest by refusing a branch that does not contain current <code>main</code> &mdash; but <code>main</code> itself is never re-tested.</li>
   <li><strong>Implement import rate limiting,</strong> the first acceptance above due to expire, and move the thumbnail counter into the database while we are there.</li>
   <li><strong>Set an expiry on invite links</strong> and default them to <em>viewer</em> rather than <em>editor</em>.</li>
 </ul>
