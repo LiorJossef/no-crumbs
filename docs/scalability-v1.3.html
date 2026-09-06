@@ -366,7 +366,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       <span class="rig" data-crumb data-size="44" style="flex:none;margin-top:6px"></span>
       <h1 class="cover-t">Scalability<br><em>and Limits</em></h1>
     </div>
-    <p class="cover-b"><strong>Abstract.</strong> How No Crumbs behaves as more people use it. The system grows with imports rather than with accounts, and the first thing to run out is a third-party place-lookup quota rather than our database. This document covers what each import costs, how work is split between the browser and the server, why the map loads a whole library in one query and when that stops being a good idea, which indexes carry the load and which one is missing, and what we would change first. Where a figure is an estimate rather than something we measured, it says so.</p>
+    <p class="cover-b"><strong>Abstract.</strong> How No Crumbs behaves as more people use it. The system grows with imports rather than with accounts, and the first thing to run out is a third-party place-lookup quota rather than our database. This document covers where the load actually comes from, how work is split between the browser and the server, why the map loads a whole library in one query and when that stops being a good idea, which queries carry the load and where the indexes sit, and what we would change first. Where a figure is an estimate rather than something we measured, it says so.</p>
     <div class="hero-meta">
       <span class="pill on">Grows with imports, not accounts</span>
       <span class="pill">A quota binds before the database</span>
@@ -389,9 +389,9 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </div>
 
 <h3>1.1 &nbsp;What grows with what</h3>
-<p class="prose">Every user-facing read is scoped to the signed-in account, and the database applies that scope itself: row-level security compares <code>user_id</code> to <code>auth.uid()</code>, and every such policy sits on an indexed column. A new account adds rows no existing query traverses, so the hundredth user costs roughly what the second did. What the system pays for is imports.</p>
+<p class="prose">Day-to-day use is cheap. Everything a signed-in person reads &mdash; their saved places, their collections &mdash; is scoped to their own account, and the database enforces that scope with an index on the user&rsquo;s id. A new account only adds rows that nobody else&rsquo;s queries ever touch, so the hundredth user costs about what the second did.</p>
 
-<p class="prose">One import makes three kinds of outside call.</p>
+<p class="prose">Imports are where the load actually comes from. Each one reaches outside the system: it fetches the post from TikTok, sends the caption to an AI model, and looks up the places it found with Google.</p>
 
 <div class="tbl-wrap">
   <table class="tight">
@@ -412,25 +412,25 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">So the real answer to what happens at tens or hundreds of users is that <strong>the database is untroubled and the ceiling arrives at about one active user.</strong> Raising it is a commercial decision, not an engineering one. The first step is to raise the quota and add a per-user daily cap in the same change, so one account cannot spend everyone&rsquo;s allowance.</p>
 
 <h3>1.3 &nbsp;How an import runs</h3>
-<p class="prose">An import is two ordinary request/response round trips, with no streaming and no background jobs. The first fetches the post&rsquo;s thumbnail, handle and caption and answers in under a second. The second runs the model and the place lookups and returns candidates for review; it takes <strong>seconds rather than milliseconds</strong>, at its slowest around thirty-four. <strong>No route in the codebase exports a <code>maxDuration</code></strong>, so that chain runs against the platform default. Setting one is a one-line change, and it is in section 5.</p>
+<p class="prose">An import is two ordinary request/response round trips, with no streaming and no background jobs.</p>
 
-<p class="prose">Nothing is queued, because no piece of work outlives the request that started it, and there is no separate cache server, because the caches are tables.</p>
+<ul class="clean">
+  <li><strong>Step one</strong> fetches the post&rsquo;s thumbnail, handle and caption, and answers in under a second.</li>
+  <li><strong>Step two</strong> runs the AI extraction and the place lookups and returns candidates for review. It usually takes <strong>a few seconds</strong> &mdash; but it is the slowest thing in the system, because it waits on TikTok, then on the model, then on up to a few place lookups in turn, and a slow reply from any of them stretches the whole chain.</li>
+</ul>
 
-<div class="tbl-wrap">
-  <table class="tight">
-    <thead><tr><th>Table</th><th>What it holds</th></tr></thead>
-    <tbody>
-      <tr><td><code>imports</code></td><td>One row per attempt, with its stage, timings and error code</td></tr>
-      <tr><td><code>extractions</code></td><td>The model&rsquo;s answer, unique on <code>(source_id, model, prompt_version)</code> and checked against a hash of the caption it was computed from</td></tr>
-      <tr><td><code>sources</code></td><td>Post metadata already fetched</td></tr>
-      <tr><td><code>place_lookups</code></td><td>Provider answers, expiring at 28 days under the 30-day ceiling the licence imposes</td></tr>
-    </tbody>
-  </table>
-</div>
+<p class="prose">None of those steps sets a ceiling of its own, and no route configures a maximum duration either, so a bad run rides the platform default. Setting one explicitly is a one-line change, and it is in section 5.</p>
 
-<p class="prose">The extraction cache is the one that pays: re-importing the same link costs nothing, while an edited caption correctly misses and runs again. An import costs a fraction of a cent, so money is not the constraint &mdash; the quota is, and it arrives long first.</p>
+<p class="prose">Nothing is queued, because no piece of work outlives the request that started it &mdash; and there is no separate cache server, because the caches are Postgres tables. Each attempt is recorded with its stage and outcome, and the fetched post metadata, the model&rsquo;s answer and the provider&rsquo;s place replies are each kept. That is what makes a repeat cheap: re-importing the same link costs nothing, while an edited caption correctly misses and runs again. Provider answers expire at 28 days, under the 30-day ceiling the licence imposes.</p>
 
-<p class="prose">Rate limiting is deliberately modest. A per-source cooldown lives in Postgres, so it is durable and identical on every instance. Two other counters live in process memory: they reset on deploy and are not shared between instances, so the real limit is the stated one times however many instances are warm. They restrain a misbehaving client rather than an attacker, and section 5 sequences a durable replacement.</p>
+<p class="prose">Rate limiting is basic anti-spam rather than a defence against a determined attacker.</p>
+
+<ul class="clean">
+  <li>Postgres holds a short cooldown per video, so the same post cannot be imported over and over within a few minutes.</li>
+  <li>Alongside it, a simple request counter lives in the server&rsquo;s memory. It resets on deploy and is not shared between instances, so the real limit is the stated one times however many instances are warm.</li>
+</ul>
+
+<p class="prose">Section 5 sequences a durable replacement.</p>
   </div>
 </section>
 
@@ -448,19 +448,33 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">Client components exist for two reasons: the map needs browser APIs, and the sheets, filter chips and search field hold local state. They receive already-fetched arrays as props and filter in memory &mdash; search, category, tag and visited are all array operations over that one array. Because the list and the markers come from the same array they cannot disagree, which two separately issued queries could.</p>
 
 <h3>2.2 &nbsp;Calls the browser makes</h3>
-<p class="prose">Six calls start in the browser rather than in a page load. Three are the import flow &mdash; <code>source-preview</code>, <code>probe</code> and the <code>confirm</code> that saves the result &mdash; which is browser-driven because the browser holds the review state in between. <code>place-search</code> backs adding a place by name. <code>thumbnail</code> refreshes a post&rsquo;s image and writes to the <code>sources</code> table. Only <code>search/interpret</code> reads nothing: it turns a typed sentence into filter values the browser applies itself.</p>
+<p class="prose">A few things start in the browser rather than in a page load:</p>
 
-<p class="prose">None of the six is a database query. Each is a request to a server route that does its own reading, so no credential and no query ever reaches the browser.</p>
+<ul class="clean">
+  <li>The <strong>import flow</strong>, which is browser-driven because the browser holds the review state between the steps.</li>
+  <li><strong>Adding a place by name.</strong></li>
+  <li><strong>Refreshing a post&rsquo;s thumbnail.</strong></li>
+  <li><strong>Turning a typed search sentence into filter values</strong>, which the browser then applies itself.</li>
+</ul>
 
-<h3>2.3 &nbsp;The privileged key</h3>
-<p class="prose">The service key is never exposed to the browser, and three separate things ensure it. The module that reads it imports <code>server-only</code>, so a client-side import fails at build time. The variable has no public prefix, so its value cannot be inlined into a bundle. And only <strong>seven server-side modules</strong> use it &mdash; five API routes and two server actions.</p>
+<p class="prose">None of them is a database query. Each is a request to a server endpoint that does its own reading, so no credential and no query ever reaches the browser.</p>
 
-<p class="prose">Those seven run as <code>service_role</code> and so bypass row-level security entirely. They therefore check identity themselves, first and in ordinary application code: each resolves the signed-in user through the normal cookie-bound client, then writes the ownership condition into the query or passes it as an argument. The database is never asked to work out who is calling &mdash; by the time the privileged key is used, that has already been decided.</p>
+<h3>2.3 &nbsp;Reads that bypass row-level security</h3>
+<p class="prose">A small number of server modules &mdash; five API routes and two server actions &mdash; run with a privileged key that bypasses row-level security entirely. They therefore scope by user themselves, in ordinary application code: each resolves the signed-in user through the normal cookie-bound client, then writes the ownership condition into the query or passes it as an argument. The database is never asked to work out who is calling; by the time the privileged key is used, that has already been decided.</p>
+
+<p class="prose">The point for this document is that these reads are still scoped to one person, so they cost what one library costs, like every other read. How the key is kept off the browser is the Security document&rsquo;s subject.</p>
 
 <h3>2.4 &nbsp;What is deliberately not fetched</h3>
-<p class="prose">No query selects every column; each names what it needs. A shared collection returns a place&rsquo;s identity and nothing of the person who added it &mdash; not their note, not their tags, and not whether they have been &mdash; enforced both by the select and by a policy that would refuse those columns anyway. The list and the map share one fetch rather than issuing two. The caches remove whole classes of outside call. And the one query over a table not scoped to a user &mdash; the resolver&rsquo;s prefilter over <code>poi_index</code> &mdash; returns at most <strong>500 rows, ordered</strong>; without that cap one fuzzy match returned 2,904.</p>
+<p class="prose">Over-fetching is controlled in four ways:</p>
 
-<p class="prose">So over-fetching is controlled by column, by query and by call, and uncontrolled by row on the reads the map page runs together: the library query, which is the next section, and beside it the membership read, which pulls one place id per item of every collection you can edit so a place&rsquo;s sheet knows which collections it is already in.</p>
+<ul class="clean">
+  <li><strong>By column.</strong> No query selects every column; each names what it needs. A shared collection returns a place&rsquo;s identity and nothing of the person who added it &mdash; not their note, not their tags, and not whether they have been &mdash; enforced both by the select and by a policy that would refuse those columns anyway.</li>
+  <li><strong>By query.</strong> The list and the map share one fetch rather than issuing two.</li>
+  <li><strong>By call.</strong> The caches remove whole classes of outside call.</li>
+  <li><strong>By row, where it matters most.</strong> The one query over a table not scoped to a user &mdash; the resolver matching a name against our local place index &mdash; caps its result at <strong>500 rows</strong>, so a loose match cannot pull thousands of irrelevant records into memory.</li>
+</ul>
+
+<p class="prose">What is not capped by row are the two reads the map page runs together: the library query, which is the next section, and beside it the membership read, which pulls one place id per item of every collection you can edit so a place&rsquo;s sheet knows which collections it is already in.</p>
   </div>
 </section>
 
@@ -476,13 +490,29 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <p class="prose">The map reads every saved place belonging to the signed-in user in one query: 31 named columns across four tables &mdash; <code>saved_places</code>, the joined <code>places</code> row, the <code>saved_place_sources</code> link row and the <code>sources</code> row behind it &mdash; ordered by <code>created_at desc</code>, with <strong>no limit, no bounding box and no filter of any kind</strong>. Row-level security is its only scoping, and that scoping is the user.</p>
 
 <h3>3.2 &nbsp;Why it is unbounded</h3>
-<p class="prose">Three things need the complete set: the camera frames the whole library on first paint, the list and the markers come from one array and so cannot disagree, and search has to reach places outside the current view. A viewport-scoped query gives none of the three on its own, and would need a second query for the camera besides.</p>
+<p class="prose">Three things need the complete set:</p>
+
+<ul class="clean">
+  <li>The camera frames the whole library on first paint.</li>
+  <li>The list and the markers come from one array, and so cannot disagree.</li>
+  <li>Search has to reach places outside the current view.</li>
+</ul>
+
+<p class="prose">A viewport-scoped query gives none of the three on its own, and would need a second query for the camera besides.</p>
 
 <h3>3.3 &nbsp;The rendering is bounded even though the fetch is not</h3>
 <p class="prose">Drawing is banded by zoom &mdash; countries at the widest extent, then areas, then individual pins &mdash; and each layer declares its own zoom range, so the map library picks the band. The listeners the surface registers note what the user did and where the camera settled; none of them redraws features while you pinch.</p>
 
 <h3>3.4 &nbsp;When this stops being fine</h3>
-<p class="prose">Every saved place becomes a feature at every zoom level, so cost grows with the library and nothing caps it. Three things grow together: the response, the feature collection rebuilt on each filter change, and the array re-filtered on each keystroke. All three are in the browser. The database is not under pressure here, which is why this limitation sits in this section rather than in section 4.</p>
+<p class="prose">Every saved place becomes a feature at every zoom level, so cost grows with the library and nothing caps it. Three things grow together, and all three are in the browser:</p>
+
+<ul class="clean">
+  <li>The response itself.</li>
+  <li>The feature collection, rebuilt on each filter change.</li>
+  <li>The array, re-filtered on each keystroke.</li>
+</ul>
+
+<p class="prose">The database is not under pressure here, which is why this limitation sits in this section rather than in section 4.</p>
 
 <p class="prose">The design target is about a hundred places, and that is not a round number: the library this was built against holds 113. At that size there is no difficulty at all. The point where it stops being fine &mdash; a library in the high hundreds &mdash; is <strong>engineering judgement rather than a measurement</strong>. No load test has been run at that size, and it is written as an estimate so that whoever first exceeds it measures instead of trusting this sentence.</p>
 
@@ -509,34 +539,36 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     <thead><tr><th>Query</th><th>How often</th><th>What it costs</th></tr></thead>
     <tbody>
       <tr><td>The map read</td><td>Most frequent</td><td>Three steps: an index scan over the user&rsquo;s saves, a key lookup per place, and a third through the link table to each source. Each step has an index behind it</td></tr>
-      <tr><td>The collections list</td><td>Heaviest per page</td><td>One embedded select pulls every <code>collection_items</code> row of every collection you are a member of, with each item&rsquo;s <code>places</code> row joined, only to render a count and a few category chips. A <code>count()</code> plus a small distinct set is the right shape</td></tr>
-      <tr><td>The places prefilter</td><td>A few times per import</td><td>The only query over a table not scoped to a user. That table holds <strong>10,462 rows</strong> and the query caps its result at 500, ordered &mdash; and it is a resolver fallback, never on a page view</td></tr>
+      <tr><td>The collections list</td><td>Heaviest per page</td><td>It fetches a collection&rsquo;s items in order to show a count and a few category chips. Comfortable at today&rsquo;s sizes; a count is the right shape as collections grow</td></tr>
+      <tr><td>The places prefilter</td><td>A few times per import</td><td>The only query over a table not scoped to a user. It matches against a local index of about ten thousand places and caps the result at 500 rows, so nothing loads thousands of irrelevant records into memory &mdash; and it is a resolver fallback, never on a page view</td></tr>
     </tbody>
   </table>
 </div>
 
 <h3>4.2 &nbsp;The indexes that matter</h3>
+<p class="prose">Every frequent query is served by an index, and the user-facing ones all lead on the user&rsquo;s id &mdash; the same column row-level security checks &mdash; so a read costs what one person&rsquo;s library costs rather than what the table holds.</p>
+
 <div class="tbl-wrap">
   <table class="tight">
     <thead><tr><th>Index</th><th>What it serves</th></tr></thead>
     <tbody>
-      <tr><td><code>saved_places_user_recent_idx</code></td><td>The map read&rsquo;s ordering, and the only index a paginated version would need</td></tr>
+      <tr><td><code>saved_places_user_recent_idx</code></td><td>The map read&rsquo;s scope and its ordering &mdash; and the only index a paginated version would need</td></tr>
       <tr><td><code>saved_places_user_place_unique</code></td><td>The map read&rsquo;s driving scan, and the rule that you cannot save a place twice</td></tr>
       <tr><td><code>saved_places_place_user_idx</code></td><td>The shared-place check, which leads on the place rather than the user</td></tr>
       <tr><td><code>sps_source_idx</code>, <code>sps_user_idx</code></td><td>The map read&rsquo;s third step, and the gate on who may read a source</td></tr>
       <tr><td>Five collection indexes</td><td>The collections read, item ordering, membership checks and the single-owner rule</td></tr>
-      <tr><td>Two trigram indexes</td><td>The prefilter&rsquo;s fuzzy matching, one on name and one on address</td></tr>
-      <tr><td>Four import indexes</td><td>Import bookkeeping, the source access gate, expiry sweeping, and one-open-import-per-source</td></tr>
+      <tr><td>Two trigram indexes</td><td>The resolver&rsquo;s fuzzy matching against the local place index &mdash; one on name, one on address</td></tr>
+      <tr><td>Four import indexes</td><td>Import bookkeeping, the source access gate, expiry sweeping, and one open import per source</td></tr>
     </tbody>
   </table>
 </div>
 
-<p class="prose">All of these exist in production; every migration is applied there. No query asks the database to do text search or filtering, so no full-text index is needed, and a leading-wildcard match could not use one anyway.</p>
+<p class="prose">All of these exist in production; every migration is applied there. No query asks the database to do text search or filtering on user data, so nothing further is needed there.</p>
 
-<h3>4.3 &nbsp;The one that is missing</h3>
-<p class="prose"><code>collection_invites</code> has no index on <code>collection_id</code>. The query that reads it filters on <code>collection_id</code>, drops revoked rows and takes the newest, and it runs whenever an owner opens a collection. The table grows across the whole product while that query is per-user, so the scan grows with every invite anyone has ever created rather than with the owner&rsquo;s own data. It is fine today, at a handful of invites per collection; the point where it stops being fine &mdash; a few thousand rows &mdash; is <strong>an estimate, not a measurement</strong>. The fix is one index in one migration, cheap enough that the estimate need not be precise.</p>
+<h3>4.3 &nbsp;Room to tidy up</h3>
+<p class="prose"><code>collection_invites</code> has no index on <code>collection_id</code>, and the query that reads it filters on that column. At today&rsquo;s handful of invites per collection that is fine; if invites ever reach the thousands, one index in one migration keeps it fast.</p>
 
-<p class="prose">Two other indexes serve no query today, and both say so in their own migrations: one supports whole-table maintenance, and the tag index is idle because tag filtering happens in the browser. It earns its place only if that moves to the database.</p>
+<p class="prose">A couple of other indexes serve no query yet, and both say so in their own migrations: one supports whole-table maintenance, and the tag index is idle because tag filtering happens in the browser. It earns its place if that ever moves to the database.</p>
   </div>
 </section>
 
@@ -545,7 +577,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     <div class="sec-head">
       <p class="eyebrow">Section 05</p>
       <h2 id="s5h">Current Limits &amp; What We Would Do</h2>
-      <p class="lede">Six things bind before the database does. The ceiling is a quota, which is a decision about money rather than about architecture.</p>
+      <p class="lede">A handful of things bind before the database does, and the one that actually binds is a third-party quota.</p>
     </div>
 
 <h3>5.1 &nbsp;Limits, and when each one matters</h3>
@@ -560,8 +592,8 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
       </tr>
       <tr>
         <td><strong>Import duration</strong> &mdash; no maximum is configured</td>
-        <td>An oEmbed call, a model call and a few lookups chained together, reaching about 34 s at worst against the platform default.</td>
-        <td>Configure a maximum duration; a one-line change.</td>
+        <td>Usually a few seconds, but the step waits on three external services in turn and nothing caps it, so a slow provider can stretch it well past that.</td>
+        <td>Set an explicit maximum duration so a stalled import fails predictably instead of hanging; a one-line change.</td>
       </tr>
       <tr>
         <td><strong>Map payload</strong> &mdash; every place is drawn as a feature at every zoom</td>
@@ -569,33 +601,28 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
         <td>Add pagination and a viewport-scoped read, keeping a bounds query for the camera.</td>
       </tr>
       <tr>
-        <td><strong>Collections list</strong> &mdash; fetches items in order to count them</td>
-        <td>Grows with the total membership of every collection you are in.</td>
-        <td>Replace the embedded read with an aggregate.</td>
+        <td><strong>Collections list</strong> &mdash; counts a collection&rsquo;s places by fetching its items</td>
+        <td>Comfortable today; worth changing as collections grow.</td>
+        <td>Replace the embedded read with a count.</td>
       </tr>
       <tr>
-        <td><strong>Missing <code>collection_invites</code> index</strong></td>
-        <td>A few thousand invites across the product &mdash; an estimate, not a measurement.</td>
-        <td>Add the index.</td>
-      </tr>
-      <tr>
-        <td><strong>Model cost</strong> &mdash; a fraction of a cent per import</td>
-        <td>Capped today by the quota, to well under a dollar a day. Raising the quota removes that cap.</td>
-        <td>Cut the prompt, which is sent in full even on imports that find nothing.</td>
+        <td><strong><code>collection_invites</code> index</strong> &mdash; not declared</td>
+        <td>Only once invites reach the thousands.</td>
+        <td>Add the index &mdash; a small migration.</td>
       </tr>
     </tbody>
   </table>
 </div>
 
-<p class="prose">Not one of these is database capacity. What separates a working product from one serving a hundred users is a quota decision and the spending decision behind it &mdash; which belongs to the owner rather than to the architecture.</p>
+<p class="prose">None of these is database capacity. Everything we run on is a free tier today, and the only external constraint that bites is the places provider&rsquo;s 100 searches a day. Raising it is a commercial decision, not an engineering one &mdash; it belongs to the owner rather than to the architecture.</p>
 
 <h3>5.2 &nbsp;What we would do first</h3>
 <ol class="clean">
   <li><strong>Raise the quota and add a per-user daily import cap together,</strong> so one account cannot spend the shared allowance.</li>
   <li><strong>Set a maximum request duration, then build the streaming import route,</strong> turning the longest request in the system into visible progress.</li>
   <li><strong>Add pagination and a viewport-scoped read</strong> once a library passes a few hundred places, keeping the bounds query the camera needs.</li>
-  <li><strong>Make the collections list an aggregate,</strong> add the missing invites index, and drop the tag index unless tag filtering moves to the database.</li>
-  <li><strong>Cut the prompt,</strong> which dominates what an import costs. Last, because it is the only item that needs extraction quality re-checked.</li>
+  <li><strong>Make the collections list a count,</strong> add the invites index, and drop the tag index unless tag filtering moves to the database.</li>
+  <li><strong>Trim the prompt,</strong> which is sent in full even on imports that find nothing. Last, because it is the only item that needs extraction quality re-checked.</li>
 </ol>
 
 <p class="prose">A durable rate limiter &mdash; a counter table in Postgres &mdash; comes after all of these, once enough instances stay warm for the in-memory counters to be noticeably wrong.</p>
