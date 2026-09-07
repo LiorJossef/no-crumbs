@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>No Crumbs Testing Specification</title>
+<title>No Crumbs Test Specification</title>
 <script>
 /* Applied before the stylesheet loads: a pending render-blocking stylesheet defers
    any script after it, which made a saved dark preference flash light for as long
@@ -93,6 +93,11 @@ section { padding-block:clamp(72px,7vw,96px); position:relative; scroll-margin-t
 section > .wrap > h3 { font-size:clamp(21px,2vw,25px); letter-spacing:-.02em; margin-top:clamp(34px,4.5vw,52px); }
 section > .wrap > h3:first-child { margin-top:0; }
 section > .wrap > h3 + * { margin-top:12px; }
+/* `p { margin:0 }` means body paragraphs only separated when one carried an inline
+   style; without this every subsection reads as a single block. */
+section > .wrap > p + p,
+section > .wrap > p + ul,
+section > .wrap > ul + p { margin-top:22px; }
 section + section { border-top:1px solid var(--line-soft); }
 section.deep { background:var(--bg-deep); }
 .sec-head { display:flex; flex-direction:column; gap:10px; margin-bottom:clamp(30px,3.5vw,44px); }
@@ -240,7 +245,6 @@ ul.bare li strong { color:var(--ink); }
 .quote figcaption { margin-top:14px; font-size:14px; color:var(--ink-2); max-width:56ch; }
 
 /* the value exchange */
- }
 
 /* the three opening questions — set in the display face, like nothing else here */
 
@@ -326,6 +330,20 @@ ul.bare li strong { color:var(--ink); }
 .figblock > svg { display:block; width:100%; height:auto; max-width:420px; }
 .figblock figcaption { margin-top:10px; font-size:13px; color:var(--ink-2); line-height:1.5; }
 code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:var(--card-2); padding:1px 5px; border-radius:4px; word-break:break-word; }
+
+/* the only code blocks in the set: a run's own output, quoted rather than retyped */
+pre { margin:0; font-family:var(--mono); font-size:13px; line-height:1.62; color:var(--ink);
+      background:var(--card-2); border:1px solid var(--line-soft); border-radius:12px;
+      padding:14px 16px; overflow-x:auto; }
+pre code { background:none; padding:0; font-size:inherit; color:inherit; word-break:normal; white-space:pre; }
+figure.artefact { margin:22px 0 0; max-width:var(--prose); }
+figure.artefact figcaption { margin-top:9px; font-size:13px; color:var(--ink-3); line-height:1.5; }
+@media print { pre { white-space:pre-wrap; break-inside:avoid; } }
+
+/* the footer, inherited verbatim from no-crumbs-submission.html */
+footer { padding-block:34px; border-top:1px solid var(--line-soft); }
+footer p + p { margin-top:8px; }
+footer .tiny { font-size:13.5px; color:var(--ink-3); }
 @media print { .figblock { break-inside:avoid; } }
 
 .introblock { padding-block:clamp(40px,5vw,60px); border-top:0; }
@@ -336,14 +354,15 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     <span class="brand">
       <span class="rig" data-crumb data-size="20" style="display:block"></span>
       <span>No&nbsp;Crumbs</span>
-      <span class="tiny">Testing Specification</span>
+      <span class="tiny">Test Specification</span>
     </span>
     <nav class="tocbar" aria-label="Sections">
-      <a href="#s1"><b>01</b><span>Core flow</span></a>
-      <a href="#s2"><b>02</b><span>Inputs</span></a>
+      <a href="#s1"><b>01</b><span>Core loop</span></a>
+      <a href="#s2"><b>02</b><span>Bad input</span></a>
       <a href="#s3"><b>03</b><span>Access</span></a>
       <a href="#s4"><b>04</b><span>Database</span></a>
-      <a href="#s5"><b>05</b><span>Interface</span></a>
+      <a href="#s5"><b>05</b><span>Screens</span></a>
+      <a href="#s6"><b>06</b><span>Running it</span></a>
     </nav>
     <button type="button" class="theme-btn" id="themeBtn" aria-label="Switch between light and dark">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -356,268 +375,350 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <div class="cover">
   <div class="wrap">
-    <p class="cover-n">Testing Specification &middot; Version 1.0 &middot; 5 September 2026</p>
+    <p class="cover-n">Test Specification &middot; 6 September 2026</p>
     <div class="cover-h">
       <span class="rig" data-crumb data-size="44" style="flex:none;margin-top:6px"></span>
-      <h1 class="cover-t">What we decided<br><em>working</em> means.</h1>
+      <h1 class="cover-t">Test<br><em>Specification</em></h1>
     </div>
-    <p class="cover-b">A test suite is only as good as its definition of success. This document states what working means for each part of No Crumbs, how each claim is checked, and &mdash; just as plainly &mdash; what the tests cannot tell us.</p>
+    <p class="cover-b"><strong>Abstract.</strong> What &ldquo;working&rdquo; means for No Crumbs, and how each part of it is checked. Every section says what would count as working, what would count as broken, and what it cannot detect. Section 06 has the commands.</p>
     <div class="hero-meta">
-      <span class="pill on">5 test layers</span>
-      <span class="pill">4,087 unit tests</span>
+      <span class="pill on">4 test levels</span>
+      <span class="pill">4,137 unit tests</span>
       <span class="pill">58 browser tests</span>
-      <span class="pill">277 policy assertions</span>
+      <span class="pill">282 policy assertions</span>
     </div>
     <div class="printtoc" style="margin-top:26px">
       <p class="eyebrow dim">Contents</p>
-      <p class="small" style="margin-top:8px">01 Core Feature and Business Process Verification &nbsp;&middot;&nbsp; 02 Input Validation and Edge Case Handling &nbsp;&middot;&nbsp; 03 Access Control and Privacy Enforcement &nbsp;&middot;&nbsp; 04 Database Integrity and Data Safeguards &nbsp;&middot;&nbsp; 05 User Interface and Interactive Map Tests</p>
+      <p class="small" style="margin-top:8px">01 The Core Loop, and What Counts as Working &nbsp;&middot;&nbsp; 02 Bad Input, and Edge Cases &nbsp;&middot;&nbsp; 03 One User Cannot Reach Another User&rsquo;s Map &nbsp;&middot;&nbsp; 04 The Database Keeps Its Promises &nbsp;&middot;&nbsp; 05 The Screens &nbsp;&middot;&nbsp; 06 Running the Suite</p>
     </div>
   </div>
 </div>
 
 <section class="introblock" aria-label="How to read this">
   <div class="wrap">
-    <p class="prose small">Every number here was counted while writing this page &mdash; against
-      continuous-integration run <code>33912752591</code> of 4 September 2026, the run that gated
-      pull request #114 into <code>main</code>, or by counting files in the repository at that
-      commit.</p>
+    <p class="prose small">Every figure here was counted on a clean run of the full suite on
+      6&nbsp;September 2026, on the pull request CI passed immediately before the merge. Section 06
+      gives the command that reproduces each one.</p>
 
-    <p class="prose" style="margin-top:22px"><strong>The suite has five layers, and each exists to
-      catch a failure the others structurally cannot.</strong></p>
+    <p class="prose" style="margin-top:22px">The tooling is ordinary. There are four levels, and each
+      one catches what the others cannot.</p>
 
-    <div class="tbl-wrap" style="margin-top:16px">
-      <table class="tight">
-        <thead><tr><th style="width:15%">Layer</th><th style="width:17%">Runs against</th><th style="width:19%">Size</th><th>The only thing this layer can prove</th></tr></thead>
-        <tbody>
-          <tr><td>Unit and domain</td><td>Pure functions, mocked adapters</td><td>250 files, 4,087 tests</td><td>Exhaustive input space &mdash; every error code, every URL shape, every schema violation</td></tr>
-          <tr><td>Component render</td><td>A component rendered to a static HTML string</td><td>part of the 250</td><td>The markup and the accessible name a component produces for given props</td></tr>
-          <tr><td>End-to-end</td><td>The built application, real navigation</td><td>13 files, 58 tests</td><td>Assembly &mdash; routing, focus, double submit, stale responses, two screen sizes</td></tr>
-          <tr><td>Database policy</td><td>Real roles, real row-level security, real grants</td><td>8 SQL files, 277 assertions</td><td>Authorisation, executed as a second real user</td></tr>
-          <tr><td>Manual, documented</td><td>The live app, a real TikTok, a real model</td><td>27 drivers</td><td>Anything needing a real third party or human judgement</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <ul class="clean prose" style="margin-top:16px">
+      <li><strong>Unit and domain tests</strong> &mdash; 251 files, 4,137 tests, in Vitest. They reach
+        every failure reason and every URL shape. Component tests render to a static HTML string in the
+        same runner.</li>
+      <li><strong>Browser tests</strong> &mdash; 13 specification files, 58 tests, in Playwright against
+        the built application. They catch assembly: routing, focus, a double submission, a stale
+        response.</li>
+      <li><strong>Database policy tests</strong> &mdash; 8 files, 282 named checks, in plain SQL. The
+        only place authorisation is executed as a second real user.</li>
+      <li><strong>Manual drivers</strong> &mdash; 25 of them. A <em>driver</em> is a small script that
+        works the real product from the outside &mdash; it drives a real browser, or calls a real third
+        party, and then reports what it found &mdash; and it is run by hand because it spends a live
+        quota or asks for a judgement no assertion can make.</li>
+    </ul>
 
-    <p class="prose" style="margin-top:22px">A test belongs at <strong>the cheapest layer that can
-      still fail for the real reason</strong>. A test that passes for the wrong reason is worse than
-      no test.</p>
+    <figure class="artefact prose">
+      <pre><code>$ npx vitest run
+
+ Test Files  251 passed (251)
+      Tests  4137 passed (4137)
+   Duration  6.29s</code></pre>
+      <figcaption>The unit run, 6&nbsp;September 2026. No failures, nothing skipped.</figcaption>
+    </figure>
+
+    <p class="prose" style="margin-top:22px">Continuous integration runs all three automated levels on
+      every pull request. Nothing runs again on the merge itself: the merge commit is the branch plus
+      <code>main</code>, and the merge script refuses a branch that does not already contain current
+      <code>main</code>, so only a combination CI has already passed can land.</p>
+
   </div>
 </section>
 
 <section id="s1" aria-labelledby="s1h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 01 &middot; the business process</p>
-      <h2 id="s1h">Core Feature and Business Process Verification</h2>
-      <p class="lede">The product has one business process, and working means it survives all of its hops without inventing anything.</p>
+      <p class="eyebrow">Section 01</p>
+      <h2 id="s1h">The Core Loop, and What Counts as Working</h2>
+      <p class="lede">The product does one thing. A user pastes a TikTok link; it becomes a video identity, then a caption, then a structured extraction, then resolved real places, and finally rows on that user&rsquo;s private map. The condition is that the import finishes every stage without inventing anything on the way.</p>
     </div>
-<p class="prose">The product has one business process, and every test in this section exists to hold one of its hops honest.</p>
 
-<p class="prose">A user pastes a TikTok link. The link becomes a canonical video identity, then a caption, then a structured extraction, then real-world places, then rows that user owns on a private map.</p>
+<h3>1.1 &nbsp;What a successful import is</h3>
+<p class="prose">Success is not &ldquo;every place resolved&rdquo;. That is not the common outcome &mdash; most often the caption names no place at all, so <strong>&ldquo;no places found&rdquo; is a success state</strong>, with its own screen and its own tests. Treating it as an error would fail this specification whatever HTTP status came back.</p>
 
-<h3>&ldquo;No places found&rdquo; is a success, not an error</h3>
+<p class="prose">Partial resolution counts too. If three candidates resolve and one does not, the import is complete: an unresolved name still tells the user something, a failure screen tells them nothing.</p>
 
-<p class="prose">Working could not mean &ldquo;the happy path completes&rdquo;, because that is not the common case. <strong>The most frequent outcome of an import is that the caption names no place at all.</strong></p>
+<h3>1.2 &nbsp;The pipeline test</h3>
+<p class="prose">One test drives the whole process. It runs the real import and the real link handling, and stands in for everything outside our control &mdash; TikTok, the caption reader, the model, the place lookup, the database &mdash; with a substitute we can steer. So it is fast, it is deterministic, and it can force situations a live run would give us only by luck.</p>
 
-<p class="prose">So &ldquo;no places found&rdquo; is defined as a <em>success</em>, with its own screen and its own tests. A version of the product that treated it as an error would fail this specification even if every request returned 200.</p>
+<p class="prose">It asserts the stages emit in order, that zero candidates ends on the no-places screen, and that partial resolution ends in success rather than failure.</p>
 
-<h3>The process is specified as a test, not as prose</h3>
+<h3>1.3 &nbsp;When an import stops</h3>
+<p class="prose">An import that cannot finish stops for one of thirteen named reasons: the link was not a TikTok link, the platform is one we do not support, there was no link in the pasted text at all, the caption could not be read, the model did not answer, the user was not signed in, and so on. Each reason has its own message written for it. Nothing falls through to a generic failure.</p>
 
-<p class="prose">One test drives the real pipeline. It asserts the event sequence in order, and that zero candidates ends on the no-places screen.</p>
+<p class="prose">Two tests keep that list honest, from opposite ends. The first runs the process until it has triggered every reason on the list, then checks that the set it managed to reach is exactly the set we declared &mdash; add a fourteenth reason and the suite fails until someone shows a real path to it. The second checks the reverse: every reason on the list must be raised somewhere in shipped code, so a reason nothing can cause is a failure rather than dead weight.</p>
 
-<p class="prose">The same test makes partial success first-class. Some places resolved and some not is still a finished import, because unresolved names help a person more than a failure screen does.</p>
+<p class="prose">One reason is exempt today, by name: <code>RATE_LIMITED_UPSTREAM</code> has a screen and an HTTP status but nothing under <code>src/</code> that raises it. The exemption is a list of exactly one entry, and two further tests hold it there &mdash; one asserts the list has a single member, so a second exemption cannot be added quietly, and one asserts the exempt code still has no producer, so the exemption expires by itself the moment somebody builds one.</p>
 
-<h3>Thirteen error codes, and no fourteenth</h3>
+<h3>1.4 &nbsp;The browser tests</h3>
+<p class="prose">Thirteen browser specifications drive the built application the way a person does &mdash; loading pages, pasting, clicking, waiting &mdash; rather than calling functions directly. Seven of them cover the import:</p>
 
-<p class="prose">The error taxonomy is closed, and proved closed. There are thirteen error codes; the pipeline test reaches each one through real code, then asserts all thirteen were reached.</p>
+<ul class="clean prose">
+  <li>the happy path, all the way to a saved place;</li>
+  <li>the paste field refusing to submit until it holds a link;</li>
+  <li>the same link submitted twice, before the first attempt has returned;</li>
+  <li>a slow response arriving after the user has already changed the link;</li>
+  <li>the failure screens;</li>
+  <li>their wording;</li>
+  <li>and the status shown on screen against the status actually on the wire.</li>
+</ul>
 
-<p class="prose"><strong>Adding a fourteenth fails the suite until someone shows how a user could get there.</strong></p>
+<p class="prose">This is the level that catches assembly. Every part can pass on its own and the product still be broken by the way the parts are wired together: a route that does not exist, focus landing nowhere, a second click doing the work twice.</p>
 
-<h3>Then checked assembled, in a real browser</h3>
+<p class="prose">The signed-in tests need a password for the seeded demo account, and ten of the thirteen specifications skip themselves without one. In CI the run fails outright rather than skipping; on a developer machine it degrades to the signed-out tier, which is the right behaviour there &mdash; nobody needs a database up to check that the landing page renders. A setup step decides which of the two it is, so a run can never report green on the strength of tests that did not execute.</p>
 
-<p class="prose">Six of the thirteen browser specs drive import, including a double submit and a stale response arriving after the user changed the link. In the run cited above, 56 browser tests passed and 2 were skipped.</p>
+<h3>1.5 &nbsp;What this level does not show</h3>
+<p class="prose">It shows that an import finishes in a defined state, not that the answer is any good. Locking one caption to one expected place would lock in the output of a third-party model, and the test would then fail on a model upgrade that was an improvement. Extraction quality is measured separately, by hand, against a corpus of real saved videos.</p>
 
-<h3>What this layer cannot tell us</h3>
+<h3>1.6 &nbsp;Editing and deleting what you saved</h3>
+<p class="prose">Adding a place you cannot then undo is not something anybody would trust, so the writes that come after an import are tested too.</p>
 
-<p class="prose">None of this tells us whether the answer was any <em>good</em>. Pinning &ldquo;this caption yields this venue&rdquo; would pin a third party&rsquo;s non-deterministic output, and would fail on a model upgrade that was an improvement.</p>
+<ul class="clean prose">
+  <li><strong>Every write a saved place accepts.</strong> Deleting one, deleting a selection, editing the note, changing the category, marking a place <strong>Been there</strong>. Each is checked against the exact statement sent to the database &mdash; which table, which columns, and nothing else.</li>
+  <li><strong>Someone else&rsquo;s row reads as gone, not as an error.</strong> The database answers a write you are not allowed to make with zero rows rather than a refusal, so the code has to ask for an exact count to tell the two apart.</li>
+  <li><strong>No database error text reaches the user.</strong> What they see is a sentence we wrote.</li>
+  <li><strong>Collections, the same way.</strong> Creating one, renaming it, deleting it, adding and removing a place. The checks that carry the most weight here are absences: no action works out for itself whether the user is allowed &mdash; that belongs to the database &mdash; and adding or removing a place never touches the saved places or the places themselves, so nothing here can cost somebody their library.</li>
+  <li><strong>And once for real.</strong> A manual driver runs the delete and the note edit against the real application and the real database, reloading the page each time, so what it proves is that the change was written rather than that the screen redrew. It takes one viewport per invocation, so it is run twice: once at a phone width, once at a desktop width.</li>
+</ul>
 
-<p class="prose">Quality is therefore measured by hand, and the numbers written down.</p>
-
-<h3>Where each requirement area is covered</h3>
-
-<p class="prose">The five sections divide the required ground as follows.</p>
-
-<div class="tbl-wrap"><table class="tight"><thead><tr><th>Requirement area</th><th>How it is verified</th><th>Where</th></tr></thead><tbody><tr><td>Core features</td><td>The import pipeline test, plus 58 tests driving the built application</td><td>Section 01</td></tr><tr><td>Business process</td><td>One end-to-end test asserting the event sequence in order</td><td>Section 01</td></tr><tr><td>Invalid input</td><td>Default-deny host allow-list; refusal codes asserted distinguishable</td><td>Section 02</td></tr><tr><td>Edge cases</td><td>Truncated model output, double submit, stale response, zero candidates</td><td>Sections 01 and 02</td></tr><tr><td>Permissions</td><td>277 policy assertions executed as a second real signed-in user</td><td>Section 03</td></tr><tr><td>Database integrity</td><td>Deletes executed, absences asserted, every new table gated on build</td><td>Section 04</td></tr><tr><td>User interface and map</td><td>Component render, pinned copy, two browser sizes</td><td>Section 05</td></tr></tbody></table></div>
+<h3>1.7 &nbsp;Coverage by requirement area</h3>
+<div class="tbl-wrap"><table class="tight"><thead><tr><th style="width:22%">Requirement area</th><th>What we check</th><th style="width:26%">Tested at</th></tr></thead><tbody><tr><td>Core features</td><td>The import runs end to end; saved places and collections can be changed and deleted</td><td>Unit, browser and manual</td></tr><tr><td>Business process</td><td>Stages fire in order; the import ends in a defined state</td><td>Unit</td></tr><tr><td>Bad input</td><td>Six hosts allowed; refusals stay distinguishable; model output schema-checked</td><td>Unit</td></tr><tr><td>Failure reasons</td><td>Thirteen reasons, all reachable, and all raised by shipped code</td><td>Unit</td></tr><tr><td>Awkward cases</td><td>Eight named cases, each with a defined outcome</td><td>Unit, browser and database</td></tr><tr><td>Access control</td><td>282 named checks, run as a second signed-in user attacking the first&rsquo;s rows</td><td>Database</td></tr><tr><td>Data integrity</td><td>Deletions performed and dependent rows observed gone; new tables gated by a script</td><td>Database and a static check</td></tr><tr><td>Screens</td><td>Accessible names asserted, copy pinned, category colours held apart, two viewport sizes</td><td>Component and browser</td></tr></tbody></table></div>
   </div>
 </section>
 
 <section id="s2" class="deep" aria-labelledby="s2h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 02 &middot; refusing precisely</p>
-      <h2 id="s2h">Input Validation and Edge Case Handling</h2>
-      <p class="lede">Working here means the product refuses precisely, and never turns an odd input into a confident wrong answer.</p>
+      <p class="eyebrow">Section 02</p>
+      <h2 id="s2h">Bad Input, and Edge Cases</h2>
+      <p class="lede">The condition is that bad input is refused with a specific code the user can act on, and that a strange input is never turned into a confident wrong answer.</p>
     </div>
-<p class="prose">There are two untrusted inputs, and they are untrusted in different ways.</p>
 
-<h3>The paste field is a security boundary</h3>
+<h3>2.1 &nbsp;Two untrusted inputs</h3>
+<p class="prose">The pasted link is <strong>hostile</strong>: what the user submits decides an outbound request the server makes. The model&rsquo;s reply is <strong>unreliable rather than hostile</strong> &mdash; well formed, and full of invented values. An allow-list for the first, a schema for the second.</p>
 
-<p class="prose">It is a security boundary rather than a usability one, because what a user pastes becomes an outbound request from our server.</p>
+<h3>2.2 &nbsp;The link</h3>
+<p class="prose">Only six hosts are allowed, and membership is decided by comparing the whole host. Never a suffix, never a substring. A parser matching anything <em>ending in</em> <code>tiktok.com</code> would pass every functional test and still be wrong: <code>tiktok.com.evil.io</code> ends in it, <code>nottiktok.com</code> contains it. Both are in the tests, with embedded credentials, an explicit port, an IP literal and any non-HTTP scheme.</p>
 
-<p class="prose">Its parser is <strong>default-deny against a closed allow-list of six hosts</strong>, matched by full-host equality and never by suffix.</p>
+<p class="prose">Another test asserts the allow-list <em>is</em> that set of six and that the short-link resolver shares it, so a second adapter cannot quietly widen the boundary.</p>
 
-<p class="prose">The tests attack it the way an attacker would, with a host that:</p>
+<h3>2.3 &nbsp;Refusals have to stay apart</h3>
+<p class="prose">An Instagram or YouTube link is a platform we do not support, not a broken link: it gets its own code and a route to adding the place by hand. Text with no link in it gets a different code and different copy. Collapse the two into one code and we tell the user to fix an input that was not broken, so the tests hold the two apart.</p>
 
-<ul class="clean"><li>merely <strong>ends</strong> in <code>tiktok.com</code>;</li><li>contains it as a <strong>substring</strong>;</li><li>carries <strong>credentials in the authority</strong>;</li><li>carries an <strong>explicit port</strong>;</li><li>is an <strong>IP literal</strong>;</li><li>arrives under <strong>any non-HTTP scheme</strong>.</li></ul>
+<h3>2.4 &nbsp;The model&rsquo;s reply</h3>
+<p class="prose">Every reply is checked against a schema before anything is stored. Three things are refused outright:</p>
 
-<p class="prose">A further test asserts the allow-list is exactly that closed set, and that it is shared with the short-link resolver, so a second adapter cannot quietly widen it.</p>
+<ul class="clean prose">
+  <li><strong>A category outside our vocabulary.</strong> We can only draw the ones we have.</li>
+  <li><strong>A latitude out of range.</strong> A number that cannot be a place on Earth.</li>
+  <li><strong>A name that grows past its limit.</strong> It fits as typed, then exceeds the limit once
+    its characters are written out in the standard form we store them in &mdash; accented letters and
+    ligatures expand. The check in front of the write and the column behind it have to agree on the
+    length, or a perfectly good name is refused at the last moment.</li>
+</ul>
 
-<h3>Refusals must be distinguishable</h3>
+<p class="prose">And two are accepted, carefully:</p>
 
-<p class="prose">That is a product decision written as a test. An Instagram link is not broken &mdash; it is a platform we do not support, and it earns its own code and a route to manual add.</p>
+<ul class="clean prose">
+  <li><strong>No coordinate, as long as the field is there.</strong> An explicit null says &ldquo;no
+    basis for a coordinate&rdquo;; a missing field says nothing at all. They are not the same claim.</li>
+  <li><strong>A reply cut off mid-list.</strong> We keep the candidates that parsed and record how many
+    we dropped, so a partial answer is never shown as a complete one.</li>
+</ul>
 
-<p class="prose">Text that is not a link at all earns a different code and a different sentence. The two are asserted never to collapse into one, because collapsing them sends a person to fix something that is not broken.</p>
+<h3>2.5 &nbsp;Edge cases</h3>
+<p class="prose">Each has a defined outcome, and that is the condition: a case that ends nowhere, or ends looking like an error when it is not one, fails.</p>
 
-<h3>The model is the second untrusted input</h3>
+<p class="prose">Six sit in the import: no candidates at all, only some of them resolving, more candidates than the cap of eight, every location lookup failing, a model reply cut off mid-list, and a name that fits its length limit until it is normalised. Two are in the browser: the same link submitted twice before the first request returns, and a stale response arriving after the user changed the link.</p>
 
-<p class="prose">The language model is <strong>well-intentioned and wrong</strong> rather than hostile, so the schema tests reject what a helpful model invents:</p>
+<h3>2.6 &nbsp;When the place lookup is slow</h3>
+<p class="prose">Looking up a real place is the one step that waits on somebody else&rsquo;s service, so it is held to five seconds. Past that the lookup is abandoned and reported as a timeout.</p>
 
-<ul class="clean"><li>an <strong>invented category</strong>;</li><li>a list <strong>past the candidate cap</strong>;</li><li>an <strong>out-of-range latitude</strong>;</li><li>a <strong>length that fits raw</strong> but not once accents are normalised.</li></ul>
+<ul class="clean prose">
+  <li><strong>The deadline is tested by making it fire.</strong> Not a check that the number is written down somewhere &mdash; the lookup runs against a service that never answers, and the test waits for the timeout to happen.</li>
+  <li><strong>A user pressing Back is not a slow provider.</strong> The two look identical to the code doing the fetching, so we ask the timeout directly rather than inferring it from the error.</li>
+  <li><strong>A failed lookup does not fail the import.</strong> A place the model found in the caption is still saveable. The pin is labelled as coming from the caption rather than from a provider, and it is stored with no provider identity and no score attached to it.</li>
+  <li><strong>Nothing is invented.</strong> When the model found nothing to place, no coordinate is produced at all.</li>
+</ul>
 
-<p class="prose">Null coordinates are accepted <em>and required to be present</em>, because &ldquo;no basis for a guess&rdquo; is a claim and a missing field is not.</p>
-
-<h3>One edge case changed the design</h3>
-
-<p class="prose"><strong>Truncated model output is salvaged, not discarded.</strong> A reply cut mid-list yields the candidates that did parse, because losing eight good places to one bad byte is the worse outcome.</p>
-
-<h3>The limit of this layer</h3>
-
-<p class="prose">It proves the boundary rejects bad input. It does not prove the boundary is the only way in &mdash; that is what the layer guard in section 4 is for.</p>
+<p class="prose">A slow lookup costs the user some precision. It never costs them the import, and it never produces a confident location that nobody actually established.</p>
   </div>
 </section>
 
 <section id="s3" aria-labelledby="s3h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 03 &middot; the one real breach</p>
-      <h2 id="s3h">Access Control and Privacy Enforcement</h2>
-      <p class="lede">Working means a second signed-in user, holding a valid session, can neither read nor forge a row belonging to the first &mdash; proved by executing the attack, not by reading the policy.</p>
+      <p class="eyebrow">Section 03</p>
+      <h2 id="s3h">One User Cannot Reach Another User&rsquo;s Map</h2>
+      <p class="lede">Every map is private, so a failure here leaks data rather than degrading a feature. Signed in as a second real user, we attempt to read, update and delete the first user&rsquo;s saved places, and assert every attempt returns nothing or is refused. We establish it by running the attack, not by reading the policy.</p>
     </div>
-<p class="prose">Every map is private, so this is the one failure that is a breach rather than a disappointment.</p>
 
-<h3>The tests live where the authorisation does</h3>
+<h3>3.1 &nbsp;The tests run in the database</h3>
+<p class="prose">Authorisation is enforced by row-level security in Postgres, so that is where it is tested: eight SQL files carrying 282 named checks, raised by 588 assertion statements between them &mdash; a check is one labelled condition, such as <code>P1</code>, and several statements can defend it. Continuous integration rebuilds the schema from migration <code>0001</code> and runs all eight on every pull request.</p>
 
-<p class="prose">Authorisation lives in the database, so the tests do too. <strong>Eight SQL policy files carry 277 assertions</strong>, and the database job rebuilds the schema from the first migration and runs all eight on every push.</p>
+<p class="prose">All eight create at least two real users in <code>auth.users</code> and run the attacker&rsquo;s queries under the attacker&rsquo;s own role: set <code>request.jwt.claims</code> to their user id, then <code>set local role authenticated</code>. Those are the two steps PostgREST performs for a signed-in browser, so the attack is the real one. Each file runs in one transaction ending in <code>ROLLBACK</code>.</p>
 
-<p class="prose">Seven of the eight create at least two real users, then issue the adversary&rsquo;s queries under the adversary&rsquo;s own role.</p>
+<h3>3.2 &nbsp;Prove the read works before proving it is blocked</h3>
+<p class="prose">&ldquo;User B sees zero of user A&rsquo;s rows&rdquo; is also true of a database where nobody can read anything, so every file proves the positive case first.</p>
 
-<h3>The positive half is asserted first</h3>
+<p class="prose">The founding file does it in that order. First, user A has to see exactly one row through each of the six protected tables &mdash; the reads work. Only then is user B required to see none of A&rsquo;s saved places, and B&rsquo;s attempts to update and delete across A&rsquo;s whole library required to change no rows at all. A failure prints what it actually saw, not just that it failed: <code>FAIL P1: B sees 1 saved_places rows of A</code>.</p>
 
-<p class="prose"><strong>That ordering is the most important decision in this section.</strong> &ldquo;User B sees zero of user A&rsquo;s rows&rdquo; is satisfied identically by a correct policy and by a database where nobody can read anything.</p>
+<p class="prose">We checked these the other way round too. On a throwaway database we removed the rule that keeps a user&rsquo;s saved places private, re-ran the file, and watched it fail with exactly that line. A control nobody has watched fail is not evidence.</p>
 
-<p class="prose">That is the standard way a policy suite goes vacuously green. So each file first shows A reading <em>exactly one</em> of their own rows through each gated table, and only then shows B reading zero.</p>
+<h3>3.3 &nbsp;Writes, not just reads</h3>
+<p class="prose">Read isolation is the easier half. The suite also inserts, as B, a provenance row carrying A&rsquo;s user id; a provenance row attached to a place B does not own; and a save borrowing A&rsquo;s source row. All three are refused, and the last is checked twice &mdash; once that it failed, once that it left no row behind in B&rsquo;s library. Invite tokens cannot be chosen by the client, and an unknown, a revoked and an expired token all fail identically so nobody can probe for which tokens exist.</p>
 
-<h3>Forgery is tested, not only reading</h3>
-
-<p class="prose">Reading is the easy half. These are the writes the suite proves user B cannot make:</p>
-
-<ul class="clean"><li><strong>A provenance row carrying A&rsquo;s user id.</strong></li><li><strong>Provenance attached to a place B does not own.</strong></li><li><strong>A save that borrows A&rsquo;s source.</strong></li><li><strong>An invite token chosen by the client</strong> &mdash; and unknown, revoked and expired tokens fail <em>identically</em>, so a token cannot be probed for existence.</li></ul>
-
-<p class="prose">Sharing shares a place, not a library: a collaborator reads the shared place identity and none of the owner&rsquo;s private note, provenance or aliases.</p>
-
-<h3>Every file was written failure-first</h3>
-
-<p class="prose">Each assertion was checked in both directions against a throwaway database: the control removed, the test <em>seen to fail</em> with the message it prints, the control restored.</p>
-
-<p class="prose">A guard never seen to fail is not a guard.</p>
+<h3>3.4 &nbsp;What a collaborator sees</h3>
+<p class="prose">Sharing gives access to a place, not to a library. A collaborator reads the shared place and none of the owner&rsquo;s private note, provenance or aliases. That boundary is asserted field by field.</p>
   </div>
 </section>
 
 <section id="s4" class="deep" aria-labelledby="s4h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 04 &middot; invariants, executed</p>
-      <h2 id="s4h">Database Integrity and Data Safeguards</h2>
-      <p class="lede">&ldquo;The database&rdquo; means three things here, so it is tested three ways: authorisation, invariants executed rather than read, and a static gate on the posture of every new table.</p>
+      <p class="eyebrow">Section 04</p>
+      <h2 id="s4h">The Database Keeps Its Promises</h2>
+      <p class="lede">A database can be told to promise things &mdash; that deleting an account takes its data with it, that a table is not readable by a stranger. The condition here is that a promise counts only once we have watched it kept. We delete the account and then go looking for the rows, rather than reading the rule in the schema and concluding that they would have gone.</p>
     </div>
-<h3>Invariants are asserted by doing</h3>
 
-<p class="prose">The retention bound on captions is proved by <strong>executing a delete and asserting the rows are gone</strong>, not by confirming that a foreign key says it cascades.</p>
+<h3>4.1 &nbsp;Promises proved by running them</h3>
+<p class="prose">We promise that caption text does not outlive the account it belongs to. So the test creates an account, saves data under it, deletes the account, and then goes looking for the rows that hung off it. They have to be gone. What it deliberately does not do is read the schema, see that a cascading delete is declared there, and call that evidence.</p>
 
-<p class="prose">The same file asserts <em>absences</em> &mdash; no coordinate column, no import reference &mdash; because a table that can quietly grow a location column is a privacy promise that decays.</p>
+<p class="prose">The same test also asserts a set of <em>absences</em>: this table has no coordinate column, and no reference back to an import. Asserting that something does not exist reads oddly at first, but a table that quietly acquires a location column two migrations later is a privacy promise decaying with nobody noticing.</p>
 
-<h3>A gate on the posture of every new table</h3>
+<h3>4.2 &nbsp;New tables arrive open</h3>
+<p class="prose">Hosted Postgres is generous by default. A table created by a migration is readable by the public web role until that migration explicitly takes the privilege away. Worse, a local database will not show you the mistake &mdash; the row-level rules pass either way &mdash; so no amount of policy testing catches it.</p>
 
-<p class="prose">One gate runs on every build because of a hazard a local database cannot show: hosted Postgres grants broad privileges on new tables to browser-reachable roles.</p>
+<p class="prose">So it is caught before it ships instead. A script reads every migration and rejects any that creates a table or view without locking it down first. It runs alongside the ordinary checks, on every change.</p>
 
-<p class="prose">So a script refuses any migration that creates a table without enabling <em>and forcing</em> row-level security and revoking those grants in the same file.</p>
-
-<p class="prose"><strong>The check that guards production is itself run in the pipeline</strong>, so it cannot drift from the migrations unnoticed.</p>
-
-<h3>What one failing test taught us</h3>
-
-<p class="prose">A privileged function <strong>does not protect a deferred constraint trigger</strong>. The queued check runs at commit under whatever role is in effect then, not the role that queued it.</p>
-
-<p class="prose">It was ruled harmless only by proving, by execution, that the signed-in role cannot call the one function that inserts into the table concerned.</p>
-
-<h3>The layer guard is a test in its own right</h3>
-
-<p class="prose">It <strong>writes deliberate architecture violations, asserts the linter rejects each one, then removes them</strong>. It proves the rule can fail before trusting it to pass.</p>
   </div>
 </section>
 
 <section id="s5" aria-labelledby="s5h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 05 &middot; the thinnest layer</p>
-      <h2 id="s5h">User Interface and Interactive Map Tests</h2>
-      <p class="lede">This is the thinnest layer in the suite, and saying so is more useful than overstating it.</p>
+      <p class="eyebrow">Section 05</p>
+      <h2 id="s5h">The Screens</h2>
+      <p class="lede">The condition is that anything the eye can tell apart, a screen reader can tell apart too, and that pinned copy matches its specification word for word. This is the least complete level of the suite, and the last subsection says what it misses.</p>
     </div>
-<p class="prose">The interface is checked three ways, and each has a limit we can name:</p>
 
-<ul class="clean"><li><strong>Component render</strong> &mdash; markup and accessible name, from a static HTML string.</li><li><strong>Pinned copy</strong> &mdash; the exact words of a screen, and the words banned from it.</li><li><strong>A real browser</strong> &mdash; interaction, at both of our specified sizes.</li></ul>
+<h3>5.1 &nbsp;Component render</h3>
+<p class="prose">Components are rendered to HTML and checked for their markup and for the name a screen reader would announce. The case worth naming: when we are unsure of a place&rsquo;s exact location, the row&rsquo;s accessible name ends in &ldquo;approximate location&rdquo;, and when the location is a confirmed match it does not &mdash; so the uncertainty reaches someone who cannot see the row at all.</p>
 
-<h3>Components rendered to a string</h3>
+<p class="prose">That is easy to lose by accident, because an <code>aria-label</code> replaces everything inside the element it sits on: anything shown inside is then announced nowhere. No styling is applied at this level, so these tests say nothing about layout or size. Colour separation between categories is asserted separately, as a unit test over the palette values themselves:</p>
 
-<p class="prose">This catches the failure easiest to introduce and hardest to see. An approximate pin must stay visually distinguishable from a matched one, <em>and</em> must keep its screen-reader name.</p>
+<ul class="clean prose">
+  <li><strong>The pair that was actually broken.</strong> Caf&eacute; and restaurant once sat close enough to read as two shades of the same red on a 26&nbsp;pixel pin. The test now requires a colour difference above 18 and at least 8 points of lightness between them &mdash; lightness because that is the axis that survives both a small disc and a red-green deficiency.</li>
+  <li><strong>And every other pair.</strong> The same floor is asserted across every pair in the palette, including the uncategorised colour, so the next category added cannot land on top of an existing one.</li>
+</ul>
 
-<p class="prose">A label replaces a button&rsquo;s content, so a glyph inside it is then announced nowhere.</p>
+<h3>5.2 &nbsp;Copy and viewport</h3>
+<p class="prose">Two smaller checks sit alongside, both about things that drift silently.</p>
 
-<p class="prose"><strong>No component test here is evidence about layout, size or contrast</strong>, because a static string has no styling attached.</p>
+<p class="prose">The first pins wording. The &ldquo;no places found&rdquo; screen is compared word for word against its copy specification in all three of its cases &mdash; no caption at all, a caption that named nothing, an area but not the place itself &mdash; together with a ban on the vocabulary that would make it read as an error.</p>
 
-<h3>Copy is pinned where honesty depends on it</h3>
+<p class="prose">The second pins the window. Two browser runs assert nothing but that the viewport is the size the design is specified at, before anything is measured inside it &mdash; a layout checked at the wrong width is checked against the wrong set of columns.</p>
 
-<p class="prose">The no-places screen is asserted word for word against its specification, together with a ban on the words that would make it sound like an error.</p>
+<h3>5.3 &nbsp;What automation does not cover</h3>
+<p class="prose">No test here shows the map opened somewhere useful. An import that saved eight correct places while the camera sat on another continent passes everything in this suite and is obviously broken to anyone looking at it.</p>
 
-<h3>The source-text weakness, stated rather than hidden</h3>
-
-<p class="prose"><strong>105 of the 250 unit files read source text and assert against it.</strong> That is a real weakness, and we would rather state it than hide it.</p>
-
-<p class="prose">It is a legitimate way to prove an <em>absence</em> &mdash; that a screen contains no forbidden word, or that a module imports nothing from a layer it may not touch.</p>
-
-<p class="prose">But it proves the code <em>says</em> something, not that the application <em>does</em> it. A change that keeps the string and breaks the behaviour passes.</p>
-
-<h3>Real interaction, at the real sizes</h3>
-
-<p class="prose">The shipped device presets are 412&times;839 and 1280&times;720; our design is specified at 390&times;844 and 1440&times;900, and 22 pixels is exactly the width at which a layout decides its column count.</p>
-
-<p class="prose">So two extra browser projects exist only to assert the measurement conditions before anything is measured under them.</p>
-
-<p class="prose">There is no screenshot comparison, deliberately. A pixel baseline on a product mid-redesign is re-approved on nearly every commit, which is the same as having no baseline while paying for one.</p>
-
-<h3>What no automated test here can tell you</h3>
-
-<p class="prose"><strong>No automated test here can tell you the map opened somewhere useful.</strong> An import that saved eight correct rows while the camera sat on another continent passes every assertion in the suite and is plainly broken.</p>
-
-<p class="prose">That is why our working agreement requires running the application, using the feature and reading the saved rows before anything is called done.</p>
-
-<p class="prose">Automation covers the failures we can describe; the rest we look at.</p>
+<p class="prose">Screenshot comparison is deliberately excluded: a pixel baseline against a product still being redesigned needs re-approving on nearly every change, which costs real maintenance and buys almost no evidence. Instead the rule is that the app is run, the feature used and the saved rows read before a change is accepted.</p>
   </div>
 </section>
 
+<section id="s6" class="deep" aria-labelledby="s6h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 06</p>
+      <h2 id="s6h">Running the Suite</h2>
+      <p class="lede">Everything below is run from the repository root.</p>
+    </div>
+
+<h3>6.1 &nbsp;The commands</h3>
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:26%">Command</th><th>What it runs</th></tr></thead>
+    <tbody>
+      <tr><td><code>npm run test</code></td><td>The unit and component tests</td></tr>
+      <tr><td><code>npm run test:e2e</code></td><td>The browser tests</td></tr>
+      <tr><td><code>npm run db:test</code></td><td>The eight SQL policy files, each in a transaction that rolls back</td></tr>
+      <tr><td><code>npm run verify</code></td><td>Lint, the TypeScript check, the repository gates and the unit tests</td></tr>
+      <tr><td><code>npm run db:inventory</code></td><td>The deployed database grants against the designed ones. Read-only, so it is safe against production</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="prose" style="margin-top:22px">Set <code>E2E_PASSWORD</code> for the seeded demo user before running the browser tests. Without it the signed-in tier skips locally and fails the job in CI (&sect;1.4).</p>
+
+<h3>6.2 &nbsp;Where everything lives</h3>
+<p class="prose">Unit and component tests are in <code>tests/unit/</code>, browser specifications in <code>tests/e2e/</code>, and the eight database policy files in <code>supabase/tests/</code>, numbered after the migration each one guards. What those eight cover is set out in sections 03 and 04 and is not repeated here.</p>
+
+<p class="prose">Manual drivers are in <code>tests/manual/</code>, kept out of the automated run for the reasons given above. Two of them drive the running app and read back the rows they saved &mdash; <code>import-e2e.manual.mjs</code> and <code>crud-e2e.manual.mjs</code>, the second run once per viewport &mdash; and <code>owner-corpus.manual.ts</code> is where extraction quality is measured against a corpus of real videos.</p>
+
+<h3>6.3 &nbsp;Every required category, and the file that covers it</h3>
+<p class="prose">The course asks for seven categories of test. This is where each of them actually is, so the claim can be opened rather than taken on trust. Paths are from the repository root.</p>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:24%">Required category</th><th>The tests</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Core features</td>
+        <td class="small"><code>tests/unit/import/pipeline.test.ts</code> &middot; <code>tests/unit/app/actions/saved-places.test.ts</code> &middot; <code>tests/unit/app/actions/collections.test.ts</code> &middot; <code>tests/e2e/import-happy-path.spec.ts</code> &middot; <code>tests/manual/import-e2e.manual.mjs</code> &middot; <code>tests/manual/crud-e2e.manual.mjs</code></td>
+      </tr>
+      <tr>
+        <td>Invalid inputs</td>
+        <td class="small"><code>tests/unit/source/canonicalise-tiktok-url.test.ts</code> &middot; <code>tests/unit/source/extract-pasted-url.test.ts</code> &middot; <code>tests/unit/extraction/schema.test.ts</code> &middot; <code>tests/unit/import/import-error-copy.test.ts</code> &middot; <code>tests/e2e/import-paste-gate.spec.ts</code></td>
+      </tr>
+      <tr>
+        <td>Central business processes</td>
+        <td class="small"><code>tests/unit/import/pipeline.test.ts</code> &middot; <code>tests/unit/import/events.test.ts</code> &middot; <code>tests/unit/errors.test.ts</code> &middot; <code>tests/unit/errors-have-producers.test.ts</code> &middot; <code>tests/e2e/import-probe-status-map.spec.ts</code></td>
+      </tr>
+      <tr>
+        <td>Permissions between users</td>
+        <td class="small"><code>supabase/tests/0008_policy_tests.sql</code> &middot; <code>0024_collections_policy_tests.sql</code> &middot; <code>0031_place_mentions_policy_tests.sql</code> &middot; <code>0032_repoint_saved_place_policy_tests.sql</code> &middot; <code>0037_model_prose_policy_tests.sql</code></td>
+      </tr>
+      <tr>
+        <td>The database</td>
+        <td class="small"><code>supabase/tests/0031_place_mentions_policy_tests.sql</code> (deleting the account takes the caption text with it) &middot; <code>0034_note_precedence_tests.sql</code> &middot; <code>0035_profile_names_policy_tests.sql</code> &middot; <code>0036_tag_ownership_policy_tests.sql</code> &middot; <code>tests/unit/profile/account-deletion.test.ts</code> &middot; <code>scripts/check-migration-grants.sh</code></td>
+      </tr>
+      <tr>
+        <td>Edge cases</td>
+        <td class="small"><code>tests/unit/import/capped-candidate-arrival.test.ts</code> &middot; <code>tests/unit/import/degraded-resolution.test.ts</code> &middot; <code>tests/unit/extraction/partial-parse.test.ts</code> &middot; <code>tests/unit/import/no-places-screen.test.ts</code> &middot; <code>tests/e2e/import-double-submit.spec.ts</code> &middot; <code>tests/e2e/import-cancel-stale-response.spec.ts</code></td>
+      </tr>
+      <tr>
+        <td>Basic UI</td>
+        <td class="small"><code>tests/unit/sheet/place-row.test.ts</code> &middot; <code>tests/unit/ui/palette-tokens.test.ts</code> &middot; <code>tests/unit/import/no-places-screen.test.ts</code> &middot; <code>tests/e2e/map-accessibility.spec.ts</code> &middot; <code>tests/e2e/gates/gate-viewport.spec.ts</code></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="small"><a href="submission.html">&larr; Submission index</a></p>
+    <p class="small"><a href="https://no-crumbss.vercel.app">no-crumbss.vercel.app</a>
+       &nbsp;&middot;&nbsp;
+       <a href="https://github.com/LiorJossef/no-crumbs">github.com/LiorJossef/no-crumbs</a></p>
+    <p class="tiny">No Crumbs &middot; Lior Jossef &middot; RUNI CS, Internet Technologies</p>
+  </div>
+</footer>
+
 <script>
-/* The crumb mark, lifted from no-crumbs-submission.html so the PRD carries the same
-   face as the product. Geometry is ratified (brand foundation §3.1 rule 1) — do not
+/* The crumb mark, so every document in the set carries the same face as the
+   product. Geometry is ratified (brand foundation §3.1 rule 1) — do not
    edit the BODY path. */
 window.CRUMB = (function () {
   var BODY = "M34 9C50 3 70 7 82 20 93 32 97 50 92 66 86 84 68 95 50 94 30 93 12 82 7 64 2 46 8 26 20 16 24 12 29 11 34 9Z";
@@ -665,13 +766,36 @@ CRUMB.render('[data-crumb]');
   });
   var bar = document.querySelector('.tocbar');
 
+  /* The nav scrolls the window itself. `body` is a scroll container whose height equals
+     the document, so hash navigation and scrollIntoView() have nothing to scroll and the
+     chips silently did nothing; window.scrollTo is the only thing that moves the page.
+     Not updating location.hash also keeps this working in sandboxed viewers, where
+     navigating to a data: URL is blocked. */
+  Array.prototype.forEach.call(document.querySelectorAll('.tocbar a'), function (a) {
+    a.addEventListener('click', function (ev) {
+      var target = document.getElementById(a.getAttribute('href').slice(1));
+      if (!target) return;
+      /* Whichever of window / documentElement / body is the real scroller, move it:
+         body is a scroll container here, so window.scrollY is not always the page offset. */
+      var cur = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      var top = target.getBoundingClientRect().top + cur - 88;
+      if (top < 0) top = 0;
+      var how = reduce ? 'auto' : 'smooth';
+      window.scrollTo({ top: top, behavior: how });
+      if (document.scrollingElement) document.scrollingElement.scrollTo({ top: top, behavior: how });
+      document.body.scrollTo({ top: top, behavior: how });
+    });
+  });
+
   function setActive(id) {
     for (var k in chips) chips[k].removeAttribute('aria-current');
     var chip = chips[id];
     if (!chip) return;
     chip.setAttribute('aria-current', 'true');
     if (bar.scrollWidth > bar.clientWidth) {
-      chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+      /* Scroll the bar itself, never the page: scrollIntoView() can move the document
+         vertically, which cancelled the click's own smooth scroll mid-flight. */
+      bar.scrollTo({ left: chip.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
     }
   }
 

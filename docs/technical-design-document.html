@@ -78,8 +78,7 @@ a:hover { text-decoration:underline; }
 .wrap { width:min(100% - 44px, var(--page)); margin-inline:auto; }
 .prose { max-width:var(--prose); }
 .stack > * + * { margin-top:var(--gap,18px); }
-/* the six capability groups get the hairline rhythm section 06 already uses, so a
-   reader can see where one ends and count the six the lede promises */
+/* grouped lists get a hairline rhythm, so a reader can see where one ends */
 
 .eyebrow { font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:var(--mint-mid); }
 .eyebrow.dim { color:var(--ink-3); }
@@ -93,6 +92,11 @@ section { padding-block:clamp(72px,7vw,96px); position:relative; scroll-margin-t
 section > .wrap > h3 { font-size:clamp(21px,2vw,25px); letter-spacing:-.02em; margin-top:clamp(34px,4.5vw,52px); }
 section > .wrap > h3:first-child { margin-top:0; }
 section > .wrap > h3 + * { margin-top:12px; }
+/* `p { margin:0 }` means body paragraphs are only separated where one happens to
+   carry an inline style; without this every subsection renders as one block. */
+section > .wrap > p + p,
+section > .wrap > p + ul,
+section > .wrap > ul + p { margin-top:22px; }
 section + section { border-top:1px solid var(--line-soft); }
 section.deep { background:var(--bg-deep); }
 .sec-head { display:flex; flex-direction:column; gap:10px; margin-bottom:clamp(30px,3.5vw,44px); }
@@ -112,16 +116,22 @@ header.top {
 .top-in { display:flex; align-items:center; gap:16px; min-height:58px; }
 .brand { display:flex; align-items:center; gap:9px; font-family:var(--display); font-weight:800; letter-spacing:-.02em; font-size:16px; flex:none; }
 .brand .rig svg { filter:drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
-.brand .tiny { font-family:var(--mono); letter-spacing:.1em; text-transform:uppercase; margin-left:2px; }
+.brand .tiny { font-family:var(--mono); font-size:11px; letter-spacing:.07em; text-transform:uppercase; margin-left:2px; }
 
-.tocbar { display:flex; gap:3px; margin-left:auto; flex-wrap:wrap; }
+/* Nine sections here, where the other documents have five or six, so the chip row
+   is the one that does not fit the prose column: it needs 907px and the header
+   leaves it 749px. The chips are therefore tighter than the other documents', and
+   the row may never wrap — a two-row sticky header pushes the whole page down and
+   reads as broken. If it ever does run out of room it scrolls on one row instead. */
+.tocbar { display:flex; gap:1px; margin-left:auto; flex-wrap:nowrap; min-width:0; overflow-x:auto; scrollbar-width:none; }
+.tocbar::-webkit-scrollbar { display:none; }
 .tocbar a {
-  display:flex; align-items:center; gap:7px;
-  font-family:var(--body); font-size:12.5px; font-weight:600; color:var(--ink-2);
-  padding:7px 12px; border-radius:999px; border:1px solid transparent; background:none;
+  display:flex; align-items:center; gap:4px; flex:none;
+  font-family:var(--body); font-size:12px; font-weight:600; color:var(--ink-2);
+  padding:6px 8px; border-radius:999px; border:1px solid transparent; background:none;
   transition:background .18s,color .18s,border-color .18s; white-space:nowrap;
 }
-.tocbar a b { font-family:var(--mono); font-size:10px; font-weight:500; color:var(--ink-3); letter-spacing:.06em; }
+.tocbar a b { font-family:var(--mono); font-size:9.5px; font-weight:500; color:var(--ink-3); letter-spacing:.04em; }
 .tocbar a:hover { background:var(--glow); color:var(--ink); text-decoration:none; }
 .tocbar a[aria-current="true"] { background:var(--mint-deep); color:#fff; }
 .tocbar a[aria-current="true"] b { color:rgba(255,255,255,.92); }
@@ -131,7 +141,10 @@ header.top {
   display:grid; place-items:center; flex:none; transition:border-color .18s,color .18s;
 }
 .theme-btn:hover { border-color:var(--mint-mid); color:var(--ink); }
-@media (max-width:1040px) {
+/* Raised from 1040px for this document: with nine chips the row needs the full
+   1140px column, so between 1040 and 1184 it would scroll rather than fit. Dropping
+   it to its own line earlier is better than a nav that has to be scrolled. */
+@media (max-width:1184px) {
   /* the chip row drops to its own line, so the header row must be allowed to wrap.
      The brand takes the remaining space so the theme button stays beside it
      rather than claiming a third row. */
@@ -149,9 +162,9 @@ header.top {
 .progress { position:sticky; top:59px; z-index:59; height:2px; background:transparent; }
 .progress i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--mint-deep),var(--mint-mid)); }
 /* Must come after the base rule, not inside the earlier header block: equal
-   specificity, so source order decides. The header is two rows below 1041px
+   specificity, so source order decides. The header is two rows below 1185px
    and would otherwise sit on top of the bar. */
-@media (max-width:1040px) { .progress { top:78px; } }
+@media (max-width:1184px) { .progress { top:78px; } }
 
 /* ============================================================================
    COVER
@@ -240,7 +253,6 @@ ul.bare li strong { color:var(--ink); }
 .quote figcaption { margin-top:14px; font-size:14px; color:var(--ink-2); max-width:56ch; }
 
 /* the value exchange */
- }
 
 /* the three opening questions — set in the display face, like nothing else here */
 
@@ -279,6 +291,11 @@ ul.bare li strong { color:var(--ink); }
    print a black page. Re-declare the light palette outright.
    ========================================================================= */
 @media print {
+  /* Code blocks and the wide schema figure scroll on screen; paper cannot scroll,
+     so they wrap and shrink to the column instead of being clipped at its edge. */
+  pre, pre code { overflow:visible; white-space:pre-wrap; word-break:break-word; break-inside:avoid; }
+  figure div[style*="overflow"] { overflow:visible !important; }
+  figure svg { max-width:100% !important; height:auto; }
   :root:root {
     --bg:#fff; --bg-deep:#fff; --raised:#fff; --card:#fff; --card-2:#F4F2EC;
     --line:#D8D4CC; --line-soft:#E7E3DC;
@@ -326,10 +343,31 @@ ul.bare li strong { color:var(--ink); }
 .figblock > svg { display:block; width:100%; height:auto; max-width:420px; }
 .figblock figcaption { margin-top:10px; font-size:13px; color:var(--ink-2); line-height:1.5; }
 code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:var(--card-2); padding:1px 5px; border-radius:4px; word-break:break-word; }
+
+/* Code blocks. The first in the document set, so the style is built from the existing
+   tokens rather than a new palette: the card surface, the hairline, and --mono. */
+pre {
+  margin:22px 0 0; padding:16px 18px; overflow-x:auto;
+  background:var(--card-2); border:1px solid var(--line); border-radius:14px;
+}
+pre code {
+  display:block; background:none; padding:0; border-radius:0;
+  font-size:13px; line-height:1.62; color:var(--ink); white-space:pre;
+  word-break:normal; tab-size:2;
+}
+pre code .c { color:var(--ink-3); }   /* a SQL comment */
+pre code .k { color:var(--mint-mid); font-weight:700; }  /* a keyword worth finding by eye */
+pre + .tiny, pre + .small { margin-top:10px; }
+section > .wrap > pre + p { margin-top:22px; }
+@media print { pre { break-inside:avoid; background:#F4F2EC; } pre code { font-size:11px; } }
 @media print { .figblock { break-inside:avoid; } }
 
 .introblock { padding-block:clamp(40px,5vw,60px); border-top:0; }
 @media print { .introblock { break-before:auto; } }
+footer { padding-block:34px; border-top:1px solid var(--line-soft); }
+footer p + p { margin-top:8px; }
+footer .tiny { font-size:13.5px; color:var(--ink-3); }
+@media print { footer { break-before:auto; } }
 </style>
 <header class="top">
   <div class="wrap top-in">
@@ -340,11 +378,14 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
     </span>
     <nav class="tocbar" aria-label="Sections">
       <a href="#s1"><b>01</b><span>Layout</span></a>
-      <a href="#s2"><b>02</b><span>Pipeline</span></a>
-      <a href="#s3"><b>03</b><span>Map &amp; state</span></a>
-      <a href="#s4"><b>04</b><span>Database</span></a>
-      <a href="#s5"><b>05</b><span>Routes</span></a>
-      <a href="#s6"><b>06</b><span>Errors</span></a>
+      <a href="#s2"><b>02</b><span>Services</span></a>
+      <a href="#s3"><b>03</b><span>Pipeline</span></a>
+      <a href="#s4"><b>04</b><span>Map &amp; state</span></a>
+      <a href="#s5"><b>05</b><span>Screens</span></a>
+      <a href="#s6"><b>06</b><span>Database</span></a>
+      <a href="#s7"><b>07</b><span>Routes</span></a>
+      <a href="#s8"><b>08</b><span>Permissions</span></a>
+      <a href="#s9"><b>09</b><span>Errors</span></a>
     </nav>
     <button type="button" class="theme-btn" id="themeBtn" aria-label="Switch between light and dark">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -357,21 +398,22 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
 <div class="cover">
   <div class="wrap">
-    <p class="cover-n">Technical Design Document &middot; Version 1.0 &middot; 5 September 2026</p>
+    <p class="cover-n">Technical Design &middot; 6 September 2026</p>
     <div class="cover-h">
       <span class="rig" data-crumb data-size="44" style="flex:none;margin-top:6px"></span>
-      <h1 class="cover-t">How <em>No Crumbs</em><br>is built.</h1>
+      <h1 class="cover-t">Technical<br><em>Design</em></h1>
     </div>
-    <p class="cover-b">One Next.js application, four source layers, and one rule that holds them apart. This document describes the system as it actually ships: where the code lives, how a pasted link becomes a pin, how the map and its state are held, what the database looks like, which routes exist, and what happens when something goes wrong.</p>
+    <p class="cover-b"><strong>Abstract.</strong> No Crumbs turns a pasted TikTok link into places on a map. This document explains how: what the application is built from, how a caption becomes candidate places and then real coordinates, what is stored and why places are shared while saves are private, what the routes and actions do, who is allowed to do what, and what happens when something fails. The design came before the code; this version reconciles the two, and describes the system as deployed.</p>
     <div class="hero-meta">
-      <span class="pill on">Live &middot; no-crumbss.vercel.app</span>
+      <span class="pill on">Deployed &middot; no-crumbss.vercel.app</span>
       <span class="pill">Next.js &middot; TypeScript</span>
       <span class="pill">Supabase Postgres</span>
-      <span class="pill">MapLibre GL</span>
+      <span class="pill">MapLibre GL &middot; CARTO</span>
+      <span class="pill">Google Places</span>
     </div>
     <div class="printtoc" style="margin-top:26px">
       <p class="eyebrow dim">Contents</p>
-      <p class="small" style="margin-top:8px">01 System Layout and Component Hierarchy &nbsp;&middot;&nbsp; 02 The Extraction and Geo-Resolution Pipeline &nbsp;&middot;&nbsp; 03 Interactive Map Architecture and Application State &nbsp;&middot;&nbsp; 04 Database Design and Core CRUD Operations &nbsp;&middot;&nbsp; 05 API Routes and Data Flow &nbsp;&middot;&nbsp; 06 Input Validation and Error Handling</p>
+      <p class="small" style="margin-top:8px">01 What the System Is Made Of &nbsp;&middot;&nbsp; 02 External Services and Libraries &nbsp;&middot;&nbsp; 03 How a Pasted Link Becomes Places on a Map &nbsp;&middot;&nbsp; 04 The Map, and Where State Lives &nbsp;&middot;&nbsp; 05 Screens and the Main Flow &nbsp;&middot;&nbsp; 06 What Is Stored, and How It Is Organised &nbsp;&middot;&nbsp; 07 Routes, Actions and How Data Flows &nbsp;&middot;&nbsp; 08 Who Is Allowed to Do What &nbsp;&middot;&nbsp; 09 Bad Input, and What Happens When Things Fail</p>
     </div>
   </div>
 </div>
@@ -379,18 +421,16 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 <section id="s1" aria-labelledby="s1h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 01 &middot; where the code lives</p>
-      <h2 id="s1h">System Layout and Component Hierarchy</h2>
-      <p class="lede">The product is one Next.js application split into four source layers, and the rule that holds them apart is that <code>domain</code> may import nothing but itself.</p>
+      <p class="eyebrow">Section 01</p>
+      <h2 id="s1h">What the System Is Made Of</h2>
+      <p class="lede">One Next.js application, deployed as a single unit, divided into four source layers. The one rule that shapes everything else is that <code>src/domain/</code> may import no outer layer and no vendor SDK.</p>
     </div>
-<p class="prose">Each layer has one job, and imports only ever point downward.</p>
 
-<ul class="clean">
-  <li><strong><code>src/app/</code> is the only place Next.js appears.</strong> Pages, route handlers, server actions, and the server-only helpers under <code>_lib/</code>.</li>
-  <li><strong><code>src/domain/</code> is plain TypeScript.</strong> URL classification, name scoring, plausibility, and deriving a place from a stored extraction &mdash; with no network, no database, no React and no vendor SDK.</li>
-  <li><strong><code>src/integrations/</code> holds one adapter per external service.</strong> A vendor&rsquo;s types die there.</li>
-  <li><strong><code>src/components/</code> holds React, <code>src/ui/</code> the framework-free logic behind it.</strong> So a rule like &ldquo;which recovery does this error offer&rdquo; is testable without a browser.</li>
-</ul>
+<h3>1.1 &nbsp;The four layers</h3>
+
+<p class="prose"><code>app/</code> holds the pages, the route handlers and the server actions, and is the only layer in which Next.js appears. <code>domain/</code> is plain TypeScript &mdash; no network, no database, no React &mdash; and holds the rules: how a link is classified, how a name is scored against a search result, what makes a candidate plausible. <code>integrations/</code> holds one adapter per outside service, and is where a vendor&rsquo;s types stop. <code>components/</code> and <code>ui/</code> hold React and the framework-free logic behind it.</p>
+
+<p class="prose">The domain imports no layer outside itself and no vendor SDK. Zod is its one third-party dependency, and it is there because a validator is a rule, not a vendor. So the domain&rsquo;s rules can be tested without a browser, a database or a network. <code>npm run check:layers</code> keeps it that way: it writes deliberate violations into the tree and fails if the linter does not reject them. It also checks that every module holding a secret imports <code>server-only</code>, so a leaked key breaks the build instead of reaching a browser.</p>
 
       <figure class="figblock">
         <svg viewBox="0 0 420 266" aria-hidden="true" focusable="false">
@@ -416,52 +456,95 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
   <text class="fd-s" x="234" y="144">ONE PER VENDOR</text>
 
   <rect class="fd-node act" x="10" y="190" width="400" height="56" rx="12"/>
-  <text class="fd-t" x="24" y="216">domain &mdash; imports nothing</text>
+  <text class="fd-t" x="24" y="216">domain &mdash; no vendor SDK</text>
   <text class="fd-s" x="24" y="236">NO NETWORK &middot; NO DATABASE &middot; NO REACT</text>
 </svg>
-        <figcaption>Arrows only ever point downward. <code>domain</code> has none leaving it, and that is the whole rule.</figcaption>
+        <figcaption>Import edges point downward only. <code>domain</code> has no outgoing edge at all, which is the whole of the rule.</figcaption>
       </figure>
 
-<h3>The rule is checked, not trusted</h3>
+<h3>1.2 &nbsp;Where things live</h3>
 
-<p class="prose"><code>npm run check:layers</code> writes deliberate violations into the tree and asserts the lint zones reject each one. It then searches <code>src/domain/</code> for input and output independently, so silencing the lint rule does not open the door.</p>
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:34%">Path</th><th>What lives there</th></tr></thead>
+    <tbody>
+      <tr><td><code>app/map/</code></td><td>The main screen. A server component reads the user&rsquo;s places; a client component owns selection and filters</td></tr>
+      <tr><td><code>app/import/</code></td><td>The paste flow, one component per screen</td></tr>
+      <tr><td><code>app/_lib/</code></td><td>Server-only helpers that need <code>next/headers</code>, including the Supabase client that carries the signed-in user&rsquo;s own credentials</td></tr>
+      <tr><td><code>domain/</code></td><td>Types and ports; the pipeline rules; place naming, scoring and categories; the error codes</td></tr>
+      <tr><td><code>integrations/</code></td><td>One directory per vendor: TikTok, the language models, Google Places, Supabase &mdash; including the one client that holds the service key (section 8.2)</td></tr>
+      <tr><td><code>components/</code>, <code>ui/</code></td><td>The map and its layers, the sheet and desktop panel, the navigation &mdash; and the same logic with no JSX in it</td></tr>
+      <tr><td><code>lib/</code></td><td>The browser-side odds and ends: the Supabase client a client component uses, the theme, and the class-name merge helper</td></tr>
+      <tr><td><code>src/proxy.ts</code></td><td>Middleware: it refreshes the session on every page and guards <code>/map</code></td></tr>
+      <tr><td><code>supabase/migrations/</code></td><td>Numbered SQL files. They are the only definition of the database</td></tr>
+    </tbody>
+  </table>
+</div>
 
-<p class="prose">It also proves that every module in <code>src/app/_lib/</code> imports <code>server-only</code>. That turns a leaked service key into a failed build rather than a review comment.</p>
+<h3>1.3 &nbsp;Pages</h3>
 
-<p class="prose">The payoff is concrete. The scoring benchmark runs in milliseconds because <code>domain/places/score.ts</code> cannot reach a network, and replacing the places provider was one new file in <code>integrations/</code> and no change in <code>domain/</code>.</p>
+<p class="prose">There are eleven: <code>/</code>, <code>/sign-in</code>, <code>/auth/reset</code>, <code>/auth/new-password</code>, <code>/import</code>, <code>/profile</code>, <code>/account</code>, <code>/collections/join/[token]</code>, two collections paths kept as redirects, and <code>/map</code>, which is the shell the product mostly lives in.</p>
 
-<h3>Pages, and the shell they live in</h3>
+<p class="prose"><code>/map</code> is one route carrying three views &mdash; the places list, the collections index, one open collection &mdash; switched by search parameters rather than route segments, because changing a segment unmounts the drawer and rebuilds the map.</p>
 
-<p class="prose">There are eleven pages: <code>/</code>, <code>/sign-in</code>, <code>/import</code>, <code>/profile</code>, <code>/auth/reset</code>, <code>/auth/new-password</code>, <code>/collections</code>, <code>/collections/[id]</code>, <code>/collections/join/[token]</code>, and <code>/map</code>, which is the shell.</p>
+<h3>1.4 &nbsp;The main components</h3>
 
-<p class="prose"><strong><code>/map</code> is one route segment carrying three views</strong> &mdash; places, the collections index, and one open collection &mdash; addressed by <code>?view=collections</code> and <code>?collection=&lt;id&gt;</code>.</p>
-
-<p class="prose">A segment change unmounts the outgoing subtree, and that used to take the drawer with it. Section 3 explains what stays mounted instead.</p>
-
-<h3>Three levels under <code>/map</code></h3>
-
-<ul class="clean">
-  <li><strong><code>app/layout.tsx</code></strong> renders <code>components/shell/persistent-map.tsx</code>, which owns the map for the session.</li>
-  <li><strong><code>app/map/page.tsx</code></strong> is a Server Component that authenticates and reads the library.</li>
-  <li><strong><code>map-page-client.tsx</code></strong> owns selection and filters, and feeds three surfaces: the mobile sheet, the desktop panel and the pin layer.</li>
-</ul>
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:32%">Module</th><th style="width:22%">Kind</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>app/layout.tsx</code></td><td>Root layout</td><td>Renders the map once for the session (section 4.3)</td></tr>
+      <tr><td><code>app/map/page.tsx</code></td><td>Server Component</td><td>Authenticates the request and reads the user&rsquo;s places</td></tr>
+      <tr><td><code>map-page-client.tsx</code></td><td>Client Component</td><td>Owns selection and filters, and feeds all three surfaces from one filtered list</td></tr>
+      <tr><td><code>place-sheet.tsx</code></td><td>Client Component</td><td>The mobile surface: the list, and detail for the selected place</td></tr>
+      <tr><td><code>place-desktop-panel.tsx</code></td><td>Client Component</td><td>The wide-screen surface beside the map</td></tr>
+      <tr><td><code>place-marker-layer.tsx</code></td><td>Client Component</td><td>The pins</td></tr>
+    </tbody>
+  </table>
+</div>
   </div>
 </section>
 
 <section id="s2" class="deep" aria-labelledby="s2h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 02 &middot; link to place</p>
-      <h2 id="s2h">The Extraction and Geo-Resolution Pipeline</h2>
-      <p class="lede">A pasted link becomes places on a map in four steps: canonicalise the link, fetch the video, ask a language model to read the caption under a fixed schema, then match each name it found against a places provider.</p>
+      <p class="eyebrow">Section 02</p>
+      <h2 id="s2h">External Services and Libraries</h2>
+      <p class="lede">Four were required by the brief. The rest are here to do a job we would otherwise have written badly ourselves.</p>
     </div>
-    <p class="prose">The first step is identity, not content. The canonicaliser re-runs on the
-      server: host allow-list, short links followed with that allow-list re-applied to every
-      redirect, numeric video id extracted.</p>
 
-    <p class="prose">That id is the key everything hangs off, so the same video pasted twice is one
-      source rather than a second import. The server then fetches the post through TikTok&rsquo;s
-      public oEmbed endpoint, which returns the caption, the author and a thumbnail.</p>
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:26%">Service or library</th><th>What it is, and why it is here</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="2">required by the brief</td></tr>
+      <tr><td>Next.js</td><td>The web framework. Server components read the database on the server, so our own data needs no API in between</td></tr>
+      <tr><td>TypeScript</td><td>One shared vocabulary: a shape is defined once, so changing it is a compile error everywhere it is read</td></tr>
+      <tr><td>Supabase</td><td>Postgres, sign-in and sessions, and row-level security &mdash; which lets the database decide who may read what</td></tr>
+      <tr><td>Vercel</td><td>Hosting. It builds and deploys from <code>main</code></td></tr>
+      <tr class="grp"><td colspan="2">chosen</td></tr>
+      <tr><td>TikTok oEmbed</td><td>TikTok&rsquo;s public endpoint for a post&rsquo;s caption, author and thumbnail. The only documented way to read a post without logging in or scraping &mdash; and the reason the product supports TikTok and not platforms that offer nothing comparable</td></tr>
+      <tr><td>Gemini</td><td>The language model that reads place names out of a caption. Chosen because its API can be constrained to a fixed reply shape, so we never parse prose</td></tr>
+      <tr><td>Google Places</td><td>Turns a name into a real coordinate, an address and a stable id. Its coverage of small and recently opened places is what the product depends on. Its terms forbid pairing its content with a non-Google basemap, so the factory carries an environment gate and falls back to a second adapter behind the same interface where the pairing would be public</td></tr>
+      <tr><td>MapLibre GL and CARTO</td><td>An open-source renderer and a free vector basemap. Neither charges per map load, and the basemap needs no API key, so the deployment holds no map key at all</td></tr>
+      <tr><td>Zod</td><td>Validates anything arriving from outside. One schema gives both the runtime check and the TypeScript type, so the two cannot drift apart</td></tr>
+      <tr><td>React, Tailwind, and four small libraries</td><td>Rendering, styling, accessible menus and dialogs, the bottom sheet&rsquo;s drag, transitions and icons</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="prose">Three things are deliberately absent. No client state library: each kind of state already has an obvious home (section 4.1). No ORM and no REST layer over our own tables: server actions plus row-level security already do that, and a second copy of the rules would drift. And nothing scrapes TikTok or logs into it &mdash; captions only, through the public endpoint.</p>
+  </div>
+</section>
+
+<section id="s3" aria-labelledby="s3h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 03</p>
+      <h2 id="s3h">How a Pasted Link Becomes Places on a Map</h2>
+      <p class="lede">This is the process the product exists for. It has four stages: identify the link, fetch the post, read the caption with a language model, and match each name it finds against a real place.</p>
+    </div>
+
       <figure class="figblock">
         <svg viewBox="0 0 420 506" aria-hidden="true" focusable="false">
   <defs>
@@ -499,7 +582,7 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
 
   <rect class="fd-node end" x="10" y="440" width="232" height="56" rx="12"/>
   <text class="fd-t" x="24" y="466">Review, then save</text>
-  <text class="fd-s" x="24" y="486">YOU CONFIRM EACH ONE</text>
+  <text class="fd-s" x="24" y="486">EACH ONE CONFIRMED</text>
 
   <rect class="fd-node" x="252" y="268" width="158" height="56" rx="12"/>
   <text class="fd-t sm" x="264" y="292">No places in</text>
@@ -509,403 +592,536 @@ code { font-family:var(--mono); font-size:.85em; color:var(--ink); background:va
   <text class="fd-t sm" x="264" y="378">An approximate</text>
   <text class="fd-t sm" x="264" y="395">point, marked</text>
 </svg>
-        <figcaption>Two of the endings are ordinary results, not failures. The caches sit on the two middle stages and are described below.</figcaption>
+        <figcaption>Two of the terminal states are ordinary results rather than failures.</figcaption>
       </figure>
-    <p class="prose"><strong>We read captions only &mdash; never the audio, never text burned into
-      the video.</strong> Many recommendation videos say the venue out loud and write nothing, so
-      those posts yield nothing here.</p>
 
-    <p class="prose">We build around that rather than hide it: &ldquo;no places found&rdquo; is a
-      designed screen, not an error.</p>
+<h3>3.1 &nbsp;Identify the link, then fetch the post</h3>
 
-    <h3>Reading the caption</h3>
-    <p class="prose">The caption goes to a language model under a versioned prompt that must answer
-      in a shape we defined in code. <strong>We never parse prose, and never run a regular expression
-      over a model reply.</strong></p>
+<p class="prose">The first stage is about identity, not content. The server checks the host against a short allow-list, follows a short link if there is one &mdash; re-checking the host at every redirect &mdash; and pulls out TikTok&rsquo;s numeric video id. That id is the key everything else hangs on, so pasting the same video twice produces one stored post, not two.</p>
 
-    <ul class="clean">
-      <li><strong>The prompt is a plain constant</strong> in <code>src/integrations/llm/prompt.ts</code>,
-        because a prompt that can change without a deploy is a prompt nobody can explain.</li>
-      <li><strong>The shape is a schema</strong> in <code>src/domain/extraction/schema.ts</code>, which
-        we turn into the JSON Schema that constrains the model at the API level.</li>
-      <li><strong>Production runs Gemini.</strong> An Anthropic adapter ships beside it, selected by
-        one environment variable.</li>
-    </ul>
+<p class="prose">The post is then fetched through TikTok&rsquo;s oEmbed endpoint, which returns the caption, the author and a thumbnail. Captions are the only thing read: nothing listens to the audio or reads text burned into the video. Plenty of videos say the place out loud and write nothing, and those produce no candidates.</p>
 
-    <h3>What we ask for, and what we trust</h3>
-    <p class="prose">What we ask for splits into four classes of claim, and that split is the most
-      important idea in this section. Some fields must be copyable out of the caption. Some are the
-      model&rsquo;s reading of it. Some are its memory of the real world. One is its opinion of
-      itself.</p>
+<h3>3.2 &nbsp;Read the caption</h3>
 
-    <div class="tbl-wrap">
-      <table class="tight">
-        <thead><tr><th style="width:22%">Class</th><th style="width:38%">Fields</th><th>What it means</th></tr></thead>
-        <tbody>
-          <tr><td>Caption&#8209;verbatim</td><td><code>rawName</code>, <code>evidence</code>, <code>cityHint</code>, <code>countryHint</code>, <code>areaHint</code>, <code>addressHint</code>, <code>dishes</code></td><td>Copied from the caption. A fabrication is a substring test, not a judgement call</td></tr>
-          <tr><td>Caption&#8209;inference</td><td><code>categoryHint</code>, <code>tags</code>, <code>whyGo</code></td><td>The model&rsquo;s reading of the caption, which may not go beyond it</td></tr>
-          <tr><td>World knowledge</td><td><code>identifiedName</code>, <code>coordinates</code>, <code>nameVariants</code></td><td>Unverified recall about the real world, checked only by a person</td></tr>
-          <tr><td>Model self&#8209;report</td><td><code>modelConfidence</code></td><td>Kept so it can be measured; never trusted, never shown</td></tr>
-        </tbody>
-      </table>
-    </div>
+<p class="prose">The caption goes to a language model under a fixed prompt, and the reply shape is not left to chance. <code>domain/extraction/schema.ts</code> is converted into a JSON Schema and handed to the API, so the model is constrained at the source. We never parse prose or run a regular expression over an answer.</p>
 
-    <p class="prose">The classification is enforced in code rather than described in a comment,
-      because a convention erodes one field at a time. A constant names the class of every field, and
-      a unit test fails if a new field arrives without one.</p>
-
-    <p class="prose">Two gates then make the verbatim classes real, and both turn trusting the model
-      into a string search:</p>
+<p class="prose">The fields we ask for are sorted into four kinds of claim, because they cannot be trusted equally.</p>
 
     <ul class="clean">
-      <li>One drops any candidate whose supporting quote is not in the caption.</li>
-      <li>The other erases the model&rsquo;s one-line reason when the fragment it cites cannot be
-        found.</li>
+      <li><strong>Copied from the caption.</strong> <code>rawName</code>, the quote supporting it, and any city or address it mentions. These have to appear in the caption literally, so checking them is a substring test rather than a judgement.</li>
+      <li><strong>The model&rsquo;s reading of the caption.</strong> A category, a one-line reason, tags. Allowed to interpret, not to go beyond what is written.</li>
+      <li><strong>The model&rsquo;s recollection of the world.</strong> A coordinate, an official name, alternative spellings. No caption can confirm these, so only a person can.</li>
+      <li><strong>The model&rsquo;s opinion of itself.</strong> Its confidence score, which we store so it can be measured and never show.</li>
     </ul>
 
-    <p class="prose">That same gate is where obvious non-places die before they cost anything:
-      links, bare usernames, names that are only a city or a country, generic phrases like
-      &ldquo;this hidden gem&rdquo;, and duplicates.</p>
+    <p class="prose">A constant in the code labels every field with its kind, and a test fails if a new field arrives unlabelled.</p>
 
-    <p class="prose">Weak-but-real cases are kept deliberately &mdash; a venue named only in a
-      hashtag, for instance &mdash; with confidence capped and the review screen saying so.</p>
+<h3>3.3 &nbsp;Throw away what is not a place</h3>
 
-    <p class="prose">Two caps bound the work. The schema refuses more than twelve candidates, so a
-      model that turns thirty hashtags into places fails validation instead of flooding the pipeline.
-      Eight is the most that are looked up, and anything past that is kept and marked as one we did
-      not check.</p>
+<p class="prose">Two checks turn trust in the model into a string search. If the quote it gives as evidence is not in the caption, the candidate is dropped. If the fragment behind its one-line reason cannot be found, the reason is erased. The same pass discards things that are obviously not places &mdash; links, bare usernames, names that are only a city, phrases like &ldquo;this hidden gem&rdquo; &mdash; before any of them cost a lookup.</p>
 
-    <h3>Turning a name into a place</h3>
-    <p class="prose">Resolution asks a places provider what each surviving name really is. The query
-      is composed from the caption&rsquo;s name, its city, country and address hints, plus the
-      model&rsquo;s alternative spellings &mdash; which is how a Hebrew caption reaches a venue
-      indexed under its English name.</p>
+<p class="prose">Weak but genuine cases are kept: a place named only in a hashtag stays, with its confidence capped and the review screen saying why. Two numbers bound the rest, and they are deliberately not the same number. <code>CANDIDATE_CAP</code> is twelve &mdash; twelve candidates are carried, and a reply of thirteen to twenty-four is truncated to the first twelve rather than refused, so a caption naming thirteen places does not lose all thirteen. <code>FLOOD_GUARD_CANDIDATES</code> is twenty-four, and that is the refusal: past two dozen the model has stopped reading the caption and started listing hashtags, so the reply fails validation instead of flooding the pipeline. Of what is carried, only the first eight are looked up; the rest are kept and marked unchecked.</p>
 
-    <p class="prose">Results are scored on name similarity, category agreement and dataset
-      confidence, then banded:</p>
+<h3>3.4 &nbsp;Match each name to a real place</h3>
 
-    <ul class="clean">
-      <li><strong>A clear winner</strong> is pre-selected on the review screen.</li>
-      <li><strong>A plausible but unseparated set</strong> becomes a shortlist the user picks
-        from.</li>
-      <li><strong>Everything else</strong> is no match.</li>
-    </ul>
+<p class="prose">Each surviving name goes to Google Places, in a query built from the name, whatever city, country or address the caption gave, and any alternative spellings the model offered. That last part is how a Hebrew caption reaches a place listed under its English name.</p>
 
-    <p class="prose">The gate doing most of the work is the <strong>margin</strong> between the top
-      result and the runner-up. Matching many rows equally well is what a caption naming no venue
-      looks like.</p>
+<p class="prose">The provider does not rank for us. <code>domain/places/score.ts</code> scores its results on how closely the names match, whether the categories agree, and how confident the dataset is. Each candidate then lands in one of three outcomes: a clear winner, pre-selected on the review screen; several plausible options, offered as a shortlist to pick from; or no match.</p>
 
-    <h3>When nothing matches</h3>
-    <p class="prose">We neither invent a coordinate nor discard the place. The candidate is saved
-      with the model&rsquo;s own coordinate, carrying no resolution score, and the card says the pin
-      is approximate and links out to a public map for a person to verify.</p>
+    <p class="prose">Two gates decide which, and both must pass: the best result has to clear an absolute score floor, <em>and</em> it has to beat the second best by a margin. The margin does the real work. A caption that names no place tends to match a great many rows equally well &mdash; each of them scoring respectably &mdash; and a floor alone would pre-select the first of them. The margin is what notices there was nothing to choose between.</p>
 
-    <p class="prose">Its identity is derived from the caption&rsquo;s verbatim name, so re-pasting
-      converges on one row rather than growing the library. Only when the resolver found nothing
-      <em>and</em> the model gave no coordinate is the candidate skipped, rather than pinned to a
-      city centre.</p>
+<p class="prose">When nothing matches we do not invent a coordinate, and we do not throw the candidate away. It is kept with the model&rsquo;s own guess, marked approximate on its card, with a link out to a public map so the user can check. We skip a candidate only when the provider found nothing <em>and</em> the model offered no coordinate.</p>
 
-    <h3>Two caches, and why they exist</h3>
-    <p class="prose">An extraction is stored under the source, the model and the prompt version
-      together, so re-pasting a link costs no model call. Provider replies are cached below the
-      ranking step.</p>
+<h3>3.5 &nbsp;Caching</h3>
 
-    <p class="prose">Cost is the lesser reason. <strong>The model is not deterministic</strong>, so
-      without the cache the same link produced different places on a second run, under different
-      names and coordinates. That key is what makes an import repeatable.</p>
+<p class="prose">A model run is stored against the post, the model and the prompt version together, so pasting the same link again costs no model call. Provider answers are cached too. Saving money is the smaller reason: the model is not deterministic, so without the cache the same link returns different places on a second run. The cache is what makes an import repeatable.</p>
 
-    <h3>Why the vendors sit behind a port</h3>
-    <p class="prose">Neither the model nor the places provider is called directly from the pipeline.
-      Both sit behind a <em>port</em> &mdash; a small interface the domain owns, listing only what it
-      needs &mdash; with an <em>adapter</em> per vendor behind it, chosen in one factory.</p>
+<h3>3.6 &nbsp;Nothing calls a vendor directly</h3>
 
-    <p class="prose">No vendor type crosses that line. That bought us three things:</p>
-
-    <ul class="clean">
-      <li>Fakes instead of a network in tests.</li>
-      <li>A second model as a second file, rather than a rewrite.</li>
-      <li>One place to change provider when licence terms require it.</li>
-    </ul>
-
-  </div>
-</section>
-
-<section id="s3" aria-labelledby="s3h">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Section 03 &middot; what lives where</p>
-      <h2 id="s3h">Interactive Map Architecture and Application State</h2>
-      <p class="lede">There is no client state library. Every kind of state has one home, chosen by whether it must survive a refresh, a navigation, or neither.</p>
-    </div>
-<h3>Every kind of state has one home</h3>
-
-<div class="tbl-wrap">
-  <table class="tight">
-    <thead><tr><th>Kind of state</th><th>Where it lives</th><th>Why there</th></tr></thead>
-    <tbody>
-      <tr><td>Persisted data</td><td>Read on the server, in <code>app/map/page.tsx</code></td><td>Must survive a refresh, and the database already knows who may see it</td></tr>
-      <tr><td>What you are looking at</td><td>URL search parameters</td><td>Must survive a navigation and be shareable</td></tr>
-      <tr><td>Everything transient</td><td>Local state in the component that owns it</td><td>Needs to survive neither</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<p class="prose"><strong>Persisted data is read on the server.</strong> <code>app/map/page.tsx</code> calls <code>_lib/get-spots.ts</code>, which queries <code>saved_places</code> joined to <code>places</code> and <code>sources</code> through the caller&rsquo;s own client, then passes plain objects into the client tree. No component fetches its own data on mount.</p>
-
-<p class="prose">That query carries no user filter on purpose. Row-level security already scopes all three tables, and a second filter in TypeScript would be one rule with two definitions.</p>
-
-<p class="prose"><strong>State that addresses what you are looking at lives in the URL.</strong> Search parameters are not part of the router&rsquo;s segment cache key, while a dynamic segment&rsquo;s value is &mdash; which is why <code>/collections/[id]</code> remounted the drawer and <code>?collection=</code> does not. Both old routes survive as redirects, so no shared link stops working.</p>
-
-<p class="prose"><strong>Everything transient stays in the component that owns it.</strong> Selection, search text, active tag and the not-been-yet filter are local state in <code>map-page-client.tsx</code>, and the import run is a union of screens driven only by real server responses.</p>
-
-<p class="prose">A mutation ends by revalidating <code>/map</code>. The server stays authoritative, and there is no client cache to keep in sync.</p>
-
-<h3>One map, for the whole session</h3>
-
-<p class="prose"><strong>One MapLibre instance exists for the session, and it survives navigation because React never unmounts it.</strong> MapLibre has no way to hand a live map to a freshly mounted component, and the only ancestor common to every map-bearing route is the root layout.</p>
-
-<p class="prose">So <code>components/shell/persistent-map.tsx</code> renders the surface once, through a React portal, into a detached container it owns. Each route&rsquo;s shell borrows that container by appending it into its own anchor.</p>
-
-<p class="prose">React never reads a portal container&rsquo;s position, so moving the node moves the canvas and its live graphics context undisturbed. Before this, every tab-to-tab hop built a new map.</p>
-
-<h3>The list and the pins cannot disagree</h3>
-
-<p class="prose"><strong>Filtering happens once.</strong> Tag, visit state and search text are applied in one place, and the single filtered array goes to the sheet, the desktop panel and the marker layer. There is no second code path that could narrow one and not the others.</p>
+<p class="prose">The pipeline never calls the model or the places provider itself. Each sits behind a small interface owned by the domain, with one adapter per vendor behind it, chosen in a single factory. No vendor type crosses that line. So tests replace the network with fakes, a second model is a second file, and changing places provider touches one place: the factory in <code>integrations/places/</code>, which also reports which provider it chose and why.</p>
   </div>
 </section>
 
 <section id="s4" class="deep" aria-labelledby="s4h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 04 &middot; what we remember</p>
-      <h2 id="s4h">Database Design and Core CRUD Operations</h2>
-      <p class="lede">Everything the product remembers lives in one Postgres database, and its shape follows from one distinction: a place in the world is not the same thing as one person&rsquo;s decision to keep it.</p>
-    </div>
-    <div class="tbl-wrap">
-      <table class="tight">
-        <thead><tr><th style="width:26%">Table</th><th style="width:22%">Who it belongs to</th><th>What one row is</th></tr></thead>
-        <tbody>
-          <tr><td><code>profiles</code></td><td>one user</td><td>an account, paired one-to-one with the auth user</td></tr>
-          <tr><td><code>sources</code></td><td>everyone</td><td>one TikTok video &mdash; its numeric id, canonical URL, author and caption</td></tr>
-          <tr><td><code>imports</code></td><td>one user</td><td>one paste: its status, its timings, and the candidates awaiting review</td></tr>
-          <tr><td><code>places</code></td><td>everyone</td><td>one physical venue &mdash; name, category, latitude and longitude</td></tr>
-          <tr><td><code>place_provider_refs</code></td><td>everyone</td><td>one provider&rsquo;s id for a venue; many may point at one place</td></tr>
-          <tr><td><code>saved_places</code></td><td>one user</td><td>that person&rsquo;s entry for a place: their name for it, note, tags, visited state</td></tr>
-          <tr><td><code>saved_place_sources</code></td><td>one user</td><td>which video recommended which save</td></tr>
-          <tr><td><code>collections</code> and friends</td><td>several users</td><td>a shared list, with an owner, editors and viewers</td></tr>
-        </tbody>
-      </table>
+      <p class="eyebrow">Section 04</p>
+      <h2 id="s4h">The Map, and Where State Lives</h2>
+      <p class="lede">There is no client state library. Each kind of state has one home, chosen by how long it has to survive.</p>
     </div>
 
-      <figure class="figblock">
-        <svg viewBox="0 0 420 296" aria-hidden="true" focusable="false">
-  <defs>
-    <marker id="ah-ink-e" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
-  </defs>
+<h3>4.1 &nbsp;State placement</h3>
 
-  <path class="fd-edge" d="M200,40 H220" marker-end="url(#ah-ink-e)"/>
-  <text class="fd-lab" x="210" y="32" text-anchor="middle">1:n</text>
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:26%">Kind of state</th><th style="width:32%">Where it lives</th><th>Why there</th></tr></thead>
+    <tbody>
+      <tr><td>The user&rsquo;s places</td><td>Read on the server, in <code>app/map/page.tsx</code></td><td>It must survive a refresh, and the database already holds the rules about who can see it</td></tr>
+      <tr><td>Which view is open</td><td>URL search parameters</td><td>It must survive a navigation and be shareable</td></tr>
+      <tr><td>Selection, search text, filters</td><td>Local state in the component that owns it</td><td>It needs to survive neither</td></tr>
+    </tbody>
+  </table>
+</div>
 
-  <path class="fd-edge" d="M105,70 V110" marker-end="url(#ah-ink-e)"/>
-  <text class="fd-lab" x="113" y="94">1:n</text>
+<h3>4.2 &nbsp;Reading and writing</h3>
 
-  <path class="fd-edge" d="M220,140 H200" marker-end="url(#ah-ink-e)"/>
-  <text class="fd-lab" x="210" y="132" text-anchor="middle">1:n</text>
+<p class="prose">The page reads the user&rsquo;s saved places on the server and passes plain objects down. No component fetches its own data when it mounts. That query has no &ldquo;where user = me&rdquo; clause, deliberately: row-level security already scopes it, and writing the same rule twice is how two versions of it end up disagreeing.</p>
 
-  <path class="fd-edge" d="M105,170 V210" marker-end="url(#ah-ink-e)"/>
-  <text class="fd-lab" x="113" y="194">1:n</text>
+<p class="prose">Writes go through server actions, and each ends by revalidating the page it affected. The server stays the source of truth, and there is no client cache to keep in step.</p>
 
-  <path class="fd-edge" d="M220,240 H200" marker-end="url(#ah-ink-e)"/>
-  <text class="fd-lab" x="210" y="232" text-anchor="middle">1:n</text>
+<h3>4.3 &nbsp;One map for the whole session</h3>
 
-  <rect class="fd-node" x="10" y="10" width="190" height="60" rx="12"/>
-  <text class="fd-t sm" x="24" y="36">places</text>
-  <text class="fd-s" x="24" y="56">SHARED &middot; ONE VENUE</text>
+<p class="prose">A map is expensive to build: a style download, a round trip for tiles, and a camera back at the start. MapLibre also offers no way to hand a live map to a newly mounted component. So the map is created once, in the root layout &mdash; the only ancestor every map-bearing route shares &mdash; and rendered through a React portal into a container the layout owns. Each route borrows that container by appending it to its own anchor. Moving the node moves the canvas without disturbing it, so changing tabs no longer rebuilds the map.</p>
 
-  <rect class="fd-node" x="220" y="10" width="190" height="60" rx="12"/>
-  <text class="fd-t sm" x="234" y="36">place_provider_refs</text>
-  <text class="fd-s" x="234" y="56">SHARED</text>
+<h3>4.4 &nbsp;One filter, three surfaces</h3>
 
-  <rect class="fd-node act" x="10" y="110" width="190" height="60" rx="12"/>
-  <text class="fd-t sm" x="24" y="136">saved_places</text>
-  <text class="fd-s" x="24" y="156">YOURS &middot; ONE ENTRY</text>
-
-  <rect class="fd-node act" x="220" y="110" width="190" height="60" rx="12"/>
-  <text class="fd-t sm" x="234" y="136">profiles</text>
-  <text class="fd-s" x="234" y="156">YOURS</text>
-
-  <rect class="fd-node act" x="10" y="210" width="190" height="60" rx="12"/>
-  <text class="fd-t sm" x="24" y="236">saved_place_sources</text>
-  <text class="fd-s" x="24" y="256">YOURS &middot; PROVENANCE</text>
-
-  <rect class="fd-node" x="220" y="210" width="190" height="60" rx="12"/>
-  <text class="fd-t sm" x="234" y="236">sources</text>
-  <text class="fd-s" x="234" y="256">SHARED &middot; ONE POST</text>
-
-  <path class="fd-edge" d="M10,286 H410" stroke-dasharray="3 4"/>
-</svg>
-        <figcaption>One colour means shared by everyone, the other means yours alone. That split is the whole design.</figcaption>
-      </figure>
-
-    <h3>Why a place and a save are different rows</h3>
-    <p class="prose"><strong>This is the most important decision in the model.</strong>
-      <code>places</code> is the shared, de-duplicated record of somewhere real.
-      <code>saved_places</code> is one person&rsquo;s private entry pointing at it.</p>
-
-    <p class="prose">One physical venue is therefore one row, no matter how many videos point at it.
-      Three TikToks recommending the same bakery produce one place, one save for me, and three links
-      back to the videos.</p>
-
-    <p class="prose">The separation also decides where an edit lands. Renaming a place writes to
-      <em>your</em> row and never the shared one, so nobody can edit the map out from under anyone
-      else. A unique constraint on the pair of user and place makes saving the same place twice
-      impossible rather than merely unlikely.</p>
-
-    <h3>The core operations</h3>
-    <ul class="clean">
-      <li><strong>Saving places from a TikTok</strong> &mdash; <code>POST /api/imports/confirm</code>,
-        which calls <code>resolve_place()</code> to find or create the shared place, then
-        <code>save_place()</code> once per confirmed candidate.</li>
-      <li><strong>Adding a place by hand</strong> &mdash; the <code>addPlaceManually</code> server
-        action, down the same two functions, with no source attached.</li>
-      <li><strong>Reading the map or the list</strong> &mdash; one query joining
-        <code>saved_places</code> to <code>places</code>.</li>
-      <li><strong>Editing</strong> a name, category, note or visited state &mdash; a server action
-        performing a plain update on the user&rsquo;s own row.</li>
-      <li><strong>Deleting a save</strong> &mdash; removes that row and its provenance links, while
-        the shared place survives for everyone else. Deleting an account cascades from
-        <code>profiles</code>.</li>
-    </ul>
-
-    <h3>Integrity, enforced where it cannot be bypassed</h3>
-    <ul class="clean">
-      <li>Nothing is written to <code>places</code> before the user taps confirm. Until then
-        candidates sit as JSON on the import row.</li>
-      <li>De-duplication is a unique constraint on the provider&rsquo;s own identifier, plus a
-        75-metre same-name guard inside <code>resolve_place()</code>.</li>
-      <li>A deferred trigger refuses to leave a place without at least one provider reference.</li>
-    </ul>
-
+<p class="prose">Tag, visit state and search text are applied in one place, and the resulting list is handed to the mobile sheet, the desktop panel and the pins. There is no second code path that could filter one surface and not another, so the count in the list and the number of pins cannot disagree.</p>
   </div>
 </section>
 
 <section id="s5" aria-labelledby="s5h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 05 &middot; how data moves</p>
-      <h2 id="s5h">API Routes and Data Flow</h2>
-      <p class="lede">Eight route handlers and seven server-action modules. A request becomes a route handler only when it needs elevated access or a slow external call; everything else is a server action or a plain read on the server.</p>
+      <p class="eyebrow">Section 05</p>
+      <h2 id="s5h">Screens and the Main Flow</h2>
+      <p class="lede">Eight surfaces. One of them &mdash; the map &mdash; is where a person spends their time; the others exist to put something on it or to get back to it.</p>
     </div>
+
+<h3>5.1 &nbsp;The screens</h3>
+
 <div class="tbl-wrap">
   <table class="tight">
-    <thead><tr><th>Route</th><th>Method</th><th>What it does</th></tr></thead>
+    <thead><tr><th style="width:17%">Screen</th><th style="width:25%">Where</th><th>What a person does there</th></tr></thead>
     <tbody>
-      <tr><td><code>/api/imports/source-preview</code></td><td>POST</td><td>Fetches the video through oEmbed, so the thumbnail, handle and caption are on screen in about a second</td></tr>
-      <tr><td><code>/api/imports/probe</code></td><td>POST</td><td>The rest of the pipeline in one request: caption, extraction, resolution, and the writes that record them</td></tr>
-      <tr><td><code>/api/imports/confirm</code></td><td>POST</td><td>Turns the reviewed selections into shared places and the user&rsquo;s own saves</td></tr>
-      <tr><td><code>/api/imports/place-search</code></td><td>POST</td><td>Search-and-add a place by name, from the no-places screen</td></tr>
-      <tr><td><code>/api/search/interpret</code></td><td>POST</td><td>Turns a typed sentence into filter values. Returns no places and writes nothing</td></tr>
-      <tr><td><code>/api/sources/thumbnail</code></td><td>POST</td><td>Re-fetches a thumbnail whose signed URL expired</td></tr>
-      <tr><td><code>/auth/callback</code></td><td>GET</td><td>Exchanges an auth code for a session</td></tr>
-      <tr><td><code>/healthz</code></td><td>GET</td><td>Liveness, revealing no configuration</td></tr>
+      <tr><td>Landing</td><td><code>/</code></td><td>Reads what the product is, and signs in</td></tr>
+      <tr><td>Sign in</td><td><code>/sign-in</code>, <code>/auth/reset</code>, <code>/auth/new-password</code></td><td>Email and password, and the two steps of a reset</td></tr>
+      <tr><td>Map</td><td><code>/map</code></td><td>The library: pins, the list, search, filters, and one place in detail</td></tr>
+      <tr><td>Add</td><td>a sheet over whatever is on screen</td><td>The <code>&#65291;</code> opens one sheet offering the two things a person can create: a place, or a collection</td></tr>
+      <tr><td>Import</td><td><code>/import</code>, or the same flow over the map</td><td>Paste a link and review what came back</td></tr>
+      <tr><td>Collections</td><td><code>/map?view=collections</code></td><td>The index, and one open collection, in a drawer over the map</td></tr>
+      <tr><td>Join</td><td><code>/collections/join/[token]</code></td><td>Accepts a share link, having shown what is being joined</td></tr>
+      <tr><td>Profile and account</td><td><code>/profile</code>, <code>/account</code></td><td>The name on the account, signing out, and deleting your data</td></tr>
     </tbody>
   </table>
 </div>
 
-<h3>Everything else is a server action</h3>
+<h3>5.2 &nbsp;Pasting a link, screen by screen</h3>
 
-<p class="prose">Server actions cover every ordinary mutation of the user&rsquo;s own rows: saved places (delete, rename, re-categorise, note, visited), manual add, collections, profile, account and sign-out.</p>
+<p class="prose">Four screens, and one piece of state saying which is showing. Every move between them is caused by a real server response; nothing advances on a timer.</p>
 
-<p class="prose">Each one does the same four things:</p>
+<p class="prose"><strong>Paste</strong> is one field. The link is checked as it is typed, so an unsupported one becomes a clear offer to add the place by hand before any request goes out.</p>
 
-<ul class="clean">
-  <li><strong>Validates its input</strong> before anything else runs.</li>
-  <li><strong>Identifies the user.</strong></li>
-  <li><strong>Writes through that user&rsquo;s own client</strong>, so the database makes the authorisation decision.</li>
-  <li><strong>Revalidates the narrowest correct path.</strong></li>
-</ul>
+<p class="prose"><strong>Waiting</strong> covers the model call, which is the slow part. As soon as the oEmbed fetch answers &mdash; about a second in &mdash; the screen shows the post itself: thumbnail, handle, caption. The three stages report themselves as they finish.</p>
 
-<p class="prose"><strong>There is no REST layer over our own database.</strong> Row-level security is already the authorisation layer, and a hand-written CRUD API would be a second place for the same rules to drift.</p>
+<p class="prose"><strong>Review</strong> shows the caption plainly, and beneath it each candidate with what the caption said and what we matched it to. A clear winner is pre-selected and can be changed. An ambiguous one shows its shortlist rather than guessing. Nothing is written to <code>places</code> or <code>saved_places</code> until this screen is confirmed.</p>
 
-<h3>One request, followed all the way down</h3>
+<p class="prose">Then the flow hands the new places up and closes. The map moves to frame them and says what was saved.</p>
 
-<p class="prose"><strong>Confirm is the request to follow, because it is where the trust boundary sits.</strong> The browser sends an extraction id and, per item, two integers and an optional note &mdash; and no place facts at all.</p>
+<h3>5.3 &nbsp;The screen most people see most often</h3>
 
-<p class="prose">The route then parses that body against a schema, and authorises the extraction through the <em>user&rsquo;s</em> client by requiring them to own an import row for its source. The database makes the check, rather than an <code>if</code>.</p>
+<p class="prose">Most captions name no place, so &ldquo;no places found&rdquo; is the ordinary end of this flow rather than a failure of it. Its screen shows the post and the caption that was read, so the claim can be checked rather than believed, and offers two ways on: search for the place by name, or say in one sentence what the caption did not and let that be read instead. There is deliberately no retry button, because re-reading the same caption returns the same nothing.</p>
 
-<p class="prose">It re-parses the stored candidates out of the database and hands the named index to the domain, which derives name, coordinates, category and country from the row the server itself wrote.</p>
-
-<p class="prose">Two Postgres functions then run:</p>
-
-<ul class="clean">
-  <li><strong><code>resolve_place()</code>, under the service role.</strong> The only path that can create a shared place.</li>
-  <li><strong><code>save_place()</code>, under the user&rsquo;s own session.</strong> It can only write their own library row.</li>
-</ul>
-
-<p class="prose">That shape closes a confirmed exploit. When the browser sent the place itself, the resolve step refreshed provider-owned columns on the matched row &mdash; so one user could rename and relocate a venue other people had saved.</p>
   </div>
 </section>
 
 <section id="s6" class="deep" aria-labelledby="s6h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Section 06 &middot; when things go wrong</p>
-      <h2 id="s6h">Input Validation and Error Handling</h2>
-      <p class="lede">Everything from outside is parsed at the boundary it arrives at, and everything that can go wrong is one of thirteen error codes carrying no provider text.</p>
+      <p class="eyebrow">Section 06</p>
+      <h2 id="s6h">What Is Stored, and How It Is Organised</h2>
+      <p class="lede">One Postgres database. Its shape follows from a single decision: a place in the world is not the same thing as one person&rsquo;s decision to keep it.</p>
     </div>
-<h3>The URL is checked twice, and only the second check counts</h3>
 
-<p class="prose">The canonicaliser runs in the browser as the user types, so an unsupported link becomes a recognised redirect to manual add before any request is made.</p>
+<h3>6.1 &nbsp;Places are shared, saves are private</h3>
 
-<p class="prose">The same pure function runs again inside the routes that fetch, and <em>that</em> call is the gate against server-side request forgery. The host must be exactly one of a closed list of TikTok hosts, by full-string equality rather than suffix match, so <code>tiktok.com.evil.io</code> and <code>nottiktok.com</code> both fail. It is re-applied to every redirect when a short link is followed.</p>
+<p class="prose">This is the one real modelling decision in the product. <code>places</code> is a shared, de-duplicated record of a real place &mdash; its name, category and coordinates. <code>saved_places</code> is one person&rsquo;s entry pointing at it, holding their own name for it, their note, their tags and whether they have been.</p>
 
-<p class="prose"><strong>The browser check is a courtesy; the check on the server about to make the network call is the control.</strong></p>
+<p class="prose">So one place is one row, however many videos mention it. Three TikToks recommending the same bakery produce one place, one save, and three links back to the videos. It also settles where an edit lands: your note, your tags and your own category write to your own row and never the shared one, so nobody can change the map underneath anyone else. A uniqueness rule on <code>(user_id, place_id)</code> makes saving the same place twice impossible rather than merely unlikely.</p>
 
-<h3>Four kinds of untrusted input, parsed at their boundary</h3>
+      <figure class="figblock" style="max-width:none;width:min(100%,868px)">
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <svg viewBox="0 0 840 830" style="display:block;width:100%;min-width:780px;height:auto;max-width:840px" aria-hidden="true" focusable="false">
+  <style>
+    .sc-col { font-family:var(--mono); font-size:12px; font-weight:500; fill:var(--ink); }
+    .sc-col.dim { fill:var(--ink-2); }
+    .sc-col.key { fill:var(--mint-mid); }
+  </style>
+  <defs>
+    <marker id="ah-ink-sc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
+  </defs>
 
-<ul class="clean">
-  <li><strong>The oEmbed payload.</strong> Deliberately tolerant of new fields, so TikTok adding one cannot break us &mdash; while removing the title still does.</li>
-  <li><strong>The model&rsquo;s output.</strong> A failure becomes a named error rather than a thrown exception.</li>
-  <li><strong>The confirm request body.</strong></li>
-  <li><strong>JSON read back out of our own database</strong>, because the code that wrote it may be an older deploy.</li>
-</ul>
+  <path class="fd-edge" d="M380,60 H460" marker-end="url(#ah-ink-sc)"/>
+  <text class="fd-lab" x="420" y="52" text-anchor="middle">1:n</text>
 
-<p class="prose">Server actions validate through pure functions that return the message the form should show.</p>
+  <path class="fd-edge" d="M195,240 V270" marker-end="url(#ah-ink-sc)"/>
+  <text class="fd-lab" x="203" y="260">1:n</text>
 
-<h3>Thirteen ways to fail, and no more</h3>
+  <path class="fd-edge" d="M460,320 H380" marker-end="url(#ah-ink-sc)"/>
+  <text class="fd-lab" x="420" y="312" text-anchor="middle">1:n</text>
 
-<p class="prose"><strong>The error code is a closed union of thirteen members, and the wire format carries a code and two booleans</strong> &mdash; no message, no status, no stack, no vendor string.</p>
+  <path class="fd-edge" d="M195,526 V566" marker-end="url(#ah-ink-sc)"/>
+  <text class="fd-lab" x="203" y="550">1:n</text>
 
-<p class="prose">Each code has exactly one constructor, with its retryable value baked in, so no call site can claim a code is retryable when the taxonomy says otherwise. Adapters catch every vendor exception and construct one of these instead.</p>
+  <path class="fd-edge" d="M460,616 H380" marker-end="url(#ah-ink-sc)"/>
+  <text class="fd-lab" x="420" y="608" text-anchor="middle">1:n</text>
 
-<p class="prose">Each code also maps to a status that says whose fault it was.</p>
+  <rect class="fd-node" x="10" y="10" width="370" height="230" rx="12"/>
+  <text class="fd-t sm" x="24" y="37">places</text>
+  <text class="fd-s" x="366" y="37" text-anchor="end" style="font-size:12px">SHARED &middot; ONE PLACE</text>
+  <path d="M24,50 H366" fill="none" stroke="var(--line)" stroke-width="1"/>
+  <text class="sc-col" x="24" y="72">id</text><text class="sc-col dim" x="172" y="72">uuid</text><text class="sc-col key" x="264" y="72">PK</text>
+  <text class="sc-col" x="24" y="91">name</text><text class="sc-col dim" x="172" y="91">text</text>
+  <text class="sc-col" x="24" y="110">name_key</text><text class="sc-col dim" x="172" y="110">text</text><text class="sc-col key" x="264" y="110">generated</text>
+  <text class="sc-col" x="24" y="129">category</text><text class="sc-col dim" x="172" y="129">text</text>
+  <text class="sc-col" x="24" y="148">locality</text><text class="sc-col dim" x="172" y="148">text</text>
+  <text class="sc-col" x="24" y="167">country_code</text><text class="sc-col dim" x="172" y="167">char(2)</text>
+  <text class="sc-col" x="24" y="186">lat</text><text class="sc-col dim" x="172" y="186">double precision</text>
+  <text class="sc-col" x="24" y="205">lng</text><text class="sc-col dim" x="172" y="205">double precision</text>
+  <text class="sc-col" x="24" y="224">merged_into_place_id</text><text class="sc-col dim" x="172" y="224">uuid</text><text class="sc-col key" x="264" y="224">&rarr; places</text>
+
+  <rect class="fd-node" x="460" y="10" width="370" height="180" rx="12"/>
+  <text class="fd-t sm" x="474" y="37">place_provider_refs</text>
+  <text class="fd-s" x="816" y="37" text-anchor="end" style="font-size:12px">SHARED</text>
+  <path d="M474,50 H816" fill="none" stroke="var(--line)" stroke-width="1"/>
+  <text class="sc-col" x="474" y="72">id</text><text class="sc-col dim" x="622" y="72">uuid</text><text class="sc-col key" x="714" y="72">PK</text>
+  <text class="sc-col" x="474" y="91">place_id</text><text class="sc-col dim" x="622" y="91">uuid</text><text class="sc-col key" x="714" y="91">&rarr; places</text>
+  <text class="sc-col" x="474" y="110">provider</text><text class="sc-col dim" x="622" y="110">text</text>
+  <text class="sc-col" x="474" y="129">provider_place_id</text><text class="sc-col dim" x="622" y="129">text</text>
+  <text class="sc-col" x="474" y="148">is_primary</text><text class="sc-col dim" x="622" y="148">boolean</text>
+  <text class="sc-col dim" x="474" y="174">UNIQUE (provider, provider_place_id)</text>
+
+  <rect class="fd-node act" x="10" y="270" width="370" height="256" rx="12"/>
+  <text class="fd-t sm" x="24" y="297">saved_places</text>
+  <text class="fd-s" x="366" y="297" text-anchor="end" style="font-size:12px">YOURS &middot; ONE ENTRY</text>
+  <path d="M24,310 H366" fill="none" stroke="var(--line)" stroke-width="1"/>
+  <text class="sc-col" x="24" y="332">id</text><text class="sc-col dim" x="172" y="332">uuid</text><text class="sc-col key" x="264" y="332">PK</text>
+  <text class="sc-col" x="24" y="351">user_id</text><text class="sc-col dim" x="172" y="351">uuid</text><text class="sc-col key" x="264" y="351">&rarr; profiles</text>
+  <text class="sc-col" x="24" y="370">place_id</text><text class="sc-col dim" x="172" y="370">uuid</text><text class="sc-col key" x="264" y="370">&rarr; places</text>
+  <text class="sc-col" x="24" y="389">display_name</text><text class="sc-col dim" x="172" y="389">text</text>
+  <text class="sc-col" x="24" y="408">category_override</text><text class="sc-col dim" x="172" y="408">text</text>
+  <text class="sc-col" x="24" y="427">note</text><text class="sc-col dim" x="172" y="427">text</text>
+  <text class="sc-col" x="24" y="446">tags</text><text class="sc-col dim" x="172" y="446">text[]</text>
+  <text class="sc-col" x="24" y="465">visit_state</text><text class="sc-col dim" x="172" y="465">text</text>
+  <text class="sc-col" x="24" y="484">origin</text><text class="sc-col dim" x="172" y="484">text</text>
+  <text class="sc-col dim" x="24" y="510">UNIQUE (user_id, place_id)</text>
+
+  <rect class="fd-node act" x="460" y="270" width="370" height="142" rx="12"/>
+  <text class="fd-t sm" x="474" y="297">profiles</text>
+  <text class="fd-s" x="816" y="297" text-anchor="end" style="font-size:12px">YOURS</text>
+  <path d="M474,310 H816" fill="none" stroke="var(--line)" stroke-width="1"/>
+  <text class="sc-col" x="474" y="332">id</text><text class="sc-col dim" x="622" y="332">uuid</text><text class="sc-col key" x="714" y="332">PK</text>
+  <text class="sc-col" x="474" y="351">display_name</text><text class="sc-col dim" x="622" y="351">text</text>
+  <text class="sc-col" x="474" y="370">created_at</text><text class="sc-col dim" x="622" y="370">timestamptz</text>
+  <text class="sc-col dim" x="474" y="396">id references auth.users &mdash; one row per account</text>
+
+  <rect class="fd-node act" x="10" y="566" width="370" height="179" rx="12"/>
+  <text class="fd-t sm" x="24" y="593">saved_place_sources</text>
+  <text class="fd-s" x="366" y="593" text-anchor="end" style="font-size:12px">YOURS &middot; PROVENANCE</text>
+  <path d="M24,606 H366" fill="none" stroke="var(--line)" stroke-width="1"/>
+  <text class="sc-col" x="24" y="628">saved_place_id</text><text class="sc-col dim" x="172" y="628">uuid</text><text class="sc-col key" x="264" y="628">&rarr; saved_places</text>
+  <text class="sc-col" x="24" y="647">source_id</text><text class="sc-col dim" x="172" y="647">uuid</text><text class="sc-col key" x="264" y="647">&rarr; sources</text>
+  <text class="sc-col" x="24" y="666">user_id</text><text class="sc-col dim" x="172" y="666">uuid</text><text class="sc-col key" x="264" y="666">&rarr; profiles</text>
+  <text class="sc-col" x="24" y="685">added_at</text><text class="sc-col dim" x="172" y="685">timestamptz</text>
+  <text class="sc-col dim" x="24" y="711">PRIMARY KEY (saved_place_id, source_id)</text>
+  <text class="sc-col dim" x="24" y="729">FK (saved_place_id, user_id) &rarr; saved_places</text>
+
+  <rect class="fd-node" x="460" y="566" width="370" height="237" rx="12"/>
+  <text class="fd-t sm" x="474" y="593">sources</text>
+  <text class="fd-s" x="816" y="593" text-anchor="end" style="font-size:12px">SHARED &middot; ONE POST</text>
+  <path d="M474,606 H816" fill="none" stroke="var(--line)" stroke-width="1"/>
+  <text class="sc-col" x="474" y="628">id</text><text class="sc-col dim" x="622" y="628">uuid</text><text class="sc-col key" x="714" y="628">PK</text>
+  <text class="sc-col" x="474" y="647">platform</text><text class="sc-col dim" x="622" y="647">text</text>
+  <text class="sc-col" x="474" y="666">platform_source_id</text><text class="sc-col dim" x="622" y="666">text</text>
+  <text class="sc-col" x="474" y="685">canonical_url</text><text class="sc-col dim" x="622" y="685">text</text>
+  <text class="sc-col" x="474" y="704">author_handle</text><text class="sc-col dim" x="622" y="704">text</text>
+  <text class="sc-col" x="474" y="723">content_text</text><text class="sc-col dim" x="622" y="723">text</text><text class="sc-col dim" x="714" y="723">server only</text>
+  <text class="sc-col" x="474" y="742">thumbnail_url</text><text class="sc-col dim" x="622" y="742">text</text>
+  <text class="sc-col" x="474" y="761">fetch_status</text><text class="sc-col dim" x="622" y="761">text</text>
+  <text class="sc-col dim" x="474" y="787">UNIQUE (platform, platform_source_id)</text>
+
+  <path class="fd-edge" d="M10,820 H830" stroke-dasharray="3 4"/>
+</svg>
+  </div>
+  <figcaption>One colour denotes rows shared by everyone, the other rows belonging to a single user &mdash; that division is the design. Six of the seventeen tables are drawn; the eleven left out are <code>extractions</code>, <code>imports</code>, <code>place_lookups</code>, <code>place_mentions</code>, <code>profile_names</code>, <code>poi_index</code>, <code>poi_regions</code> and the four <code>collection</code> tables.</figcaption>
+</figure>
+
+<h3>6.2 &nbsp;The tables</h3>
 
 <div class="tbl-wrap">
   <table class="tight">
-    <thead><tr><th>Failure</th><th>Status</th><th>Why that status</th></tr></thead>
+    <thead><tr><th style="width:22%">Table</th><th style="width:38%">What one row is</th><th>How it relates</th></tr></thead>
     <tbody>
-      <tr><td>The video has no caption</td><td>422</td><td>We read the video perfectly, and it has none</td></tr>
-      <tr><td>Model quota exhausted</td><td>503</td><td>Not a 429: <em>we</em> are the one who ran out</td></tr>
-      <tr><td>Internal</td><td>500</td><td>The only code that may be a 500, which is what keeps a 500 in the logs meaningful</td></tr>
+      <tr class="grp"><td colspan="3">shared &mdash; these describe the world, not a person</td></tr>
+      <tr><td><code>sources</code></td><td>One TikTok post: its id on TikTok, canonical URL, author and caption</td><td>Unique on the platform and the post id, which is what makes a second paste the same row</td></tr>
+      <tr><td><code>extractions</code></td><td>One model run over one caption, and the candidates it produced</td><td>Belongs to a source; unique on source, model and prompt version, which is the cache key</td></tr>
+      <tr><td><code>places</code></td><td>One real place: name, category, coordinates, country</td><td>The shared record every save points at</td></tr>
+      <tr><td><code>place_provider_refs</code></td><td>A provider&rsquo;s own id for a place</td><td>Belongs to a place; unique per provider and id, which is how the same place is recognised twice</td></tr>
+      <tr class="grp"><td colspan="3">private &mdash; every row belongs to one user</td></tr>
+      <tr><td><code>profiles</code></td><td>An account, created by a trigger when someone signs up</td><td>One-to-one with the sign-in user</td></tr>
+      <tr><td><code>imports</code></td><td>One paste, and how it went: its status, its stage, its timings</td><td>Belongs to a user and to a source</td></tr>
+      <tr><td><code>saved_places</code></td><td>That person&rsquo;s entry for a place: their name, note, tags, been-there state</td><td>Belongs to a user and a place; unique on the pair, so no duplicate saves</td></tr>
+      <tr><td><code>saved_place_sources</code></td><td>Which video recommended which save</td><td>Joins a save to a source, and carries the owner so it cannot drift from the save&rsquo;s</td></tr>
+      <tr class="grp"><td colspan="3">shared between named users</td></tr>
+      <tr><td>the four <code>collection</code> tables</td><td>A shared list, its members and their roles, the places in it, and the invite links</td><td>Everything hangs off the collection; a member&rsquo;s role is owner, editor or viewer</td></tr>
     </tbody>
   </table>
 </div>
 
-<p class="prose">User-facing copy lives on the client as a total record over that union, so a fourteenth code is a compile error rather than a silent regression to one apologetic screen.</p>
+<p class="prose">Five supporting tables sit behind these, for seventeen in all. <code>place_lookups</code> caches provider answers. <code>profile_names</code> holds the name given at sign-up. <code>poi_index</code> and <code>poi_regions</code> are the local copy of open places data the second resolver adapter reads. And <code>place_mentions</code> is where a place we could not identify is meant to be kept honestly rather than discarded &mdash; its schema, its grants and its policies are written and tested, but nothing on a screen reads it yet, so it is the one table in this list that is not carrying the product.</p>
 
-<p class="prose">Each entry names its recovery actions, and a test asserts none is ever empty. No failure screen is a dead end.</p>
+<h3>6.3 &nbsp;The main operations</h3>
 
-<h3>&ldquo;No places found&rdquo; is deliberately not an error</h3>
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:11%">Kind</th><th style="width:27%">Operation</th><th>How it works</th></tr></thead>
+    <tbody>
+      <tr><td>Create</td><td>Save places from a TikTok</td><td><code>POST /api/imports/confirm</code> calls <code>resolve_place()</code> to find or create the shared place, then <code>save_place()</code> for the user&rsquo;s own row (section 7.3)</td></tr>
+      <tr><td>Create</td><td>Add a place by hand</td><td>A server action, through the same two functions, with no video attached</td></tr>
+      <tr><td>Read</td><td>The map and the list</td><td>One query joining saves to places, run on the server</td></tr>
+      <tr><td>Update</td><td>Re-categorise, note, tag, mark &ldquo;Been there&rdquo;</td><td>A server action updating the user&rsquo;s own row</td></tr>
+      <tr><td>Delete</td><td>Remove a save, or an account</td><td>Deleting a save removes that row and its links to videos; the shared place stays for everyone else. Deleting an account is a Supabase admin delete of the <code>auth.users</code> row, and everything else follows the foreign keys down from there &mdash; there is no application-level cleanup, deliberately, because a second definition of &ldquo;the user&rsquo;s data&rdquo; would drift from the one Postgres actually obeys</td></tr>
+    </tbody>
+  </table>
+</div>
 
-<p class="prose">It is a successful outcome with its own screen, because it is the usual result &mdash; creators name venues on screen and in speech, not in captions.</p>
-
-<p class="prose">Modelling the commonest outcome as a failure would poison every log built on the taxonomy.</p>
+<p class="prose">Two rules are enforced by the database, not the application. Nothing is written to <code>places</code> until the user confirms; until then the candidates are JSON on <code>extractions.candidates</code>, which is the row the confirm route reads them back from, with a copy on <code>imports.candidates</code> kept for the audit trail. And a place is de-duplicated inside <code>resolve_place()</code> &mdash; on the provider&rsquo;s id first, then on the same name within 75 metres &mdash; so two people importing the same bakery converge on one row.</p>
   </div>
 </section>
 
+<section id="s7" aria-labelledby="s7h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 07</p>
+      <h2 id="s7h">Routes, Actions and How Data Flows</h2>
+      <p class="lede">Eight route handlers and seven server-action modules. Something becomes a route handler only when it needs a slow external call or elevated access; everything else is a server action or a plain read on the server.</p>
+    </div>
+
+<h3>7.1 &nbsp;The two paths through the system</h3>
+
+<p class="prose"><strong>Reading.</strong> The browser requests a page. The page is a server component, so it queries Postgres directly with a client carrying the signed-in user&rsquo;s credentials, and the policies return only that user&rsquo;s rows. The page renders and sends HTML with the data already in it. Nothing fetches on mount; there is no API in between.</p>
+
+<p class="prose"><strong>Writing.</strong> The browser calls a server action, or posts to a route handler for the import steps. It validates its input, identifies the user, and writes through that user&rsquo;s own database client, so the permission decision is made by Postgres rather than an <code>if</code> statement. It then revalidates the affected page, which pulls fresh data back down the read path. The server stays the only source of truth.</p>
+
+<p class="prose"><strong>Signing in, which is neither.</strong> The auth screens &mdash; sign-up and sign-in at <code>/sign-in</code>, and the two steps of a reset at <code>/auth/reset</code> and <code>/auth/new-password</code> &mdash; are client components, and they call Supabase Auth from the browser with the public anon key. No password ever reaches our own server. Supabase then sends the user back to <code>GET /auth/callback</code> carrying a one-time code; that route handler is what calls <code>exchangeCodeForSession</code> and sets the session cookie, so a code that is one exchange away from a live account is never handed to React, never a prop, and never left in the address bar. From then on <code>src/proxy.ts</code> refreshes that cookie before every page, because a server component cannot write one for itself.</p>
+
+<figure class="figblock">
+  <svg viewBox="0 0 442 700" aria-hidden="true" focusable="false">
+  <style>
+    .dp-r  { font-family:var(--mono); font-size:12px; font-weight:500; fill:var(--ink-2); }
+    .dp-key{ fill:none; stroke:var(--gold);     stroke-width:2; }
+    .dp-dir{ fill:none; stroke:var(--mint-mid); stroke-width:2; stroke-dasharray:6 4; }
+    .dp-lab-key { fill:var(--gold); }
+    .dp-lab-dir { fill:var(--mint-mid); }
+  </style>
+  <defs>
+    <marker id="ah-ink-dp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-ink"/></marker>
+    <marker id="ah-gold-dp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" class="ah-gold"/></marker>
+    <marker id="ah-mint-dp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L6,3 L0,6 z" fill="var(--mint-mid)"/></marker>
+  </defs>
+
+  <!-- browser to server -->
+  <path class="fd-edge" d="M134,110 V148" marker-end="url(#ah-ink-dp)"/>
+  <text class="fd-lab" x="142" y="134" style="font-size:12px">page request</text>
+  <path class="fd-edge" d="M314,110 V148" marker-end="url(#ah-ink-dp)"/>
+  <text class="fd-lab" x="322" y="134" style="font-size:12px">fetch</text>
+
+  <!-- server to database -->
+  <path class="dp-key" d="M80,400 V448" marker-end="url(#ah-gold-dp)"/>
+  <text class="fd-lab dp-lab-key" x="88" y="420" style="font-size:12px">service role</text>
+  <path class="fd-edge" d="M196,400 V448" marker-end="url(#ah-ink-dp)"/>
+  <text class="fd-lab" x="204" y="440" style="font-size:12px">as you &middot; RLS</text>
+
+  <!-- server to the outside world -->
+  <path class="fd-edge" d="M34,368 H20 V600 H349"/>
+  <text class="fd-lab" x="26" y="592" style="font-size:12px">outbound &middot; server side only</text>
+  <path class="fd-edge" d="M93,600 V622"  marker-end="url(#ah-ink-dp)"/>
+  <path class="fd-edge" d="M221,600 V622" marker-end="url(#ah-ink-dp)"/>
+  <path class="fd-edge" d="M349,600 V622" marker-end="url(#ah-ink-dp)"/>
+
+  <!-- BROWSER -->
+  <rect class="fd-node sys" x="34" y="10" width="374" height="100" rx="14"/>
+  <text class="fd-s" x="48" y="32">BROWSER</text>
+  <rect class="fd-node" x="46" y="44" width="176" height="54" rx="10"/>
+  <text class="fd-t sm" x="58" y="68" style="font-size:14px">Pages</text>
+  <text class="fd-s" x="58" y="88" style="font-size:12px">SERVER-RENDERED HTML</text>
+  <rect class="fd-node" x="232" y="44" width="164" height="54" rx="10"/>
+  <text class="fd-t sm" x="244" y="68" style="font-size:14px">Map &middot; sign-in</text>
+  <text class="fd-s" x="244" y="88" style="font-size:12px">CLIENT COMPONENTS</text>
+
+  <!-- VERCEL -->
+  <rect class="fd-node sys" x="34" y="148" width="374" height="252" rx="14"/>
+  <text class="fd-s" x="48" y="170">VERCEL &middot; ONE DEPLOYMENT</text>
+  <rect class="fd-node" x="46" y="180" width="176" height="54" rx="10"/>
+  <text class="fd-t sm" x="58" y="204" style="font-size:14px">Server Components</text>
+  <text class="fd-s" x="58" y="224" style="font-size:12px">READ YOUR ROWS</text>
+  <rect class="fd-node" x="232" y="180" width="164" height="54" rx="10"/>
+  <text class="fd-t sm" x="244" y="204" style="font-size:14px">Server Actions</text>
+  <text class="fd-s" x="244" y="224" style="font-size:11px">SAVE &middot; EDIT &middot; DELETE</text>
+  <rect class="fd-node" x="46" y="246" width="350" height="142" rx="10"/>
+  <text class="fd-t sm" x="60" y="270" style="font-size:14px">Route handlers</text>
+  <text class="dp-r" x="60" y="292">/api/imports/probe &middot; confirm</text>
+  <text class="dp-r" x="60" y="310">/api/imports/place-search &middot; source-preview</text>
+  <text class="dp-r" x="60" y="328">/api/search/interpret</text>
+  <text class="dp-r" x="60" y="346">/api/sources/thumbnail</text>
+  <text class="dp-r" x="60" y="364">/auth/callback &middot; /healthz</text>
+
+  <!-- SUPABASE -->
+  <rect class="fd-node sys" x="34" y="448" width="374" height="132" rx="14"/>
+  <text class="fd-s" x="48" y="470">SUPABASE</text>
+  <rect class="fd-node act" x="46" y="480" width="176" height="88" rx="10"/>
+  <text class="fd-t sm" x="58" y="506" style="font-size:14px">Postgres</text>
+  <text class="fd-s" x="58" y="528" style="font-size:12px">ROW-LEVEL SECURITY</text>
+  <text class="fd-s" x="58" y="548" style="font-size:12px">17 TABLES</text>
+  <rect class="fd-node act" x="232" y="480" width="164" height="88" rx="10"/>
+  <text class="fd-t sm" x="244" y="506" style="font-size:14px">Auth</text>
+  <text class="fd-s" x="244" y="528" style="font-size:12px">SESSIONS</text>
+  <text class="fd-s" x="244" y="548" style="font-size:12px">EMAIL &middot; PASSWORD</text>
+
+  <!-- OUTSIDE SERVICES -->
+  <rect class="fd-node" x="34" y="622" width="118" height="56" rx="10"/>
+  <text class="fd-t sm" x="46" y="646" style="font-size:14px">TikTok</text>
+  <text class="fd-s" x="46" y="666" style="font-size:12px">OEMBED</text>
+  <rect class="fd-node" x="162" y="622" width="118" height="56" rx="10"/>
+  <text class="fd-t sm" x="174" y="646" style="font-size:14px">Gemini</text>
+  <text class="fd-s" x="174" y="666" style="font-size:12px">CAPTIONS</text>
+  <rect class="fd-node" x="290" y="622" width="118" height="56" rx="10"/>
+  <text class="fd-t sm" x="302" y="646" style="font-size:14px">Google</text>
+  <text class="fd-s" x="302" y="666" style="font-size:12px">PLACES</text>
+
+  <!-- the one edge that skips the server -->
+  <path class="dp-dir" d="M396,71 H424 V560 H400" marker-end="url(#ah-mint-dp)"/>
+  <text class="fd-lab dp-lab-dir" x="424" y="300" style="font-size:12px" text-anchor="middle" dy="-5" transform="rotate(-90 424 300)">direct &middot; publishable key</text>
+
+  <path class="fd-edge" d="M34,692 H408" stroke-dasharray="3 4"/>
+</svg>
+  <figcaption>Every path to the database runs browser &rarr; Vercel &rarr; Postgres, except one: the auth screens are client components that reach Supabase Auth straight from the browser with the publishable key. The service-role key is used on the marked edge alone, and never reaches a browser.</figcaption>
+</figure>
+
+<h3>7.2 &nbsp;Route handlers</h3>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:24%">Route</th><th style="width:9%">Method</th><th style="width:33%">What it does</th><th>What it takes, and what it returns</th></tr></thead>
+    <tbody>
+      <tr><td><code>/api/imports/source-preview</code></td><td>POST</td><td>Fetches the post, so the thumbnail, handle and caption appear in about a second</td><td>Takes <code>{ url }</code>. Returns the source id, author handle and name, canonical URL, thumbnail URL and caption</td></tr>
+      <tr><td><code>/api/imports/probe</code></td><td>POST</td><td>The rest of the pipeline in one request: caption, extraction, resolution</td><td>Takes <code>{ url }</code>. Returns the same preview fields plus the extraction id, the import id, the candidates with their matches, and a reason when there are none</td></tr>
+      <tr><td><code>/api/imports/confirm</code></td><td>POST</td><td>Turns the reviewed selections into shared places and the user&rsquo;s own saves</td><td>Takes <code>{ extractionId, items:&nbsp;[{ candidateIndex, optionIndex, note }] }</code>. Returns one status per <code>candidateIndex</code>, so a partial save can be reported as one</td></tr>
+      <tr><td><code>/api/imports/place-search</code></td><td>POST</td><td>Search for a place by name, from the no-places screen</td><td>Takes <code>{ query, cityHint }</code>, or <code>{ op:&nbsp;'add', optionIndex, expectedName }</code> to save one. Returns <code>{ ok, results }</code>, or <code>409</code> if the shortlist moved under the choice</td></tr>
+      <tr><td><code>/api/search/interpret</code></td><td>POST</td><td>Turns a typed sentence into filter values. Returns no places and writes nothing</td><td>Takes <code>{ query, vocabulary }</code>. Returns <code>{ ok, intent, dropped }</code> &mdash; filter values only</td></tr>
+      <tr><td><code>/api/sources/thumbnail</code></td><td>POST</td><td>Re-fetches a thumbnail whose signed URL has expired</td><td>Takes <code>{ sourceId }</code>. Returns <code>{ status, url, expiresAt }</code></td></tr>
+      <tr><td><code>/auth/callback</code></td><td>GET</td><td>Exchanges a sign-in code for a session</td><td>Takes <code>?code=</code> in the query. Returns a 302 to one of a closed set of our own paths, with the session cookie set</td></tr>
+      <tr><td><code>/healthz</code></td><td>GET</td><td>Liveness, revealing no configuration</td><td>Takes nothing. Returns <code>{ ok, stage, commit }</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>7.3 &nbsp;Server actions, and the one request worth tracing</h3>
+
+<p class="prose">Server actions cover every ordinary change to a user&rsquo;s own rows: re-categorising, noting, tagging and marking a place &ldquo;Been there&rdquo;, deleting one, adding one by hand, collections, profile, account and sign-out. There is no REST layer over our own database: row-level security is already the authorisation layer, and a hand-written one would be a second place for the same rules to drift.</p>
+
+<p class="prose">The request worth following all the way through is the confirm. Here it is with the values from a real run on 5 September 2026, so nothing below is illustrative.</p>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:26%">Stage</th><th>The actual value</th></tr></thead>
+    <tbody>
+      <tr><td>The caption, as it arrived</td><td dir="rtl" style="unicode-bidi:isolate">&#1489;&#1497;&#1514; &#1511;&#1508;&#1492; &#1495;&#1491;&#1513; &#1489;&#1505;&#1490;&#1504;&#1493;&#1503; &#1497;&#1508;&#1504;&#1497; &#1504;&#1508;&#1514;&#1495; &#1489;&#1514;&#1500; &#1488;&#1489;&#1497;&#1489; &#128205;<strong>&#1511;&#1493;&#1492;&#1497;, &#1489;&#1503; &#1497;&#1492;&#1493;&#1491;&#1492; 155 &#1514;&#1500; &#1488;&#1489;&#1497;&#1489;</strong>&hellip;<span dir="ltr" style="unicode-bidi:isolate;display:block;margin-top:6px" class="tiny">824 characters of Hebrew. One of them is a place.</span></td></tr>
+      <tr><td>Extracted &mdash; copied, not inferred</td><td><code>rawName</code> <span dir="rtl" style="unicode-bidi:isolate">&#1511;&#1493;&#1492;&#1497;</span>, with the quote supporting it and the address fragment <span dir="rtl" style="unicode-bidi:isolate">&#1489;&#1503; &#1497;&#1492;&#1493;&#1491;&#1492; 155</span>. Both appear in the caption verbatim, so the candidate survives the checks in &sect;3.3</td></tr>
+      <tr><td>Matched by Google Places</td><td><span dir="rtl" style="unicode-bidi:isolate"><strong>Kohi &#1489;&#1497;&#1514; &#1511;&#1508;&#1492; &#1497;&#1508;&#1504;&#1497;</strong></span> &mdash; <span dir="rtl" style="unicode-bidi:isolate">&#1489;&#1503; &#1497;&#1492;&#1493;&#1491;&#1492; 155, &#1514;&#1500; &#1488;&#1489;&#1497;&#1489;&#1470;&#1497;&#1508;&#1493;</span>, <span class="mono">32.088286, 34.773303</span></td></tr>
+      <tr><td>The band</td><td><code>preselect</code>. The caption named a street number and the answer carries the same one, so the address is decisive and the candidate arrives on the review screen already ticked</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p class="prose">On confirm, the browser does not send that place &mdash; it sends a pointer to the one the server already stored: <code>{ extractionId, items: [{ candidateIndex: 0, optionIndex: 0, note }] }</code>. The server checks the extraction belongs to the caller and reads the name and the coordinates back from <code>extractions.candidates</code>, so a forged request cannot invent a place or move one that other users have saved. <code>resolve_place()</code>, the only function permitted to write to the shared <code>places</code> table, finds no existing row within 75 metres under that name and creates one &mdash; <code>name</code> Kohi <span dir="rtl" style="unicode-bidi:isolate">&#1489;&#1497;&#1514; &#1511;&#1508;&#1492; &#1497;&#1508;&#1504;&#1497;</span>, <code>category</code> cafe, <code>lat</code> 32.088286, <code>lng</code> 34.773303, <code>country_code</code> IL. Then <code>save_place()</code> writes the row that is actually yours: a <code>saved_places</code> record with your <code>user_id</code>, that <code>place_id</code>, <code>origin</code> <code>'import'</code>, <code>visit_state</code> <code>'want_to_go'</code>, and a <code>saved_place_sources</code> link back to the TikTok it came from. Paste the same link tomorrow and the unique key on <code>(user_id, place_id)</code> is what refuses the second save.</p>
+  </div>
+</section>
+
+<section id="s8" class="deep" aria-labelledby="s8h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 08</p>
+      <h2 id="s8h">Who Is Allowed to Do What</h2>
+      <p class="lede">There is one kind of account. Anything that looks like a second role is a role inside one shared collection.</p>
+    </div>
+
+<p class="prose">A visitor who is not signed in sees the landing page, the sign-in and password pages, and a preview of a collection someone shared a link to. That is all. A signed-in user owns a library that is private by default, plus any collections they made or were invited to. There is no administrator and no staff view: no screen shows one person another person&rsquo;s library.</p>
+
+<h3>8.1 &nbsp;Where the check happens</h3>
+
+<p class="prose"><code>src/proxy.ts</code> runs before every page. It refreshes the session cookie, which a server component cannot do for itself, and redirects a signed-out visitor away from <code>/map</code>. Every other page that shows a user&rsquo;s data calls <code>getUser()</code> itself and redirects if nobody is signed in &mdash; rather than relying on a list in middleware that someone will forget to add a new page to.</p>
+
+<p class="prose">The real check is in the database. Row-level security is enabled <em>and</em> forced on all seventeen tables &mdash; forced matters, because without it the table&rsquo;s own owner bypasses every policy &mdash; and the policies are written in terms of the signed-in user&rsquo;s id. A whole policy looks like this:</p>
+
+<pre><code><span class="k">create policy</span> saved_places_select_own <span class="k">on</span> public.saved_places
+  <span class="k">for</span> select <span class="k">to</span> authenticated <span class="k">using</span> (user_id = (select auth.uid()));</code></pre>
+
+<p class="prose">That is the authorisation layer, in full, for reading someone&rsquo;s library. There are three more like it for insert, update and delete. Pages and server actions both query with a client carrying the user&rsquo;s own credentials, so a query for another user&rsquo;s rows returns nothing rather than being refused &mdash; which is why the application contains almost no permission logic. A build script fails if a migration ships a new table without the enable-and-force pair.</p>
+
+<h3>8.2 &nbsp;The one exception</h3>
+
+<p class="prose">A user cannot be allowed to write to the shared <code>places</code> table directly, so <code>resolve_place()</code> runs with the service role and is the only path that can. Seven modules hold that key: five route handlers &mdash; confirm, probe, source-preview, place-search and thumbnail &mdash; and two server actions, account deletion and manual add. All seven are server-only, and the key cannot reach a browser because the module holding it fails the build if client code ever imports it. Every one of them runs its ownership check on the user&rsquo;s own client first, so the privileged step is reached only after the database has agreed the request belongs to the caller.</p>
+
+<h3>8.3 &nbsp;Roles inside a collection</h3>
+
+<p class="prose">A collection has exactly one owner, who can rename or delete it, invite people, change roles and remove members; editors can add and remove places; viewers can read. An invite is a link carrying a token that grants editor or viewer, and it can expire or be revoked.</p>
+
+<p class="prose">Membership ends rather than being deleted, so a revoked invite cannot be replayed and a demotion cannot be undone by leaving and rejoining.</p>
+  </div>
+</section>
+
+<section id="s9" aria-labelledby="s9h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Section 09</p>
+      <h2 id="s9h">Bad Input, and What Happens When Things Fail</h2>
+      <p class="lede">Anything from outside is validated where it arrives, and every failure is one of a fixed set of error codes that carry no text from a vendor.</p>
+    </div>
+
+<h3>9.1 &nbsp;Validating the link</h3>
+
+<p class="prose">The pasted link is the only outside address a user can point our server at, so it is checked before we fetch it. The host must match an allow-list of six official TikTok domains exactly, not by suffix, so <code>tiktok.com.evil.io</code> fails. The check runs again on every redirect a shortened link follows, up to five hops, so the server can never be sent somewhere unsafe. The check in the browser is a convenience only.</p>
+
+<h3>9.2 &nbsp;Everything else that arrives from outside</h3>
+
+<div class="tbl-wrap">
+  <table class="tight">
+    <thead><tr><th style="width:34%">Input</th><th>How it is handled</th></tr></thead>
+    <tbody>
+      <tr><td>TikTok&rsquo;s response</td><td>Parsed leniently about extra fields, so TikTok adding one cannot break us, but strictly about the ones we need</td></tr>
+      <tr><td>The model&rsquo;s reply</td><td>Checked against the schema. A bad reply becomes a named error, not an exception thrown somewhere odd</td></tr>
+      <tr><td>Request bodies</td><td>Validated against a schema before anything else runs</td></tr>
+      <tr><td>Our own stored JSON</td><td>Re-validated when read back, because the code that wrote it may be an older deployment</td></tr>
+      <tr><td>Form input</td><td>Checked by plain functions that return the message the form should show</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>9.3 &nbsp;A closed set of errors</h3>
+
+<p class="prose">Failures are represented by a fixed list of thirteen codes. What crosses to the browser is a code, one flag saying whether retrying could help, and the id of the import it belongs to &mdash; no message, no stack, no vendor string &mdash; so nothing internal leaks into a screen or a log by accident. Each code is produced by exactly one function, which fixes whether it is worth retrying, so no caller can claim otherwise. Adapters catch every vendor exception and turn it into one of these.</p>
+
+<p class="prose">The HTTP status says whose fault it was: a caption-less video is a 422, an exhausted model quota a 503 because the quota is ours, and only one code may ever be a 500 &mdash; which is what keeps a 500 in the logs worth reading. The words a user sees are held in one place on the client, one entry per code, so adding a fourteenth code is a compile error rather than a screen that quietly says &ldquo;something went wrong&rdquo;. Every entry names at least one way forward, and a test enforces that, so no failure screen is a dead end.</p>
+
+<h3>9.4 &nbsp;Finding nothing is not a failure</h3>
+
+<p class="prose">&ldquo;No places found&rdquo; is not in that list of errors. It is a successful result with a screen of its own, because it is the usual result. Treating the commonest outcome as a failure would make every error log and every reliability number meaningless.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="small"><a href="submission.html">&larr; Submission index</a></p>
+    <p class="small"><a href="https://no-crumbss.vercel.app">no-crumbss.vercel.app</a>
+       &nbsp;&middot;&nbsp;
+       <a href="https://github.com/LiorJossef/no-crumbs">github.com/LiorJossef/no-crumbs</a></p>
+    <p class="tiny">No Crumbs &middot; Lior Jossef &middot; RUNI CS, Internet Technologies</p>
+  </div>
+</footer>
+
 <script>
-/* The crumb mark, lifted from no-crumbs-submission.html so the PRD carries the same
-   face as the product. Geometry is ratified (brand foundation §3.1 rule 1) — do not
+/* The crumb mark, so every document in the set carries the same face as the
+   product. Geometry is ratified (brand foundation §3.1 rule 1) — do not
    edit the BODY path. */
 window.CRUMB = (function () {
   var BODY = "M34 9C50 3 70 7 82 20 93 32 97 50 92 66 86 84 68 95 50 94 30 93 12 82 7 64 2 46 8 26 20 16 24 12 29 11 34 9Z";
@@ -943,7 +1159,7 @@ CRUMB.render('[data-crumb]');
     try { localStorage.setItem('nc-prd-theme', next); } catch (e) {}
   });
 
-  /* ---------- scroll-spy over the six sections ----------
+  /* ---------- scroll-spy over the nine sections ----------
      rootMargin's -55% bottom inset means the active section is the one occupying
      the upper part of the viewport, which is where a reader actually is. */
   var sections = Array.prototype.slice.call(document.querySelectorAll('section[id]'));
@@ -953,13 +1169,36 @@ CRUMB.render('[data-crumb]');
   });
   var bar = document.querySelector('.tocbar');
 
+  /* The nav scrolls the window itself. `body` is a scroll container whose height equals
+     the document, so hash navigation and scrollIntoView() have nothing to scroll and the
+     chips silently did nothing; window.scrollTo is the only thing that moves the page.
+     Not updating location.hash also keeps this working in sandboxed viewers, where
+     navigating to a data: URL is blocked. */
+  Array.prototype.forEach.call(document.querySelectorAll('.tocbar a'), function (a) {
+    a.addEventListener('click', function (ev) {
+      var target = document.getElementById(a.getAttribute('href').slice(1));
+      if (!target) return;
+      /* Whichever of window / documentElement / body is the real scroller, move it:
+         body is a scroll container here, so window.scrollY is not always the page offset. */
+      var cur = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      var top = target.getBoundingClientRect().top + cur - 88;
+      if (top < 0) top = 0;
+      var how = reduce ? 'auto' : 'smooth';
+      window.scrollTo({ top: top, behavior: how });
+      if (document.scrollingElement) document.scrollingElement.scrollTo({ top: top, behavior: how });
+      document.body.scrollTo({ top: top, behavior: how });
+    });
+  });
+
   function setActive(id) {
     for (var k in chips) chips[k].removeAttribute('aria-current');
     var chip = chips[id];
     if (!chip) return;
     chip.setAttribute('aria-current', 'true');
     if (bar.scrollWidth > bar.clientWidth) {
-      chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+      /* Scroll the bar itself, never the page: scrollIntoView() can move the document
+         vertically, which cancelled the click's own smooth scroll mid-flight. */
+      bar.scrollTo({ left: chip.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
     }
   }
 
