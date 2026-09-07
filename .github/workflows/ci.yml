@@ -3,7 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
+    # Documentation carries no runtime behaviour, so it does not need the four jobs below.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 concurrency:
   group: ci-${{ github.ref }}
