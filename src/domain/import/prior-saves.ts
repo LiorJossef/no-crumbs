@@ -26,7 +26,7 @@
  *
  * It is **information, not a block**. Everything here is a default and a sentence; the person can
  * still add the same place again on purpose, and the screen never refuses. That is the same
- * position `docs/product-ruling-one-place-one-object.md` takes elsewhere — state the fact, leave
+ * position `docs/archive/product-ruling-one-place-one-object.md` takes elsewhere — state the fact, leave
  * the decision.
  *
  * It **invents no new notion of sameness**. Place identity lives in `docs/08-place-identity.md`
@@ -51,7 +51,7 @@
  * **The right behaviour is to re-point the existing save, not to write a second one and not to
  * merge two rows afterwards.** That capability already exists and is unused:
  * `repoint_saved_place(p_user_id, p_saved_place_id, p_place_id)`, migrations `0032`/`0033`,
- * reviewed by `security-privacy` and signed off in `docs/db-ruling-repoint-place-2026-08-31.md`.
+ * reviewed by `security-privacy` and signed off in `docs/archive/db-ruling-repoint-place-2026-08-31.md`.
  * It moves one person's save onto a different `places` row, keeping the note, the tags, the
  * been-mark and the link back to the TikTok — which is exactly the shape of "the same
  * recommendation, better located". `grep -rn repoint_saved_place src/` returns **nothing**: the

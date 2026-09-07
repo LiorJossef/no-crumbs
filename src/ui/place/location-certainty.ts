@@ -103,7 +103,7 @@ export function savedOnLine(savedAt: Date, now: Date): string {
 /**
  * "Saved 3 days ago" — the same fact as `savedOnLine`, said the way a list row needs it.
  *
- * The full ladder is ruled in `docs/overnight-copy-deck.md` §4.1 (C130) and is reproduced here
+ * The full ladder is ruled in `docs/archive/overnight-copy-deck.md` §4.1 (C130) and is reproduced here
  * rather than paraphrased, because a rung with no string is a rung a caller invents at 2 am:
  *
  * | Condition | String |

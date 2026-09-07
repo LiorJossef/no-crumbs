@@ -4,7 +4,7 @@
  *
  * One string, in one place, because the same type value had been written out character-for-character
  * in six files and drifted into three spellings at two letterspacings while it was there
- * (`docs/ux-place-card-unification-2026-09-02.md` §3.2 has the inventory).
+ * (`docs/archive/ux-place-card-unification-2026-09-02.md` §3.2 has the inventory).
  *
  * **It is quiet on purpose, as of 2026-09-02.** It used to be 11 px bold, uppercase, letterspaced
  * `.1em` — which made the smallest text on the card the loudest thing on it, and put a shout above

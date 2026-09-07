@@ -3,11 +3,11 @@
 **Lane:** `i3retention` (`security-privacy`) · **Date:** 2026-08-31
 **Base commit:** `9a95444ee5b4b61fd4e65fee25b3e25be21f46af` on `no-crumbs-implementation`.
 Re-checked at `8f5f12afd92d6aef09a4144abc6b098e64257fa7`, which landed while this was being written: the
-only file it changes is `docs/entity-proposal.md` (committing it), and E1's **Shape** list and §7's gate
+only file it changes is `docs/archive/entity-proposal.md` (committing it), and E1's **Shape** list and §7's gate
 are byte-identical to what was ruled on — the addition is a scheduling paragraph (L1-completeness vs L2-scope)
 that touches no design decision here. Every migration, policy and `src/` line cited is unchanged between
 the two commits.
-**Supports:** `docs/security-ruling-e1-caption-retention.md` · answers `04` §8 Q4 in part and
+**Supports:** `docs/archive/security-ruling-e1-caption-retention.md` · answers `04` §8 Q4 in part and
 `security.md` owed item 6.
 
 Untracked when written; six other lanes hold this tree.
@@ -26,7 +26,7 @@ $ npx supabase --version → 2.115.0   (CLI present; no daemon to run a containe
 
 `db:reset` / `db:test` and a hand-written two-role probe were therefore all unavailable, and the
 local database is an exclusive resource that was not leased to this lane. This is the same blocker
-recorded in `docs/overnight-deletion-review.md` §0 on the same machine.
+recorded in `docs/archive/overnight-deletion-review.md` §0 on the same machine.
 
 Everything below is read from **the DDL as committed at the base commit**, plus greps over `src/`,
 `supabase/`, `scripts/` and `.github/`. For **grants, RLS policies and FK referential actions** that
@@ -43,7 +43,7 @@ pattern). That is `qa-reliability`'s, and it is named as a condition in the ruli
 ## 1. The `imports.expires_at` 24-hour bound does not exist
 
 **Claim under test:** *"`imports.candidates` is jsonb with `expires_at default now() + interval '24
-hours'`, so the model's finding is destroyed on a timer."* (`docs/entity-proposal.md` §E1, repeated in
+hours'`, so the model's finding is destroyed on a timer."* (`docs/archive/entity-proposal.md` §E1, repeated in
 the dispatch and in three other documents.)
 
 **Result: FALSE. Nothing enforces it.** `expires_at` is a column default that no code reads.

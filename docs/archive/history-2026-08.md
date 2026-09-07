@@ -1,7 +1,7 @@
 # Session history — August 2026
 
 > **DATED. Not maintained. Do not read this to find out what is true now** — that is
-> [`current-state.md`](current-state.md), which was cut down to a genuine cold-start document on
+> [`current-state.md`](../current-state.md), which was cut down to a genuine cold-start document on
 > 2026-08-30 and this is everything it used to carry.
 >
 > What follows is the running session narrative from 2026-08-27 to 2026-08-30, newest first: what
@@ -443,7 +443,7 @@ than curing it. **Do not re-investigate this.** Cover-frame OCR is separately re
 ## The three gates between here and the owner's ~100-TikTok batch
 
 All four owner-only items, ordered, are in
-[`evidence/deploy/owner-actions-before-the-batch.md`](evidence/deploy/owner-actions-before-the-batch.md).
+[`evidence/deploy/owner-actions-before-the-batch.md`](../evidence/deploy/owner-actions-before-the-batch.md).
 The short version, all measured this session:
 
 1. **`PROD_DATABASE_URL` is empty in `.env.local`.** Blocks the production push (`db-push.sh`

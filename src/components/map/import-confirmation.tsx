@@ -26,7 +26,7 @@
  * A TikTok became a pin. That is the entire proposition, and until 2026-08-31 the thing that
  * announced it was a lucide `Check` in a 24px disc — the same check mark in every product ever
  * made — while `CRUMB_MOODS.found`, `.crumb-anim-land` and the spark pair sat drawn, styled, tested
- * and reachable from nowhere (`docs/product-review-2026-08-31-r2.md` finding 5; `mood="found"`
+ * and reachable from nowhere (`docs/archive/product-review-2026-08-31-r2.md` finding 5; `mood="found"`
  * appeared in no file in `src/`).
  *
  * The restraint everywhere else is what earns this. The no-places screen — the *modal* outcome at

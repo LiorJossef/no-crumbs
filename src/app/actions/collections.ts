@@ -263,7 +263,7 @@ export async function removeCollectionItem(
 /**
  * The outcome of an unlink that names more than one item — the collection twin of
  * `BulkDeleteResult` in `saved-places.ts`, and deliberately a separate type: the two actions are
- * different removals (`docs/ux-two-removals-one-screen.md`) and sharing one result type is the
+ * different removals (`docs/archive/ux-two-removals-one-screen.md`) and sharing one result type is the
  * first step towards sharing one control.
  */
 export type BulkRemoveResult =

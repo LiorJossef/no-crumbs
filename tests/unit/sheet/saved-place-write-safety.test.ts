@@ -1,5 +1,5 @@
 /**
- * **Guards the five saved-place controls against the defect `docs/product-review-2026-09-01-r5.md`
+ * **Guards the five saved-place controls against the defect `docs/archive/product-review-2026-09-01-r5.md`
  * §2 finding 1 measured: a Server Action `await`ed bare inside `startTransition`, so an offline
  * press rejected, React escalated the rejection to `app/error.tsx`, and the map went from seven
  * pins to none — taking the note the user had just typed with it.**

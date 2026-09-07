@@ -1,8 +1,8 @@
 -- 0036_tags_are_the_users_vocabulary.sql — the words a person files their map under become theirs,
 -- and what the model proposed stops being overwritten by that.
 --
--- Task `r3-tags-db`, finding 2 of `docs/product-review-2026-08-31-r3.md`. The ruling that governs
--- this file is `docs/db-ruling-tag-ownership-2026-09-01.md`; where the two differ, the ruling wins.
+-- Task `r3-tags-db`, finding 2 of `docs/archive/product-review-2026-08-31-r3.md`. The ruling that governs
+-- this file is `docs/archive/db-ruling-tag-ownership-2026-09-01.md`; where the two differ, the ruling wins.
 --
 -- ═══ THE DEFECT, MEASURED ═════════════════════════════════════════════════════════════════════
 --
@@ -20,7 +20,7 @@
 -- shown to the user before it was stored, and impossible for them to prune.
 --
 -- `brand-and-product-foundation.md` §7 promises nothing reaches the map without confirmation. Tags
--- are the counter-example, and `docs/product-edge-2026-08-31.md` names refusing to assert what the
+-- are the counter-example, and `docs/archive/product-edge-2026-08-31.md` names refusing to assert what the
 -- user did not confirm as the property this product is built on. Every tag in this database is
 -- currently such an assertion.
 --

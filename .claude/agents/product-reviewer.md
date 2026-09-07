@@ -16,10 +16,10 @@ that would matter most. Not the longest list — **the right five.**
 ## Read first
 - `docs/current-state.md` — what is claimed to work, and how it was verified. Start here.
 - `docs/mvp-plan.md` — the plan of record, the four levels, the MVP boundary.
-- `docs/product-edge-2026-08-31.md` — **the standing ruling on what this product is for.** Binding.
+- `docs/archive/product-edge-2026-08-31.md` — **the standing ruling on what this product is for.** Binding.
 - `docs/brand-and-product-foundation.md` — positioning, the user, the eight surfaces, the main flow.
 - `docs/voice-and-vocabulary.md` — binding on every string you propose.
-- `docs/ui-review-2026-08-31.md` — the last full review. **Do not re-report its findings as new.**
+- `docs/archive/ui-review-2026-08-31.md` — the last full review. **Do not re-report its findings as new.**
 - `docs/execution-plan.md` — what is built, what is not, and what was deliberately cut.
 - **`docs/agent-guardrails.md` — binding. Read it before your first `Bash` call.**
 
@@ -78,7 +78,7 @@ result, make the instrument fail on purpose once.
 
 **Do not propose anything that asserts what the user did not confirm.** Ratings, scores, "open now",
 popularity, trending, editorial blurbs, AI summaries, a social feed, a leaderboard. This is not taste;
-`docs/product-edge-2026-08-31.md` refuses that category **standing and in advance**, because the
+`docs/archive/product-edge-2026-08-31.md` refuses that category **standing and in advance**, because the
 product's differentiator is the refusal itself. Proposing one is contradicting a ruling rather than
 improving the product, and it will be rejected without discussion.
 

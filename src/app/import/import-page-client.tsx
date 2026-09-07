@@ -27,7 +27,7 @@
  * ```
  *
  * Split out of one 2,482-line file on 2026-08-31 (W6-1,
- * `docs/overnight-import-decomposition.md`). **The router below stays inline JSX** — seven sibling
+ * `docs/archive/overnight-import-decomposition.md`). **The router below stays inline JSX** — seven sibling
  * `&&` blocks, no `key`, no `screensByKind` map and no component defined inside this render. A
  * `key` on a router wrapper remounts the review screen on every transition and silently discards
  * every tick and every shortlist pick the user made; a map would need ~25 drilled props and buy

@@ -717,7 +717,7 @@ Source: `grep -rn "process\.env\." src/ next.config.ts` on this checkout, cross-
 `src/integrations/supabase/service-role-client.ts`, `src/app/_lib/supabase/server.ts`,
 `src/lib/supabase/client.ts`, `src/proxy.ts`, `src/domain/build-info.ts` and
 `src/components/map/map-surface.tsx`. **No value is printed anywhere in this file**, and `.env.local`
-was not read (`agent-guardrails.md` §3 rule 9). `docs/vercel-env-restore.md` §2 has been corrected to
+was not read (`agent-guardrails.md` §3 rule 9). `docs/archive/vercel-env-restore.md` §2 has been corrected to
 match; this table adds the failure mode, which that one does not carry.
 
 | Variable | Needed to serve an import in **production**? | If missing | Loud or silent | Who sets it |

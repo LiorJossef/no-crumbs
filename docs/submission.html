@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No Crumbs Submission</title>
+<script>
+/* Applied before the stylesheet loads: a pending render-blocking stylesheet defers
+   any script after it, which made a saved dark preference flash light for as long
+   as the fonts took to arrive. */
+try {
+  var t = localStorage.getItem('nc-prd-theme');
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+} catch (e) { /* private mode: the system preference still works */ }
+</script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..900,0..100,0..1&family=Manrope:wght@400..800&family=JetBrains+Mono:wght@400..700&display=swap">
+<style>
+/* ============================================================================
+   TOKENS — the shared design system, identical in all six documents. Do not retune a
+   value here: the two documents are read side by side and any drift shows.
+   ========================================================================= */
+:root {
+  color-scheme: dark;
+  --bg:#0D0B08; --bg-deep:#080706; --raised:#15120D; --card:#1A1611; --card-2:#211C15;
+  --line:#2B241A; --line-soft:#1F1A13;
+  --ink:#F3EFE7; --ink-2:#ABA294; --ink-3:#8B8375;
+  --gold:#F2C46B; --mint:#A8ECE2; --mint-mid:#5FD3C2; --mint-deep:#2E7A70;
+  --glow:rgba(168,236,226,.13); --glow-2:rgba(168,236,226,.06);
+  --ok:#5BE0A4; --warn:#F5C451; --crit:#FF7B7B;
+  --shadow-1:0 1px 2px rgba(0,0,0,.5);
+  --shadow-2:0 8px 24px -12px rgba(0,0,0,.7);
+  --display:"Fraunces","Iowan Old Style",Georgia,serif;
+  --body:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --page:1140px; --prose:66ch;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg:#FAF9F6; --bg-deep:#F1EFE9; --raised:#FFFFFF; --card:#FFFFFF; --card-2:#F4F2EC;
+    --line:#E7E3DC; --line-soft:#EFECE5;
+    --ink:#1B1B1A; --ink-2:#6E6A63; --ink-3:#736E66;
+    --gold:#B8801F; --mint:#215F56; --mint-mid:#2C786E; --mint-deep:#123B35;
+    --glow:rgba(46,122,112,.10); --glow-2:rgba(46,122,112,.05);
+    --ok:#12805A; --warn:#8A6100; --crit:#BE3B32;
+    --shadow-1:0 1px 2px rgba(20,32,30,.06);
+    --shadow-2:0 8px 24px -14px rgba(20,32,30,.22);
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg:#FAF9F6; --bg-deep:#F1EFE9; --raised:#FFFFFF; --card:#FFFFFF; --card-2:#F4F2EC;
+  --line:#E7E3DC; --line-soft:#EFECE5;
+  --ink:#1B1B1A; --ink-2:#6E6A63; --ink-3:#736E66;
+  --gold:#B8801F; --mint:#215F56; --mint-mid:#2C786E; --mint-deep:#123B35;
+  --glow:rgba(46,122,112,.10); --glow-2:rgba(46,122,112,.05);
+  --ok:#12805A; --warn:#8A6100; --crit:#BE3B32;
+  --shadow-1:0 1px 2px rgba(20,32,30,.06);
+  --shadow-2:0 8px 24px -14px rgba(20,32,30,.22);
+}
+/* ============================================================================
+   INDEX PAGE — layout only. Tokens above are inherited verbatim from the five
+   documents; this page defines no colour of its own so it cannot drift from
+   them. It also states no measured figure: every number lives in the document
+   that measured it, next to how it was measured.
+   ========================================================================= */
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--body);
+  font-size:17px; line-height:1.7; -webkit-font-smoothing:antialiased;
+}
+h1,h2 {
+  font-family:var(--display); font-optical-sizing:auto;
+  font-variation-settings:"SOFT" 32,"WONK" 1; font-weight:700;
+  letter-spacing:-.012em; line-height:1.08; text-wrap:balance; margin:0;
+}
+h3 { font-family:var(--body); font-weight:800; letter-spacing:-.015em; margin:0; }
+p { margin:0; }
+a { color:var(--mint-mid); text-decoration:none; }
+a:hover { text-decoration:underline; }
+:focus-visible { outline:2px solid var(--mint-mid); outline-offset:3px; border-radius:4px; }
+.wrap { width:min(100% - 44px, 940px); margin-inline:auto; }
+.rig { --gold-c:#F2C46B; --crust-c:#E0A845; --ink-c:#3A2A15; --blush:#F0866A; }
+.rig svg { display:block; overflow:visible; }
+.rig .body  { fill:var(--gold-c); }
+.rig .shade { fill:var(--crust-c); }
+.rig .shine { fill:#FFFFFF; opacity:.28; }
+.rig .out   { fill:none; stroke:var(--ink-c); stroke-width:4.5; stroke-linejoin:round; }
+.rig .ink   { fill:var(--ink-c); }
+.rig .inkl  { fill:none; stroke:var(--ink-c); stroke-width:4.2; stroke-linecap:round; stroke-linejoin:round; }
+.rig .cheek { fill:var(--blush); opacity:.5; }
+.rig .glint { fill:#fff; }
+.eyebrow { font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:var(--mint-mid); }
+.lede { font-size:clamp(18px,1.6vw,21px); color:var(--ink-2); line-height:1.55; max-width:60ch; }
+.small { font-size:15.5px; color:var(--ink-2); line-height:1.68; }
+section { padding-block:clamp(46px,5vw,66px); }
+section + section { border-top:1px solid var(--line-soft); }
+h2.sec { font-size:clamp(23px,3vw,32px); }
+header.cover { padding-block:clamp(54px,7vw,84px); background:var(--bg-deep); border-bottom:1px solid var(--line-soft); }
+.cover-row { display:flex; align-items:flex-start; gap:16px; }
+h1 { font-size:clamp(32px,5vw,52px); }
+.pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; }
+.pill {
+  font-family:var(--mono); font-size:12px; letter-spacing:.04em;
+  border:1px solid var(--line); background:var(--raised); color:var(--ink-2);
+  padding:6px 12px; border-radius:999px;
+}
+.pill.on { border-color:var(--mint-deep); color:var(--ink); }
+.links { margin-top:20px; font-size:15.5px; }
+.demo {
+  margin-top:14px; font-size:14.5px; color:var(--ink-2); line-height:1.6;
+  border:1px solid var(--line); border-left:3px solid var(--mint-mid);
+  background:var(--raised); border-radius:8px; padding:11px 14px; max-width:62ch;
+}
+.demo code { font-family:var(--mono); font-size:13.5px; color:var(--ink); }
+.intro { max-width:64ch; }
+.intro p + p { margin-top:15px; }
+.intro .last { color:var(--ink-2); }
+.docs { display:grid; gap:14px; margin-top:26px; }
+@media (min-width:740px) { .docs { grid-template-columns:1fr 1fr; } }
+.doc {
+  display:block; border:1px solid var(--line); background:var(--card);
+  border-radius:14px; padding:19px 21px; box-shadow:var(--shadow-1);
+  transition:border-color .18s, transform .18s;
+}
+.doc:hover { border-color:var(--mint-mid); text-decoration:none; transform:translateY(-2px); }
+.doc .n { font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:.1em; }
+.doc h3 { font-size:19px; margin-top:7px; color:var(--ink); }
+.doc p { margin-top:8px; font-size:15px; color:var(--ink-2); line-height:1.6; }
+.deck {
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:10px;
+  margin-top:22px; padding-top:20px; border-top:1px solid var(--line-soft);
+}
+.deck h3 { font-size:16px; color:var(--ink); }
+.deck p { font-size:15px; color:var(--ink-2); }
+.extras { margin-top:30px; padding-top:24px; border-top:1px solid var(--line-soft); }
+.extras h3 { font-size:17px; color:var(--ink); }
+.extras .small { margin-top:6px; }
+.linklist { list-style:none; margin:14px 0 0; padding:0; }
+.linklist li { font-size:15.5px; line-height:1.75; }
+.linklist li + li { margin-top:6px; }
+@media print {
+  :root:root {
+    --bg:#fff; --bg-deep:#fff; --raised:#fff; --card:#fff; --card-2:#fff;
+    --line:#d8d5cf; --line-soft:#e8e5df;
+    --ink:#000; --ink-2:#333; --ink-3:#555; --mint-mid:#12554c;
+    --shadow-1:none; --shadow-2:none;
+  }
+  body { background:#fff; color:#000; }
+  .doc:hover { transform:none; }
+}
+footer { padding-block:34px; border-top:1px solid var(--line-soft); }
+footer p + p { margin-top:8px; }
+footer .tiny { font-size:13.5px; color:var(--ink-3); }
+</style>
+
+<header class="cover">
+  <div class="wrap">
+    <p class="eyebrow">RUNI CS &middot; Internet Technologies &middot; final project &middot; Lior Jossef &middot; 6 September 2026</p>
+    <div class="cover-row" style="margin-top:14px">
+      <span class="rig" data-crumb data-size="46" style="flex:none;margin-top:6px"></span>
+      <h1>No Crumbs<br><em>Submission</em></h1>
+    </div>
+    <p class="lede" style="margin-top:20px">A personal map of the places your feed recommended.</p>
+    <div class="pills">
+      <span class="pill on">Live &middot; no-crumbss.vercel.app</span>
+      <span class="pill">Next.js &middot; TypeScript</span>
+      <span class="pill">Supabase Postgres</span>
+      <span class="pill">Vercel</span>
+    </div>
+    <p class="links">
+      <a href="https://no-crumbss.vercel.app">Open the live app</a> &nbsp;&middot;&nbsp;
+      <a href="https://github.com/LiorJossef/no-crumbs">Open the repository</a>
+    </p>
+    <p class="demo">Sign in and look around with <code>demo@nocrumbs.com</code>
+       &nbsp;&middot;&nbsp; <code>123456</code> &mdash; a demo account with places already on the
+       map. Creating your own account works too.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The product</p>
+    <h2 class="sec" style="margin-top:10px">People save the video. What they wanted was the place.</h2>
+    <div class="intro" style="margin-top:18px">
+      <p>People find restaurants, caf&eacute;s and bars on TikTok, and they save the video. TikTok
+         keeps that as a video in a list ordered by date &mdash; not a place, not a location, not a
+         name. So saving works and getting it back out is broken, and getting it back out is the
+         only moment that matters: you are standing on a street, and the bakery you saved is four
+         hundred videos down.</p>
+      <p>No Crumbs takes one TikTok link, reads the post on the server, finds the places its caption
+         names, matches them to real coordinates, and &mdash; once you confirm them &mdash; puts
+         them on your own private map. You reach them by where they are, instead of by remembering
+         when you saved them.</p>
+      <p class="last">Most videos name the place only out loud or on screen, and we read captions
+         &mdash; so roughly three links in four yield no place. That is why &ldquo;no places in
+         this one&rdquo; is an ordinary result rather than an error: it has a screen of its own,
+         with three ways forward. The measurement, and how small the sample is, are in the
+         product specification.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Start here</p>
+    <h2 class="sec" style="margin-top:10px">The documents</h2>
+    <p class="lede" style="margin-top:12px">Each is written to be read on its own. This page holds
+       no figures of its own: every measured number lives in the document that measured it, next to
+       how it was measured.</p>
+
+    <div class="docs">
+      <a class="doc" href="product-requirements.html">
+        <span class="n">01</span>
+        <h3>Product Specification</h3>
+        <p>What problem the product solves, who its users are, who the customer is, what the
+           business goals are, the capabilities that meet them, and the core things a person
+           actually does with it.</p>
+      </a>
+
+      <a class="doc" href="technical-design-document.html">
+        <span class="n">02</span>
+        <h3>Technical Design</h3>
+        <p>How the system is built: the components and layers, the database and its central tables,
+           the pages, the API routes and server actions, how data moves between browser, server and
+           database, who may do what, and every external service with the reason for choosing it.</p>
+      </a>
+
+      <a class="doc" href="testing-specification.html">
+        <span class="n">03</span>
+        <h3>Test Specification</h3>
+        <p>What &ldquo;working&rdquo; means here and how each part is checked &mdash; the core
+           features, invalid input, the central process, permissions between two real accounts, the
+           database, edge cases and the interface &mdash; naming the test file behind each one.</p>
+      </a>
+
+      <a class="doc" href="scalability.html">
+        <span class="n">04</span>
+        <h3>Scale &amp; Deployment</h3>
+        <p>What happens at tens or hundreds of users, which queries carry the load, which
+           indexes earn their keep, how over-fetching is avoided, where the split between client
+           and server falls, what limits the product today &mdash; and where it runs, how to run it
+           from a clean clone, and what each environment variable is for.</p>
+      </a>
+
+      <a class="doc" href="security.html">
+        <span class="n">05</span>
+        <h3>Security</h3>
+        <p>How signing in works, how permission is decided in the database rather than in
+           application code, what stops one account reading another&rsquo;s data, how input we did
+           not write is validated, where the secrets are kept &mdash; and the risks that remain.</p>
+      </a>
+      <a class="doc" href="presentation.html">
+        <span class="n">06</span>
+        <h3>Presentation</h3>
+        <p>The 10&ndash;15 minute deck, built from the five documents above: the problem, the
+           users, the architecture, the database, a worked example end to end, the tests, scale
+           and security.</p>
+      </a>
+    </div>
+
+    <div class="extras">
+      <h3>The code, and running it</h3>
+      <p class="small">The rest of what the submission has to hand over, linked rather than described.</p>
+      <ul class="linklist">
+        <li><a href="https://github.com/LiorJossef/no-crumbs/tree/main/tests">The test code</a>
+            &mdash; unit, browser and manual tiers</li>
+        <li><a href="https://github.com/LiorJossef/no-crumbs/tree/main/supabase/tests">The database and permission suites</a>
+            &mdash; SQL, run against a real database</li>
+        <li><a href="https://github.com/LiorJossef/no-crumbs/blob/main/README.md">Run it locally, and the environment variables it needs</a></li>
+        <li><a href="https://no-crumbss.vercel.app">The live app</a> &nbsp;&middot;&nbsp;
+            <a href="https://github.com/LiorJossef/no-crumbs">The repository</a></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="small"><a href="https://no-crumbss.vercel.app">no-crumbss.vercel.app</a>
+       &nbsp;&middot;&nbsp;
+       <a href="https://github.com/LiorJossef/no-crumbs">github.com/LiorJossef/no-crumbs</a></p>
+    <p class="tiny">To run it locally, and for the environment variables it needs, see the
+       <code>README.md</code> in the repository.</p>
+    <p class="tiny">No Crumbs &middot; Lior Jossef &middot; RUNI CS, Internet Technologies</p>
+  </div>
+</footer>
+
+<script>
+/* The crumb mark, so every document in the set carries the same face as the
+   product. Geometry is ratified (brand foundation §3.1 rule 1) — do not
+   edit the BODY path. */
+window.CRUMB = (function () {
+  var BODY = "M34 9C50 3 70 7 82 20 93 32 97 50 92 66 86 84 68 95 50 94 30 93 12 82 7 64 2 46 8 26 20 16 24 12 29 11 34 9Z";
+  var EYES = '<ellipse class="ink" cx="36" cy="42" rx="5.4" ry="6.6"/><ellipse class="ink" cx="58" cy="41" rx="5.4" ry="6.6"/>'
+           + '<circle class="glint" cx="38" cy="39.4" r="1.9"/><circle class="glint" cx="60" cy="38.4" r="1.9"/>';
+  var MOUTH = '<path class="inkl" d="M40 59.5q7 6 14-.4"/>';
+  var CHEEKS = '<ellipse class="cheek" cx="26.5" cy="54" rx="11" ry="7.5"/><ellipse class="cheek" cx="63.5" cy="52" rx="12" ry="8"/>';
+  function build(size) {
+    var parts = '<path class="body" d="' + BODY + '"/>'
+      + '<path class="out" d="' + BODY + '"/>' + CHEEKS
+      + '<g class="eyes">' + EYES + '</g><g class="mouth">' + MOUTH + '</g>';
+    return '<svg viewBox="-8 -8 116 116" width="' + size + '" height="' + size + '" aria-hidden="true"><g>' + parts + '</g></svg>';
+  }
+  return { render: function (sel) {
+    document.querySelectorAll(sel).forEach(function (el) { el.innerHTML = build(+el.dataset.size || 84); });
+  }};
+})();
+CRUMB.render('[data-crumb]');
+</script>

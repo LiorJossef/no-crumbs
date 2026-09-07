@@ -640,7 +640,7 @@ end $$;
 -- resolve_place() and the provenance invariant from A's save. This checkpoint is not optional
 -- decoration: without it the rollback at the end of this script means the DEFERRABLE INITIALLY
 -- DEFERRED triggers never execute at all, and a trigger that raises on the happy path would ship
--- looking tested. It found exactly that bug once (see docs/ms4-database.md §2).
+-- looking tested. It found exactly that bug once (see docs/archive/ms4-database.md §2).
 -- After this point constraints are IMMEDIATE for the rest of the transaction, which is what makes
 -- P8's violation observable at the statement rather than at a COMMIT that never comes.
 do $$

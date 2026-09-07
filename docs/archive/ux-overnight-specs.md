@@ -17,10 +17,10 @@
 > | **Spec 4** | **W3-4**, struck | The live regions — a ruling, added 2026-08-31 |
 >
 > Binding inputs, read in full: [`overnight-run-plan.md`](overnight-run-plan.md),
-> [`facelift-plan.md`](facelift-plan.md) §3a, [`voice-and-vocabulary.md`](voice-and-vocabulary.md),
-> [`ux-map-is-the-query.md`](ux-map-is-the-query.md) §5, [`growth-plan.md`](growth-plan.md),
-> [`current-state.md`](current-state.md) items 0a / 4 / 5 / 8,
-> [`spec-no-places-found.md`](spec-no-places-found.md) §5.
+> [`facelift-plan.md`](../facelift-plan.md) §3a, [`voice-and-vocabulary.md`](../voice-and-vocabulary.md),
+> [`ux-map-is-the-query.md`](ux-map-is-the-query.md) §5, [`growth-plan.md`](../growth-plan.md),
+> [`current-state.md`](../current-state.md) items 0a / 4 / 5 / 8,
+> [`spec-no-places-found.md`](../spec-no-places-found.md) §5.
 >
 > **Ten owner questions are collected under *Owner questions* near the end.** Each is marked `OQ-n`
 > where it arises. None of them blocks building the rest.
@@ -315,7 +315,7 @@ does nothing while tapping a pill still flies to the area. Frame budget measured
 **The 300-place case is not solved by this package and must not be pretended away.** At one city and
 one ~50 km area, 300 pins at z11 is the overlapping mat `place-marker-layer.tsx`'s header already
 describes as the accepted cost of removing clustering. The named repair is
-[`growth-plan.md`](growth-plan.md) §5 item 7 — **a ~1.5 km neighbourhood band** — and it is out of
+[`growth-plan.md`](../growth-plan.md) §5 item 7 — **a ~1.5 km neighbourhood band** — and it is out of
 scope tonight. What this spec owes it is that nothing here blocks it: a third band drops in as two
 more constants and one more `settleZoom` guard window, because every band edge is consulted in one
 function. **Q1's 300-place walkthrough will find a mat of pins. That is a known, recorded outcome,
@@ -939,7 +939,7 @@ package.**
 ### 3.6 The honest part — not setting up an expectation the next screen breaks
 
 At a ~27% hit rate the modal outcome of this screen's one action is
-[`spec-no-places-found.md`](spec-no-places-found.md)'s `No places in this one.` The zero state is
+[`spec-no-places-found.md`](../spec-no-places-found.md)'s `No places in this one.` The zero state is
 where the product's credibility is either spent or kept, and the rule is:
 
 > **The first screen makes no claim about yield.**

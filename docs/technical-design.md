@@ -574,7 +574,7 @@ never persisted server-side and never appears in a URL or a log line.
 | `IMPORT_RATE_LIMIT_*` | server | no |
 
 Preview and production are separate Supabase projects in `eu-central-1`, co-located with the Vercel
-function region (`fra1`) — set up and verified in MS2 (`ms2-cloud-setup.md`). Migrations reach an
+function region (`fra1`) — set up and verified in MS2 (`archive/ms2-cloud-setup.md`). Migrations reach an
 environment only through `supabase/migrations/`; no change is ever made in the dashboard.
 `/healthz` returns `{ ok, stage, commit }` so a deploy is identifiable without hand-set env vars.
 
@@ -688,7 +688,7 @@ a thing a reviewer might expect to see.
   concurrent-insert path left an aliasless `places` row that the deferred `places_alias_required`
   trigger would have aborted the transaction over at COMMIT, and both constraint trigger functions
   referenced a record that does not exist for the trigger that fires — which would have made *every*
-  `places` insert fail at COMMIT. Record: [`ms4-database.md`](ms4-database.md).
+  `places` insert fail at COMMIT. Record: [`archive/ms4-database.md`](archive/ms4-database.md).
 - **2026-08-18** — First version. Assembles `04`, `06`, `07`, `08`, `09`, `ux-architecture` and
   `product-specification` into one design; rules on the seven reconciliations in §14; records the
   seven open items in §15. Written before MS4 writes any application code, per `03` gap 3.

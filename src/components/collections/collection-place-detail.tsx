@@ -3,7 +3,7 @@
 /**
  * One place, as seen from inside a collection.
  *
- * **A place is one object, whatever route reached it** — `docs/product-ruling-one-place-one-object.md`
+ * **A place is one object, whatever route reached it** — `docs/archive/product-ruling-one-place-one-object.md`
  * R1. This screen *is* `PlaceDetail`, the component `/map` renders, with `variant="hosted"`. The
  * collection may only **add**, through the two slots that component exposes: `Added by …` in
  * `primaryAction`, the shared note and `Remove from this collection` in the footer. It reorders
@@ -321,7 +321,7 @@ export function CollectionPlaceDetail({
                   // it is the same kind of act: start-aligned, muted until hover, one trash
                   // glyph. Two removals on one screen are told apart by *wording and position*
                   // — `from this collection` versus `from your places` — which is what
-                  // `docs/ux-two-removals-one-screen.md` §2.3 actually asks for; drawing them as
+                  // `docs/archive/ux-two-removals-one-screen.md` §2.3 actually asks for; drawing them as
                   // two different components said they were two different kinds of thing.
                   <button
                     type="button"

@@ -4,7 +4,7 @@
  *
  * `deleteSavedPlaces` shipped written, tested and with **zero callers** (round 3 §8.2). Wiring an
  * irreversible delete to a control the user can press is only half the work; the other half is that
- * `docs/ux-two-removals-one-screen.md` forbids the two bulk removals from looking alike, and a
+ * `docs/archive/ux-two-removals-one-screen.md` forbids the two bulk removals from looking alike, and a
  * ruling that lives only in prose is one refactor from being gone. `collections/bulk-removal.ts`
  * holds the reversible half; these assertions hold this one, and several of them are written
  * *against that module* so a change to either side fails here.

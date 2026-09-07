@@ -5,8 +5,10 @@
 > the required environment variables. All four are below, in that order, followed by the deploy
 > pipeline, the hosted-database procedure, and an honest account of what is currently broken.
 >
-> **Everything in this document was measured on 2026-08-31 against commit `2fae46b` of branch
-> `no-crumbs-implementation`**, except where it is explicitly labelled otherwise. Facts that came
+> **Revised 2026-09-06.** The two links, the platform and environment tables, the production
+> migration number, the production resolver and §8 were re-measured or re-ruled on that date against
+> `origin/main` at `601cebf`; each says so where it matters. Everything else was measured on
+> **2026-08-31 against commit `2fae46b`**, except where it is explicitly labelled otherwise. Facts that came
 > from a document rather than from a command are labelled. Facts I could not check from a terminal —
 > anything that lives only in a Vercel dashboard — are labelled **UNVERIFIED** rather than asserted.
 >
@@ -20,19 +22,25 @@
 
 | | |
 |---|---|
-| **Live application** | <https://p-002-zeta.vercel.app> |
-| **GitHub repository** | <https://github.com/LiorJossef/P-002> |
+| **Live application** | <https://no-crumbss.vercel.app> |
+| **GitHub repository** | <https://github.com/LiorJossef/no-crumbs> |
 
-The repository is **private**. An examiner needs to be added as a collaborator; the URL alone will
-return a 404 to a signed-out visitor. (Measured with `gh repo view`: `"visibility":"PRIVATE"`.)
+The repository is **public** — measured 2026-09-06 with `gh repo view LiorJossef/no-crumbs`:
+`"visibility":"PUBLIC"`. No collaborator invitation is needed; the URL works for a signed-out
+visitor.
 
-Production is live and healthy. Measured 2026-08-31:
+> Both links changed. An earlier version of this document pointed at `p-002-zeta.vercel.app` and
+> `LiorJossef/P-002`, neither of which resolves — so its documented first command, `git clone …
+> /P-002.git`, could not have worked. `P-002` remains the repository *codename* and the working
+> directory name; the product and the repository are No Crumbs.
+
+Production is live and healthy. Measured 2026-09-06:
 
 ```
-$ curl -s https://p-002-zeta.vercel.app/healthz
-{"ok":true,"stage":"production","commit":"7494091"}
+$ curl -s https://no-crumbss.vercel.app/healthz
+{"ok":true,"stage":"production","commit":"601cebf"}
 
-$ for p in / /sign-in /map /import; do curl -s -o /dev/null -w "$p %{http_code}\n" https://p-002-zeta.vercel.app$p; done
+$ for p in / /sign-in /map /import; do curl -s -o /dev/null -w "$p %{http_code}\n" https://no-crumbss.vercel.app$p; done
 /         200
 /sign-in  200
 /map      307      <- redirect to /sign-in; a signed-out visitor is not authorised
@@ -40,7 +48,7 @@ $ for p in / /sign-in /map /import; do curl -s -o /dev/null -w "$p %{http_code}\
 ```
 
 `x-vercel-id: fra1::fra1::…` on the same response is the evidence that the functions run in
-Frankfurt, co-located with the Supabase projects (`docs/ms2-cloud-setup.md` §1).
+Frankfurt, co-located with the Supabase projects (`docs/archive/ms2-cloud-setup.md` §1).
 
 ---
 
@@ -48,9 +56,9 @@ Frankfurt, co-located with the Supabase projects (`docs/ms2-cloud-setup.md` §1)
 
 | Layer | Service | What it holds |
 |---|---|---|
-| Application | **Vercel**, project `p-002` | the Next.js build: static assets, server components, four API route handlers, server actions |
+| Application | **Vercel**, project `p-002` | the Next.js build: static assets, server components, **eight route handlers** (six under `/api`, plus `/auth/callback` and `/healthz`), server actions |
 | Database + auth | **Supabase**, two Postgres projects | every table, every RLS policy, `auth.users`, and the `SECURITY DEFINER` functions the import pipeline calls |
-| Source + CI | **GitHub**, `LiorJossef/P-002` | the repository and `.github/workflows/ci.yml` |
+| Source + CI | **GitHub**, `LiorJossef/no-crumbs` | the repository and `.github/workflows/ci.yml` |
 
 There are **no containers, no custom infrastructure and no `vercel.json`**. The build is the Next.js
 framework preset with its defaults; `next.config.ts` is the only build configuration, and it does
@@ -63,10 +71,10 @@ here for a reviewer to reverse-engineer.
 | | **Local** | **Preview** | **Production** |
 |---|---|---|---|
 | Runs on | your machine, `next dev` | Vercel, one URL per branch push | Vercel, `main` only |
-| URL | `http://localhost:3000` | `https://p-002-<hash>-….vercel.app` | `https://p-002-zeta.vercel.app` |
+| URL | `http://localhost:3000` | `https://no-crumbs-<hash>-….vercel.app` | `https://no-crumbss.vercel.app` |
 | Database | a **local** Supabase container (`supabase start`) | `p-002-staging` (`jfuqjzubphfhfleqnkno`) | `p-002-prod` (`vtboskegexinvhasghri`) |
 | `NEXT_PUBLIC_STAGE` | `local` | `preview` | `production` |
-| Place resolver | Google Places, if a key is set | Google Places, if a key is set | **Overture**, behind a terms-of-service gate |
+| Place resolver | Google Places, if a key is set | Google Places, if a key is set | **Google Places** — `PLACE_RESOLVER=google` is set, deliberately overriding the stage rule (owner ruling, 2026-09-04; §2.2) |
 | Seeded demo data | yes, `supabase/seed.sql` | no | no |
 | Real user data | no | no | **yes** |
 
@@ -93,10 +101,16 @@ from a code fork. Google Places is canonical and measurably better (15/16 top-1)
 alongside a non-Google map. The map is MapLibre. So the factory serves Google everywhere we develop
 and measure, and falls back to the self-hosted Overture index in production.
 
-The gate fails **safe**: an unset or unrecognised `NEXT_PUBLIC_STAGE` is treated as production.
-Setting `PLACE_RESOLVER=google` on Production overrides a terms-of-service boundary; it should not
-be set. Whether it is currently set on production is **UNVERIFIED** — it can only be read in the
-Vercel dashboard, and it is `docs/current-state.md`'s open question 7.
+The gate fails **safe**: an unset or unrecognised `NEXT_PUBLIC_STAGE` is treated as production, and
+the factory then chooses Overture on its own.
+
+**That default is overridden in production.** `PLACE_RESOLVER=google` is set on the Production
+environment — the owner's ruling of 2026-09-04, answering what `docs/current-state.md` carried as
+open question 7. So the live product renders MapLibre over CARTO tiles and resolves with Google,
+which is the pairing `06` §3.1 rules out. The finding is the project's own and it stands; the
+decision to run this way for a coursework submission with a single account and no third-party users
+is the owner's, and it has been taken deliberately rather than inherited. The Overture fallback
+stays in the factory precisely so the gate can be closed by changing one variable.
 
 ---
 
@@ -121,8 +135,8 @@ knows nothing about that one's version.
 ### 3.2 The steps
 
 ```bash
-git clone https://github.com/LiorJossef/P-002.git
-cd P-002
+git clone https://github.com/LiorJossef/no-crumbs.git
+cd no-crumbs
 
 npm install                  # 1. dependencies AND the git hooks — see the trap below
 cp .env.example .env.local   # 2. then fill in the values you need (§4)
@@ -154,7 +168,7 @@ install.** Measured on 2026-08-30, on this repository:
    `git config core.hooksPath .githooks`, and `prepare` runs on `npm install` — and on nothing else.
    Until it has run, `core.hooksPath` is unset and `.githooks/pre-push` does not execute.
    `.githooks/pre-push` is the **only** thing refusing a direct push to `main`: GitHub branch
-   protection is a Pro/Team feature on a private repository and is unavailable here
+   protection is a Pro/Team feature on this plan and is unavailable here
    (`docs/ms3-branch-protection.md`). So a fresh clone starts with `main` unprotected, silently.
 2. **The wrong ESLint is on `PATH`.** With `node_modules/` absent, the `eslint` a shell resolves was
    8.35.0, which cannot read the flat-config `eslint.config.mjs` this repository ships, so
@@ -192,7 +206,7 @@ With an entirely empty `.env.local`, the landing page and `/healthz` render, bec
 `src/domain/build-info.ts` falls back to the literals `local` and `dev`. **Nothing else does.** Both
 `/map` and `/import` construct a server-side Supabase client, and `createServerClient(undefined,
 undefined)` throws immediately — which is exactly the failure production suffered from 2026-08-26 to
-2026-08-29 when the Vercel env store was empty (`docs/vercel-env-restore.md`). If those two pages
+2026-08-29 when the Vercel env store was empty (`docs/archive/vercel-env-restore.md`). If those two pages
 500 rather than redirecting to `/sign-in`, the Supabase variables are not reaching the build.
 
 ### 3.6 Running the checks
@@ -271,7 +285,7 @@ Two names in this codebase are worth stating explicitly:
   Vercel's env UI treats the prefix as a promise of publicity — not that the current build leaks it.
   Setting it on a deployment is still wrong; it is a latent incident, not a live one.
   **Measured 2026-08-31**: the production client bundle does **not** contain it. I fetched
-  `https://p-002-zeta.vercel.app/sign-in`, downloaded all 17 of its `/_next/static` chunks
+  `https://no-crumbss.vercel.app/sign-in`, downloaded all 17 of its `/_next/static` chunks
   (1,065,387 bytes) and grepped for the Google key prefix `AIza`. Zero matches. The same grep found
   exactly one Supabase host, `https://vtboskegexinvhasghri.supabase.co` — the **production**
   project, which is also the proof that the Production scope is set correctly. Caveat: this covers
@@ -297,9 +311,9 @@ Publishing it is the intended use.
 | `GEMINI_API_KEY` | **server only — SECRET** | yes **when `LLM_PROVIDER=gemini`** | the Gemini extraction call | *"GEMINI_API_KEY is required when LLM_PROVIDER=gemini"* | aistudio.google.com |
 | `ANTHROPIC_MODEL` | server only | no | pins a model id instead of the code default | nothing — the code default applies | the provider's model list |
 | `GEMINI_MODEL` | server only | no | as above | nothing | as above |
-| `GOOGLE_PLACES_API_KEY` | **server only — SECRET** | no | the Google Places resolver's key, and **the correct name to use** | the resolver falls back to Overture, or throws if `PLACE_RESOLVER=google` was forced | Google Cloud console, Places API |
+| `GOOGLE_PLACES_API_KEY` | **server only — SECRET** | **yes on Production**, since `PLACE_RESOLVER=google` is forced there | the Google Places resolver's key, and **the correct name to use** | the resolver throws when `PLACE_RESOLVER=google` is set, and falls back to Overture otherwise | Google Cloud console, Places API |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | **publishable prefix, billable key** — today read only from a `server-only` module, so not in any client bundle (§4.0) | **no. Do not set it on any deployment** | a local-only fallback for the above | nothing, provided the server-only name is set | see §4.0. Prefer `GOOGLE_PLACES_API_KEY` |
-| `PLACE_RESOLVER` | server only | no — **leave unset** | forces `google` or `overture`, overriding the stage rule | nothing. Setting `google` on Production overrides a **terms-of-service gate** (§2.2) | n/a — a deliberate operator choice |
+| `PLACE_RESOLVER` | server only | **set to `google` on Production** | forces `google` or `overture`, overriding the stage rule | the stage rule applies instead, so Production would fall back to Overture. Setting `google` overrides a **terms-of-service gate** — done deliberately, owner ruling 2026-09-04 (§2.2) | n/a — a deliberate operator choice |
 | `PLACE_LOOKUP_CACHE` | server only | no — leave unset | only the literal `off` disables the `place_lookups` provider-response cache | nothing; anything other than `off`, including unset, leaves it on | n/a |
 | `NEXT_PUBLIC_PROTOMAPS_API_KEY` | publishable prefix, but its only reader is not bundled | **no — do not set** | read only by `src/components/map/map-surface.live.tsx`, a `'use client'` file whose one import site (`map-surface.tsx:20`) is commented out, so it is **not wired in** | nothing. Protomaps was ruled out on 2026-08-21; the shipped map is MapLibre on CARTO's keyless basemap | n/a. Setting it is harmless; *believing the map needs it* is not |
 | `NEXT_PUBLIC_STAGE` | browser | no — **derived** | `/healthz`'s `stage`, and the input to the resolver's ToS gate | falls back to `VERCEL_ENV`, then to `local` | leave unset on Vercel; see §4.5 |
@@ -313,7 +327,7 @@ The scoping, restated as a table, because getting it wrong is the failure that m
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | prod anon key | staging anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | prod secret key | staging secret key |
 | the model key | prod key | dev key |
-| `GOOGLE_PLACES_API_KEY` | not needed while production resolves with Overture | set here, for measurement |
+| `GOOGLE_PLACES_API_KEY` | **required** — production resolves with Google (§2.2) | set here too, for measurement |
 
 **One live foot-gun.** `LLM_PROVIDER` defaults to `anthropic` when unset, while this project's
 measured provider budget is the Gemini 500-calls-a-day one. Leaving the variable unset therefore
@@ -362,8 +376,9 @@ Not application configuration. Nothing here belongs in Vercel.
   Keys**. Take them per environment: the prod project for Production, the staging project for
   Preview and Development, and `npx supabase status` for local.
 - **The model key** — the console of whichever provider `LLM_PROVIDER` names.
-- **`GOOGLE_PLACES_API_KEY`** — Google Cloud console, with the Places API enabled. Not required for
-  production as currently configured, because production resolves with Overture.
+- **`GOOGLE_PLACES_API_KEY`** — Google Cloud console, with the Places API enabled. **Required on
+  production as currently configured**, because production runs `PLACE_RESOLVER=google` (§2.2); the
+  factory throws without it when that value is forced.
 - **Connection strings** — the project's **Connect** dialog, session-mode pooler URI. Secret.
 
 ### 4.5 The two variables you should not set on Vercel
@@ -382,7 +397,7 @@ readable from a client component. Preview and production therefore label themsel
 no hand-scoped values that can drift apart, an explicit value still wins if you want one, and a
 non-Vercel host still works.
 
-`docs/ms2-cloud-setup.md` §2 shows `NEXT_PUBLIC_COMMIT_SHA` being set to the literal string
+`docs/archive/ms2-cloud-setup.md` §2 shows `NEXT_PUBLIC_COMMIT_SHA` being set to the literal string
 `$VERCEL_GIT_COMMIT_SHA` in the dashboard. That also works — Vercel expands system variables
 referenced that way — but it is redundant given the config above.
 
@@ -444,7 +459,7 @@ tests assert exact row counts.
 
 ### 5.2 Why merging goes through a script
 
-GitHub branch protection and rulesets are Pro/Team features on a private repository, so **CI is not
+GitHub branch protection and rulesets are Pro/Team features on this plan, so **CI is not
 a merge gate on GitHub's side** — a red PR can be merged with one command and GitHub will not
 object. `scripts/merge-pr.sh` *is* the gate. It refuses:
 
@@ -503,24 +518,22 @@ That path **has never been rehearsed**, which is a statement of posture, not of 
 
 This is a real operational fact and belongs in a deployment document rather than in a private note.
 
-| | Measured |
-|---|---|
-| Migrations on disk, `origin/main` | **29** — `0001`–`0030`, and `0027` does not exist |
-| Migrations on disk, `no-crumbs-implementation` | **30** — `0031_place_mentions.sql` was added on the branch and has not landed |
-| `p-002-staging` applied through | **`0018`** — missing `0019`–`0030` |
-| `p-002-prod` applied through | **`0026`** — missing `0028`, `0029`, `0030` |
+| | Measured | When |
+|---|---|---|
+| Migrations on disk, `origin/main` | **36** — `0001`–`0037`, and `0027` does not exist | 2026-09-06, `git ls-tree origin/main supabase/migrations/` |
+| `p-002-prod` applied through | **`0037`** — **every migration on disk is applied** | 2026-09-06, `npm run db:status:prod` |
+| `p-002-staging` applied through | **`0018`** — carried forward, and by now certainly stale | 2026-08-30, `npm run db:status:staging` |
 
-The migration counts were measured 2026-08-31 with `git ls-tree origin/main supabase/migrations/`.
-The two hosted numbers were measured 2026-08-30 with `npm run db:status:staging` and
-`db:status:prod`, by the orchestrator; connecting to a hosted database is outside this role's
-permitted actions, so I did not re-measure them and they are carried forward with their date.
+The disk count was measured here. The two hosted numbers come from `db:status:*` runs by the
+orchestrator; connecting to a hosted database is outside this role's permitted actions, so the
+staging number is carried forward with its date rather than re-measured, and should be treated as
+unknown until it is.
 
-Two consequences, and both are counter-intuitive enough to be worth stating:
+Two things worth stating:
 
-- **Production is eight migrations ahead of staging.** Staging is the stale environment. It is
-  therefore *not* a rehearsal for a production push — pushing `0019`–`0030` to staging exercises
-  eleven migrations of which production has already taken eight. Staging needs a catch-up of its
-  own before it can be trusted as a rehearsal again.
+- **Production is current, and staging is not.** Production has the whole sequence; staging is
+  nineteen migrations behind it. Staging is therefore *not* a rehearsal for a production push
+  today — it needs a catch-up of its own before it can be trusted as one again.
 - **`0027` does not exist anywhere** — not on disk, not in either database. The sequence goes `0026`
   → `0028` and the gap is unexplained. It is harmless (the CLI orders by version string, and a
   missing number is not a missing migration) but it should not be silently "fixed" by renumbering.
@@ -536,8 +549,8 @@ version of it was copied forward by hand and had both projects wrong, in opposit
 deliberately reveals no values:
 
 ```bash
-curl -s https://p-002-zeta.vercel.app/healthz
-# {"ok":true,"stage":"production","commit":"7494091"}
+curl -s https://no-crumbss.vercel.app/healthz
+# {"ok":true,"stage":"production","commit":"601cebf"}
 ```
 
 Read all three fields:
@@ -555,8 +568,8 @@ by design, as a build smoke check. Meanwhile `/map` and `/import` were returning
 check the two authenticated surfaces as well:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://p-002-zeta.vercel.app/map      # expect 307
-curl -s -o /dev/null -w '%{http_code}\n' https://p-002-zeta.vercel.app/import   # expect 307
+curl -s -o /dev/null -w '%{http_code}\n' https://no-crumbss.vercel.app/map      # expect 307
+curl -s -o /dev/null -w '%{http_code}\n' https://no-crumbss.vercel.app/import   # expect 307
 ```
 
 **A 307 is the pass.** It means the page got far enough to build a Supabase client, ask who the user
@@ -595,12 +608,19 @@ mention should score it worse than one it disclosed.
 `gh run view 33422335289 --json jobs` on the most recent run returns four jobs, each with a
 zero-length `steps` array, started and completed within four seconds of each other.
 
+> **Two facts have changed since this was written, and neither is a fix.** The repository is now
+> **public** (measured 2026-09-06), so the private-repository framing of the diagnosis below no
+> longer applies as stated — an exhausted minutes allowance remains the most plausible cause, and it
+> is still unconfirmed. And the owner authorised merging without CI on 2026-08-30, with local
+> `verify`, `build` and Playwright standing in for it. The consequence in the last paragraph of this
+> section still holds: **nothing on `main` since 2026-08-29 has been verified by CI.**
+
 **A job that fails in four seconds having executed no steps never started.** This is not a code
 failure and no change to `ci.yml` will fix it. `.github/workflows/ci.yml` is tracked, is on `main`,
 is reported active by `gh workflow list`, and defines exactly the four correct jobs. The diagnosis
 is an **account-level GitHub Actions problem** — most plausibly an exhausted minutes allowance or a
-spending limit on a private repository. It is diagnosed, not confirmed: the billing endpoint needs a
-`user` OAuth scope the local CLI does not hold.
+spending limit. It is diagnosed, not confirmed: the billing endpoint needs a `user` OAuth scope the
+local CLI does not hold.
 
 **What it costs.** `npm run merge:pr` correctly refuses a PR whose checks are absent or failing
 (§5.2 rules 3 and 4), so **nothing can land through the intended gate while this holds**. Two PRs
@@ -611,24 +631,21 @@ passed* — do not assume everything on `main` has been verified by CI. **The lo
 The unblock is an owner action, not an engineering task: check
 <https://github.com/settings/billing>. Do **not** rewrite the workflow.
 
-### 8.2 Production is 29 commits behind `main`
+### 8.2 Production is level with `main` — this item is closed
 
-Measured 2026-08-31:
+An earlier version of this document recorded production as 29 commits behind `main`. That is no
+longer true. Measured 2026-09-06:
 
 ```
-$ curl -s https://p-002-zeta.vercel.app/healthz
-{"ok":true,"stage":"production","commit":"7494091"}
+$ curl -s https://no-crumbss.vercel.app/healthz
+{"ok":true,"stage":"production","commit":"601cebf"}
 
-$ git rev-list --count 7494091..origin/main
-29
+$ git rev-list --count 601cebf..origin/main
+0
 ```
 
-`7494091` is `fix(collections): a way back to the map from the desktop index (#107)`, dated
-2026-08-30 22:40; `origin/main` is at `5571a1e`, dated 2026-08-31 00:34. The 29 intervening commits
-are documentation and configuration, so the user-visible product is not affected — but production
-auto-deploys from `main`, and it has not picked them up. Whether the later deployment failed, is
-queued, or was skipped is **UNVERIFIED**: it is only visible in the Vercel dashboard, and reading it
-requires `vercel` CLI commands this role does not run.
+`601cebf` is the tip of `origin/main`. The auto-deploy is picking up merges, and the deployed
+commit and the source of truth are the same commit.
 
 ### 8.3 The serverless execution ceiling is an assumption, not a measurement
 
@@ -656,7 +673,7 @@ its contents were not read, per §4.6). Anyone reading that item should re-check
 ## 9. Reproducing the cloud setup from nothing
 
 If both cloud projects had to be recreated, this is the order. It is the procedure that was actually
-followed on 2026-08-18 (`docs/ms2-cloud-setup.md`), not a plan.
+followed on 2026-08-18 (`docs/archive/ms2-cloud-setup.md`), not a plan.
 
 1. **Two Supabase projects**, not one: `p-002-staging` and `p-002-prod`, both in **`eu-central-1`
    (Frankfurt)**. Two projects because preview must never reach production data; one region because
@@ -682,9 +699,9 @@ Stated as limits rather than left implicit.
 | Claim | Status | Why |
 |---|---|---|
 | Which variables are actually set in the Vercel env store, and their scopes | **UNVERIFIED** | requires `vercel env ls`, which this role does not run. The one inference available was made instead: the production **client bundle** carries the prod Supabase host and no Google key (§4.0). Note what that does not settle — the Google key's only reader is `server-only`, so its absence from the bundle is expected whether or not the variable is set |
-| Whether `PLACE_RESOLVER` is set on Production | **UNVERIFIED** | as above. It is `docs/current-state.md`'s open question 7, and it matters: if set to `google`, production is serving Google-resolved coordinates on a MapLibre map, which `06` §3.1 forbids |
+| Whether `PLACE_RESOLVER` is set on Production | **ANSWERED** — it is `google` | not by a terminal, but by the owner's ruling of 2026-09-04, which closed `docs/current-state.md`'s open question 7. Production therefore serves Google-resolved coordinates on a MapLibre map, which `06` §3.1 forbids; §2.2 states the trade-off rather than hiding it |
 | The Vercel function region setting | **VERIFIED indirectly** | `x-vercel-id: fra1::fra1::…` on a live response |
-| The hosted migration numbers in §6.1 | **carried forward, dated 2026-08-30** | opening a connection with `STAGING_DATABASE_URL` or `PROD_DATABASE_URL` is outside this role's permitted actions |
+| The staging migration number in §6.1 | **carried forward, dated 2026-08-30 — treat as unknown** | opening a connection with `STAGING_DATABASE_URL` or `PROD_DATABASE_URL` is outside this role's permitted actions. The production number was re-measured on 2026-09-06 by the orchestrator and is current |
 | The contents of `.env.example` | **not read** | denied by `docs/agent-guardrails.md` §2; see §4.6 |
 | The serverless execution ceiling | **UNVERIFIED** | §8.3 |
 | The cause of the CI runner failure | **diagnosed, not confirmed** | §8.1 — the billing API needs a scope the CLI does not hold |

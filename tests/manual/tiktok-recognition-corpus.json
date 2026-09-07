@@ -69,7 +69,7 @@
     {
       "url": "https://www.tiktok.com/@joelleuzyel/video/7259010845558983978",
       "category": "talked_about_restaurants",
-      "notes": "The only real Tel Aviv TikTok with cached evidence in the repo as of 2026-08-27. Caption recorded in docs/handoff-2026-08-27-place-recognition.md §2.2 as 'Resturants in Tel Aviv 📍Ha Kosem' — note the misspelled 'Resturants' and the space in 'Ha Kosem', both of which are exactly the kind of thing the synthetic benchmark never contains. Imported by hand in a browser at 1280x720 and 375x812; the saved row was read back in psql and sat 11 m from the venue against 555 m and 483 m for the two model guesses.",
+      "notes": "The only real Tel Aviv TikTok with cached evidence in the repo as of 2026-08-27. Caption recorded in docs/archive/handoff-2026-08-27-place-recognition.md §2.2 as 'Resturants in Tel Aviv 📍Ha Kosem' — note the misspelled 'Resturants' and the space in 'Ha Kosem', both of which are exactly the kind of thing the synthetic benchmark never contains. Imported by hand in a browser at 1280x720 and 375x812; the saved row was read back in psql and sat 11 m from the venue against 555 m and 483 m for the two model guesses.",
       "expected": [
         {
           "name": "HaKosem",
@@ -324,6 +324,31 @@
           ]
         }
       ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSqF2Bhg8/",
+      "category": "cafes",
+      "notes": "Owner-supplied 2026-09-05 for the submission deck. The hard case in this batch: an 809-character Hebrew caption that names the place only as ✨קפה מרי✨ and gives NO street and NO city — the only location signal is נמצא במרכז (\"it's central\"). Also carries the @cafemari handle and a real typo (בשית!ף for בשיתוף). Left unadjudicated on purpose."
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSqF2DQSr/",
+      "category": "brunch",
+      "notes": "Owner-supplied 2026-09-05. Hebrew, names ✨בזיליקה✨ and gives a full address at the end (שדרות דוד בן גוריון 13, אשקלון). Ashkelon, so it also tests region routing away from Tel Aviv — the caption opens by saying explicitly that it is NOT in the centre."
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSqF24PBH/",
+      "category": "talked_about_restaurants",
+      "notes": "Owner-supplied 2026-09-05. Hebrew. The venue name מוצ׳ה appears only in the second-to-last sentence, after a coupon code and a discount block that a name-spotter could easily latch onto instead. Address אבא אבן 12, הרצליה."
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSqF2UwSs/",
+      "category": "cafes",
+      "notes": "Owner-supplied 2026-09-05. The easy case in this batch, and the control: name and full address are the first thing after the hook (📍קוהי, בן יהודה 155 תל אביב). If this one does not land, nothing will."
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSqF2yEx5/",
+      "category": "cafes",
+      "notes": "Owner-supplied 2026-09-05. Kept deliberately: TikTok's oEmbed returns an empty title and a null author for this link (checked 2026-09-05), so it never reaches extraction at all. It is the corpus's example of a link the platform will not serve us."
     }
   ]
 }

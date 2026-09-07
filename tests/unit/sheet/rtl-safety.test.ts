@@ -1,5 +1,5 @@
 /**
- * **Guards against the two real defects `docs/rtl-audit-2026-08-31.md` found in `PlaceDetail`, and
+ * **Guards against the two real defects `docs/archive/rtl-audit-2026-08-31.md` found in `PlaceDetail`, and
  * the one thing that made them cheap to introduce: a missing attribute rather than a wrong one.**
  *
  * Nobody typed a wrong value in either case — someone didn't type anything, and nothing noticed
@@ -58,7 +58,7 @@ const { CollectionsContext } = await import('@/ui/place/collections-context');
 import type { DetailPlace } from '@/components/sheet/place-sheet';
 import type { Spot } from '@/domain/places/spot';
 
-/** Real Hebrew content, the shape `docs/rtl-audit-2026-08-31.md` drove through the running app:
+/** Real Hebrew content, the shape `docs/archive/rtl-audit-2026-08-31.md` drove through the running app:
  *  `אבו חסן` / `רחוב שיף 1` / `הכי טעים בעיר, חובה לחזור` — a pure-Hebrew name, address and note,
  *  seeded and removed during that audit and reproduced here as a fixture rather than a live row. */
 const NAME_HE = 'אבו חסן';
@@ -200,7 +200,7 @@ describe('the address row keeps its icon fixed regardless of the address languag
     expect(attrs, markup).not.toMatch(/\bdir=/);
 
     // The text itself must still be isolated, or a mixed-script address (a Latin street number
-    // beside a Hebrew city, `docs/rtl-audit-2026-08-31.md`'s Rothschild fixture) reorders with
+    // beside a Hebrew city, `docs/archive/rtl-audit-2026-08-31.md`'s Rothschild fixture) reorders with
     // whatever the row's own inherited direction happens to be.
     const addressTag = markup.match(new RegExp(`<bdi>${ADDRESS_HE}</bdi>`));
     expect(addressTag, markup).not.toBeNull();

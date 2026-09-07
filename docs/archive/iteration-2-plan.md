@@ -6,7 +6,7 @@
 > animations, add more colours, make it look sexy. The first impression is the login page. Then the
 > wow effect is the home page, post-login.*
 >
-> Companion to [`facelift-plan.md`](facelift-plan.md), which this does not replace. Iteration 1's
+> Companion to [`facelift-plan.md`](../facelift-plan.md), which this does not replace. Iteration 1's
 > record is [`overnight-run-report.md`](overnight-run-report.md).
 
 ---

@@ -6,8 +6,8 @@
 -- something, we could not put it on the map, and the user asked us to keep it anyway". It is a
 -- per-user record with a link back to the post, and it is never a place.
 --
--- Design: docs/entity-proposal.md §E1 and §9.1/§10 (the acceptance criteria), narrowed and
--- conditioned by docs/security-ruling-e1-caption-retention.md — which is the governing document
+-- Design: docs/archive/entity-proposal.md §E1 and §9.1/§10 (the acceptance criteria), narrowed and
+-- conditioned by docs/archive/security-ruling-e1-caption-retention.md — which is the governing document
 -- wherever the two differ. The ruling's §9 checklist (conditions 1–11, with 1, 6, 7, 9 inside
 -- `security-privacy`'s veto) is what this file implements. Forward-only (`08` §9): nothing at or
 -- below 0030 is edited.
@@ -20,7 +20,7 @@
 -- job, deliberately (see the next section). The mention lives for the life of the account and dies
 -- with it, and the mechanism is a foreign-key referential action — executed by the system, not
 -- subject to RLS, FORCE ROW LEVEL SECURITY or column grants, exactly as
--- `docs/overnight-deletion-review.md` §1.1 rests on. There is nothing to schedule and no way for it
+-- `docs/archive/overnight-deletion-review.md` §1.1 rests on. There is nothing to schedule and no way for it
 -- to silently stop working.
 --
 -- It is also the line that keeps an existing ruling true. `place_mentions` is the FOURTH table in

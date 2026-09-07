@@ -64,8 +64,35 @@ npm run dev                  # http://localhost:3000
 Sign in with the seeded demo account: **`demo@example.com` / `local-dev-preview-1234`**
 (`supabase/seed.sql`).
 
-The landing page and `/healthz` work with an empty `.env.local`, but `/map` needs the database —
-skip `supabase start` and `db:reset` and you get a 500 there.
+### The minimum `.env.local` for a fresh clone
+
+Four values, and three of them are printed by `npx supabase start`:
+
+| Variable | Where the local value comes from |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `http://127.0.0.1:54321` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | printed by `supabase start` / `npx supabase status` |
+| `SUPABASE_SERVICE_ROLE_KEY` | same place |
+| `GEMINI_API_KEY` | <https://aistudio.google.com> — the only one you have to obtain |
+
+**The local Supabase `anon` and `service_role` keys are not secrets.** They are the standard
+development keys the Supabase CLI ships, identical on every machine, and they only ever authorise a
+container running on your own laptop. The production values of the same three names are a different
+matter entirely.
+
+Set `LLM_PROVIDER=gemini` alongside them to match production; the **code default is `anthropic`**,
+so leaving it unset asks for `ANTHROPIC_API_KEY` instead.
+
+**Without `GEMINI_API_KEY` everything works except adding a place from a link and sentence search.**
+Signing in, the map, the saved list, collections and manual add are all unaffected — those two
+features are the only ones that call a model.
+
+`GOOGLE_PLACES_API_KEY` is optional locally: without it the resolver falls back to the Overture
+index, which is empty in a fresh local database, so adding still completes and candidates come back
+labelled as unresolved rather than matched to a real place.
+
+The landing page and `/healthz` work with an entirely empty `.env.local`, but `/map` needs the
+database — skip `supabase start` and `db:reset` and you get a 500 there.
 
 > **Run `npm install` before anything else, and not only for the packages.** The `prepare` script is
 > what points `core.hooksPath` at `.githooks`. Until it has run, the pre-push hook that refuses a
@@ -137,6 +164,7 @@ third category — a secret in a `NEXT_PUBLIC_` name is a published secret.
 | `ANTHROPIC_MODEL` | public-safe | unset | unset | unset | optional override; defaults to `claude-haiku-4-5` in code |
 | `GEMINI_API_KEY` | **secret** | **required** | **required** | **required** | read when `LLM_PROVIDER=gemini`, and **always** by the sentence-search route, which uses Gemini regardless of the provider setting |
 | `GEMINI_MODEL` | public-safe | unset | unset | unset | optional override |
+| `SEARCH_INTENT_MODEL` | public-safe | unset | unset | optional | names the model behind sentence search (`api/search/interpret`). Unset, the adapter's own default applies. A request-body override exists but is ignored outside development, so this variable is the only way the shipped model changes |
 | `PLACE_RESOLVER` | public-safe | `google` | `google` | **`google`** | which provider answers a lookup. **This is the ToS-gated one** — see the note directly below the table |
 | `GOOGLE_PLACES_API_KEY` | **secret** | dev key | dev key | see note | **server-only.** `place-resolver-factory.ts` throws without it when `PLACE_RESOLVER=google` |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | publishable, billable | leave unset | leave unset | leave unset | A fallback read by `place-resolver-factory.ts` when the server key is absent. The prefix makes it **publishable, not published** — that module is `server-only`, so it cannot reach a client bundle as the code stands. The hazard is latent: the name invites a future client-side read. Prefer `GOOGLE_PLACES_API_KEY` |
@@ -194,4 +222,5 @@ The runbook, including the recovery path for a destructive migration, is
 
 Preview: every branch push builds a preview URL. Production: `main`.
 `/healthz` returns `{ ok, stage, commit }` and is the deploy smoke check.
-The full documented flow is owed by MS16 (`docs/deployment.md`).
+The full documented flow — platforms, environments, the env-var reference, the deploy pipeline and
+the hosted-database procedure — is [`docs/deployment.md`](docs/deployment.md).

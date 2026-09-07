@@ -1,7 +1,7 @@
 -- 0032_repoint_saved_place_policy_tests.sql — the authorisation and integrity proof for
 -- `repoint_saved_place`: `0032` (the function) and `0033` (the attribution fix).
 -- Task `r1-pin`, round 1 finding 2, extended for conditions C3 and C4 of
--- `docs/security-ruling-repoint-place-2026-08-31.md`.
+-- `docs/archive/security-ruling-repoint-place-2026-08-31.md`.
 --
 -- THE FILE NAME SAYS `0032` AND IT COVERS TWO MIGRATIONS. Kept rather than renamed: `0033` replaces
 -- `0032`'s function body under the identical signature, so there is one function under test and one
@@ -924,7 +924,7 @@ rollback;
 --    A collection item is keyed on `place_id` (0024:147), so after a re-point the user's collection
 --    still lists the OLD place and loses the overlay that was joined through `saved_places`. That is
 --    a known, named consequence of 0032's scope — see 0032's header and
---    `docs/db-ruling-repoint-place-2026-08-31.md` §5 — not something this suite silently missed.
+--    `docs/archive/db-ruling-repoint-place-2026-08-31.md` §5 — not something this suite silently missed.
 --    An assertion here would freeze a behaviour that is expected to change once that gap is ruled on.
 --  * **THE RENDERED SHEET.** C3's acceptance is written in terms of what the sheet shows, and a
 --    psql script cannot see a sheet. R2f and R2g prove the DATABASE state that makes the correct

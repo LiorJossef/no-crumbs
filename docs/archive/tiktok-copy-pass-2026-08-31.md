@@ -3,7 +3,7 @@
 > **Written 2026-08-31 by `product-lead`.** Table only. **No source file was edited.** A build lane
 > lands this as one commit once the wording is signed off.
 >
-> **Rule:** [`voice-and-vocabulary.md`](voice-and-vocabulary.md) §3 and §3.1, read at HEAD from the
+> **Rule:** [`voice-and-vocabulary.md`](../voice-and-vocabulary.md) §3 and §3.1, read at HEAD from the
 > working tree. The TikTok row now ratifies **"a TikTok link" / "a TikTok video"** and puts the bare
 > noun — *a TikTok · TikToks · this TikTok · the TikTok* — in the *never* column.
 >
@@ -329,9 +329,9 @@ document's own change log; §7.1 below records the one thing that did **not**.
 
 | Document | What moves |
 |---|---|
-| [`spec-no-places-found.md`](spec-no-places-found.md) §5.1, §5.2 | Case A and case B bodies (`Some TikToks…` → `Some TikTok videos…`), `We’ll link it to this TikTok.` → `…this TikTok video.`, and the source-row label chain `@{handle}’s TikTok → {authorName}’s TikTok → This TikTok` → all three gain `video`. **The spec is authoritative for that screen**, so if it does not move, the screen's strings and its spec disagree from the first commit |
+| [`spec-no-places-found.md`](../spec-no-places-found.md) §5.1, §5.2 | Case A and case B bodies (`Some TikToks…` → `Some TikTok videos…`), `We’ll link it to this TikTok.` → `…this TikTok video.`, and the source-row label chain `@{handle}’s TikTok → {authorName}’s TikTok → This TikTok` → all three gain `video`. **The spec is authoritative for that screen**, so if it does not move, the screen's strings and its spec disagree from the first commit |
 | [`overnight-copy-deck.md`](overnight-copy-deck.md) | **C110** (`That link isn’t a TikTok.` → `That link isn’t from TikTok.`) and its §2.5 acceptance test, which asserts byte-equality with `IMPORT_ERROR_COPY.UNSUPPORTED_HOST` — the assertion still holds, the literal changes. §7's quoted no-places table takes the `TikTok videos` wording |
-| [`ux-architecture.md`](ux-architecture.md) §12 | **C10** `Read @{handle}'s TikTok` · **C31** `From @{handle}'s TikTok` · **C61** `Some TikToks don't share enough…` · **C62/C71** `Open the TikTok` / `Try another TikTok` · **C67** `You've added a lot of TikToks…` · **C70** `Some TikToks only show…` · **C81** `Add a TikTok` · **C99** `Add a TikTok`. Eight ids. These stack with the eight drift rows already listed in `overnight-copy-deck.md` §8 — **land them as one §12 edit, not two** |
+| [`ux-architecture.md`](../ux-architecture.md) §12 | **C10** `Read @{handle}'s TikTok` · **C31** `From @{handle}'s TikTok` · **C61** `Some TikToks don't share enough…` · **C62/C71** `Open the TikTok` / `Try another TikTok` · **C67** `You've added a lot of TikToks…` · **C70** `Some TikToks only show…` · **C81** `Add a TikTok` · **C99** `Add a TikTok`. Eight ids. These stack with the eight drift rows already listed in `overnight-copy-deck.md` §8 — **land them as one §12 edit, not two** |
 
 ### 7.1 What the document pass found and did not fix
 

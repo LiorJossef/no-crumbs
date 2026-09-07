@@ -7,7 +7,7 @@
  *  - `docs/voice-and-vocabulary.md` wants every string to state a fact and stop — sentence case, no
  *    exclamation marks, no implementation vocabulary, TikTok as an adjective (§3.1), and the brand
  *    name on six surfaces of which this is none.
- *  - `docs/security-ruling-embed-playback-2026-08-31.md` §2 wants the copy to be *accurate about
+ *  - `docs/archive/security-ruling-embed-playback-2026-08-31.md` §2 wants the copy to be *accurate about
  *    what is being granted rather than soft-pedalled as "just this once"* — which is a demand for
  *    one more clause on a surface whose house style is fewer.
  *

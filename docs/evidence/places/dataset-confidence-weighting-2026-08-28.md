@@ -4,7 +4,7 @@
 the case that prompted it.**
 
 This answers the measurement that
-[`handoff-2026-08-28-categories-and-the-picker.md`](../../handoff-2026-08-28-categories-and-the-picker.md)
+[`handoff-2026-08-28-categories-and-the-picker.md`](../../archive/handoff-2026-08-28-categories-and-the-picker.md)
 §3.3 says to re-run. **It does not need re-running.** That instruction is stale — it was written
 while this was still in flight.
 

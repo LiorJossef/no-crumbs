@@ -6,7 +6,7 @@ Measured by the orchestrator on 2026-08-28 with `npm run db:status:staging` and
 ## The correction
 
 `docs/evidence/deploy/production-readiness-2026-08-28.md` §1 and
-`docs/handoff-2026-08-28-session-close.md` §3.1 both state that **both hosted projects sit at
+`docs/archive/handoff-2026-08-28-session-close.md` §3.1 both state that **both hosted projects sit at
 migration `0018`**. That is true of staging and **false of production**.
 
 | Project | Remote head | Missing | Count |

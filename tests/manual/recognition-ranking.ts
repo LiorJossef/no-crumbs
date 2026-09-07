@@ -4,7 +4,7 @@
  *
  * ## Why this is a module and not fifty lines inside the harness
  *
- * `docs/handoff-2026-08-28-resolution-confidence.md` §4.3 names the defect this fixes: the branch
+ * `docs/archive/handoff-2026-08-28-resolution-confidence.md` §4.3 names the defect this fixes: the branch
  * guard shipped with its evidence measured entirely on the 44-case Overture golden file, and **it
  * could not be evidenced on Google at all** because `tiktok-recognition-run.google.json` stored
  * coordinates for the top-1 row and nothing but a formatted `"name (0.951)"` string for the

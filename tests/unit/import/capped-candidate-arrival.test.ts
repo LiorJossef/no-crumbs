@@ -36,7 +36,7 @@ import {
   type CandidateResolutionView,
 } from '@/ui/import/candidate-resolution-view';
 
-/** C125 (`docs/overnight-copy-deck.md` §3.3). Two facts, because one of them alone misstates. */
+/** C125 (`docs/archive/overnight-copy-deck.md` §3.3). Two facts, because one of them alone misstates. */
 const CAPPED_PIN_LINE = 'Pin from the caption. We didn’t check this one.';
 
 function place(over: Partial<ResolvedPlace> = {}): ResolvedPlace {
@@ -164,7 +164,7 @@ describe('and it says so on the card', () => {
   });
 
   it('does not put a number, a percentage or a confidence word on any of it', () => {
-    // `docs/overnight-copy-deck.md` §3.1: no invented confidence number, band, bar or percentage.
+    // `docs/archive/overnight-copy-deck.md` §3.1: no invented confidence number, band, bar or percentage.
     for (const line of [CAPPED_PIN_LINE, 'Pin from the caption', 'Pin from the map data']) {
       expect(line).not.toMatch(/\d|%|confiden|score|likel|probab/i);
     }

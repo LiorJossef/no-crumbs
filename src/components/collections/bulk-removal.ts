@@ -1,7 +1,7 @@
 /**
  * The words the collection's bulk take-out uses, and the one rule they exist to hold.
  *
- * `docs/ux-two-removals-one-screen.md` defines **two distinct removals** on this product and they
+ * `docs/archive/ux-two-removals-one-screen.md` defines **two distinct removals** on this product and they
  * must never be reachable from one control:
  *
  * | control | writes | reversible |

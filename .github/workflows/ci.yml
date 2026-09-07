@@ -10,9 +10,75 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ## Why documentation is skipped at the job, and never at the trigger
+  #
+  # `paths-ignore` on the trigger looks like the obvious way to spare CI a documentation change,
+  # and it is a trap here. A workflow that does not trigger produces **no check runs at all**, and
+  # `scripts/merge-pr.sh` — which is this repo's entire merge gate, because branch protection is a
+  # paid feature on private repositories — refuses a pull request that reports an empty check list.
+  # It is right to: an empty list is indistinguishable from a workflow that failed to start. So
+  # `paths-ignore` would not have saved documentation a CI run, it would have made documentation
+  # unmergeable. Measured against `merge-pr.sh` on 2026-09-07, before it reached anyone.
+  #
+  # Gating the jobs instead costs one ~15-second runner and reports the three heavy jobs as
+  # SKIPPED, which `merge-pr.sh` already accepts as a genuine non-failure alongside SUCCESS and
+  # NEUTRAL. The check list stays non-empty and the expensive minutes are still not spent.
+  changes:
+    name: what changed
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: classify
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          # Establish what to diff against. Anything unexpected falls through to code=true: this
+          # decides whether the test suites run, so every ambiguous case must run them.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "$BASE_REF"
+            range="origin/$BASE_REF...HEAD"
+          elif [ -n "${BEFORE:-}" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            range="$BEFORE..${{ github.sha }}"
+          else
+            echo "cannot determine what changed — running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(git diff --name-only "$range")
+          if [ -z "$files" ]; then
+            echo "no files changed — running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # `.claude/` and the two documents the guards read are CODE, not documentation. They are
+          # `.md` files that `check:agents` and `check:claude` parse and assert against, so a change
+          # to the rules the guards enforce must not be the change that skips the guards.
+          code=$(printf '%s\n' "$files" | grep -vE '^docs/|\.md$' || true)
+          code="$code$(printf '%s\n' "$files" | grep -E '^\.claude/|^docs/01-agent-roster\.md$|^docs/agent-guardrails\.md$' || true)"
+
+          echo "changed:"; printf '  %s\n' $files
+          if [ -n "$code" ]; then
+            echo "code changed — running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "documentation only — skipping the three heavy jobs"
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   verify:
     name: lint · typecheck · layer guard · unit
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,7 +92,7 @@ jobs:
       - run: npm run check:layers
       # Every table created in public must revoke from both browser roles: the hosted projects grant
       # ALL on new tables to anon and authenticated by default and the migration role cannot stop
-      # them, so a local `db reset` proves nothing here. See docs/ms4-database.md §2.3.
+      # them, so a local `db reset` proves nothing here. See docs/archive/ms4-database.md §2.3.
       - run: npm run check:migrations
       # These three ran only in local `npm run verify` until 2026-08-30, which meant the job named
       # "lint · typecheck · layer guard · unit" was a strict subset of the local filter it was
@@ -48,7 +114,8 @@ jobs:
     # minute monthly allowance that a run of ~20 minutes exhausts in about a hundred runs. The
     # merge commit is the PR head plus main, and `scripts/merge-pr.sh` already refuses a branch
     # that does not contain current main, so the combination was tested before the button.
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     # ## Why this job no longer runs inside mcr.microsoft.com/playwright
     #
     # It used to, and the reason was measured: `playwright install --with-deps` on a bare runner is
@@ -187,7 +254,8 @@ jobs:
     name: migrations · RLS policy tests
     runs-on: ubuntu-latest
     # PRs only, for the reason given on `e2e` above.
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

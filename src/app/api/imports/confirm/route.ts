@@ -60,7 +60,7 @@
  * than letting "no tags" mean four different things.
  *
  * The paragraph above calls those three columns "place facts", which migration `0036` and
- * `docs/db-ruling-tag-ownership-2026-09-01.md` §2 overturn for one of them: `tags` is a **user
+ * `docs/archive/db-ruling-tag-ownership-2026-09-01.md` §2 overturn for one of them: `tags` is a **user
  * annotation**, and it always was — it is a column on `saved_places`, the per-user row, not on
  * `places`, the shared POI. The rest of the paragraph survives intact. Nothing about how the value
  * is *derived* changes: it still comes from the server's own extraction row and the request still

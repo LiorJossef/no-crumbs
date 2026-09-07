@@ -3,12 +3,12 @@
 > **Status 2026-08-30: UNBUILT and still the target.** No `Confidence.reason`, no Shape A/B, no
 > collapse function in `src/` — the whole question model is owed. **Superseded in part:** §10 is
 > replaced by `spec-no-places-found.md`, and the single-confident-result layout by
-> `ux-import-flatten.md` §3 (shipped). Everything else here stands as written.
+> `archive/ux-import-flatten.md` §3 (shipped). Everything else here stands as written.
 >
 > Owner: UX / Interaction. Date: **2026-08-28**. Task **TRACK3-ASK**, branch `feat/resolution-confidence`.
 > `design-system-frontend` owns the code; this document owns the surface.
 >
-> Answers the owner's ruling of 2026-08-28 (`docs/handoff-2026-08-28-categories-and-the-picker.md`
+> Answers the owner's ruling of 2026-08-28 (`docs/archive/handoff-2026-08-28-categories-and-the-picker.md`
 > §3): *"The review screen should only ask the user a question when there is a meaningful decision
 > they actually need to make."*
 >
@@ -22,7 +22,7 @@
 
 ---
 
-## 0. What this supersedes in `docs/ux-import-review-screen.md`
+## 0. What this supersedes in `docs/archive/ux-import-review-screen.md`
 
 That spec stands except for six points, all of which predate resolution shipping:
 
@@ -106,7 +106,7 @@ Note `addressScore` is three-valued and already exported from `domain/places/sco
 
 Distinct copy: **yes**, and it earns it more than any other reason, because we can put both strings on
 screen. `The caption said בזל 42 — this one is on רוטשילד 15.` That single line is the entire
-decision, pre-made for the user, and it is the case `handoff-2026-08-28-google-places-primary.md`
+decision, pre-made for the user, and it is the case `archive/handoff-2026-08-28-google-places-primary.md`
 §10.3 records us handling worst.
 
 ### 3.2 `branch`

@@ -3,7 +3,7 @@
 > Owner: `product-lead`. Date: **2026-08-31, amended 2026-08-31**. Task `i6-edge`, dispatched by the
 > orchestrator against the owner's question: *what is the edge of this product? What makes it
 > unique?* **Amendment** dispatched against the competitor audit at
-> [`evidence/competitors/01-assertion-audit-2026-08-31.md`](evidence/competitors/01-assertion-audit-2026-08-31.md)
+> [`evidence/competitors/01-assertion-audit-2026-08-31.md`](../evidence/competitors/01-assertion-audit-2026-08-31.md)
 > (`social-integration`, `dd97234`), which tested this document's own §4 item 1 against itself.
 >
 > **Base:** read against `1b79e9c` on `no-crumbs-implementation`; amendment read against `dd97234`.
@@ -159,7 +159,7 @@ later, it has to be evaluated against this document specifically, not slipped in
 ## 4. The three things most likely to make this false
 
 1. **FIRED, partially — audited 2026-08-31 by `social-integration`,
-   [`evidence/competitors/01-assertion-audit-2026-08-31.md`](evidence/competitors/01-assertion-audit-2026-08-31.md).**
+   [`evidence/competitors/01-assertion-audit-2026-08-31.md`](../evidence/competitors/01-assertion-audit-2026-08-31.md).**
    Originally: "the category is not as dishonest as I have assumed." Result, precisely: **VERIFIED
    false for the broad slice, and the closest evidence available to true for the narrow one.** Beli,
    Mapstr, mio and Plotline are all VERIFIED to assert unconfirmed facts (Beli's Match Score and

@@ -110,7 +110,7 @@ describe('visitedOnLine', () => {
 });
 
 /**
- * The full C130 ladder from `docs/overnight-copy-deck.md` §4.1, rung by rung.
+ * The full C130 ladder from `docs/archive/overnight-copy-deck.md` §4.1, rung by rung.
  *
  * Every rung, not a sample: the copy deck's own reason for writing all twelve out is that a rung
  * with no string is a rung a caller invents at the boundary, and the boundaries are exactly where

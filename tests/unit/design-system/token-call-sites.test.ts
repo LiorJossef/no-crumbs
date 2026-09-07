@@ -34,7 +34,7 @@
  * assertion here has been run against a deliberately reintroduced defect, appended to a real
  * component and restored, and the ones that did not fail were rewritten until they did.
  *
- * `docs/overnight-run-plan.md` §4's numbers for `K5` and `K12` no longer describe the same
+ * `docs/archive/overnight-run-plan.md` §4's numbers for `K5` and `K12` no longer describe the same
  * quantities as the assertions named after them; both changed on measurement, and the docs are not
  * this package's to edit.
  */

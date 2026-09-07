@@ -12,7 +12,7 @@
  * every pin, the place you were looking at, and — on the note path — the sentence you had just
  * typed and not yet saved. Measured 2026-09-01 with `context.setOffline(true)` at 390×844 and
  * 1440×900: three of the five controls in `components/sheet/saved-place-edits.tsx` took the screen
- * from seven pins to zero (`docs/product-review-2026-09-01-r5.md` §2 finding 1).
+ * from seven pins to zero (`docs/archive/product-review-2026-09-01-r5.md` §2 finding 1).
  *
  * This is a map people use outdoors, on a phone, on cellular. A dead zone, a lift, a tunnel or a
  * handover is not an edge case here; it is the ordinary way a request fails. So silence is not a

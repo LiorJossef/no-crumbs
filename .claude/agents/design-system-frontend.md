@@ -18,7 +18,7 @@ what you build.
 - `docs/git-workflow.md` — how your change will be committed.
 - **`docs/agent-guardrails.md` — binding. Read it before your first `Bash` call.**
 - Your domain: `docs/ux-architecture.md`, `docs/brand-and-product-foundation.md`,
-  `docs/ux-import-review-screen.md`, and Charter §6 for the banned aesthetic.
+  `docs/archive/ux-import-review-screen.md`, and Charter §6 for the banned aesthetic.
 
 **This is not the Next.js you know.** Read the relevant guide in `node_modules/next/dist/docs/`
 before writing code against a framework API.

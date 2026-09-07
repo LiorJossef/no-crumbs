@@ -63,7 +63,7 @@ personalise the product is not consent to show it to collaborators, and a trigge
 makes the disclosure without ever asking. The principle is not new here; it is `emailLocalPart`'s,
 already shipped (`src/domain/collections/collection.ts:159-168`): *prefill, never fallback.* Proved
 by execution in §5.1 (`0035` `P0a`, `P4b`) and ruled on in
-[`security-ruling-profile-names-2026-08-31.md`](security-ruling-profile-names-2026-08-31.md).
+[`archive/security-ruling-profile-names-2026-08-31.md`](archive/security-ruling-profile-names-2026-08-31.md).
 
 | Adversary | What they can do | Where they are stopped |
 |---|---|---|
@@ -628,7 +628,7 @@ is a `supabase-database` task and is listed in §12.
 ### 4.2 Deletion — what it removes, what it refuses, and what survives
 
 `deleteAccount()` (`src/app/actions/account.ts`) was built to a ruling written before the code
-existed (`docs/overnight-deletion-review.md`).
+existed (`docs/archive/overnight-deletion-review.md`).
 
 - **Everything goes by foreign-key cascade from `auth.users`.** There are no application-level
   cleanup statements, deliberately: a hand-written sweep would be a second, drifting definition of
@@ -657,7 +657,7 @@ existed (`docs/overnight-deletion-review.md`).
   `sources` row and an `extractions` row are keyed on the *post*, not on the person who pasted it,
   and carry no user id, no `created_by` and no timestamp of anyone's action. Deleting them on one
   user's departure would delete a cache another importer is actively using. The full ruling is
-  `docs/security-ruling-e1-caption-retention.md` §11. **That answers erasure; it does not answer
+  `docs/archive/security-ruling-e1-caption-retention.md` §11. **That answers erasure; it does not answer
   whether we should hold the caption at all**, which stays open as risk **R-2**.
 
 ---
@@ -1254,7 +1254,7 @@ no per-user limit, no global limit and no cost ceiling in code. **Corrected 2026
 sentence that stood here — *"`RATE_LIMITED_LOCAL` exists as an error code with shipped UI copy … and
 nothing in `src/` ever constructs it"* — was true when written and is no longer, because that code
 has been **retired** for exactly the reason it recorded
-([`product-ruling-quota-copy-2026-08-31.md`](product-ruling-quota-copy-2026-08-31.md) R4). **R-1
+([`archive/product-ruling-quota-copy-2026-08-31.md`](archive/product-ruling-quota-copy-2026-08-31.md) R4). **R-1
 itself stands, undiminished:** the limiter is still not built, and retiring the code it would have
 raised removes a false signal of capability rather than the exposure. If anything the finding is now
 easier to read, since nothing in the taxonomy suggests a limit is in place.
@@ -1281,7 +1281,7 @@ verified by grep at this commit: no `pg_cron`, no `supabase/functions/`, no sche
 that **nothing reads**, and it has been quoted as a 24-hour retention bound in four documents; it is
 not one. Account deletion does not reach it either, and correctly so: a `sources` row is keyed on the
 *post*, carries no user id, and deleting it on one user's departure would delete a cache another
-importer is using (`security-ruling-e1-caption-retention.md` §11). *So the exposure is not to our
+importer is using (`archive/security-ruling-e1-caption-retention.md` §11). *So the exposure is not to our
 users — it is that we are a controller of a third party's published speech with no retention
 policy.* *Minimum fix:* a stated retention position plus either a TTL sweeper or a documented
 lawful-basis-and-minimisation argument. *Status:* partially ruled — the E1 ruling settled retention
@@ -1384,7 +1384,7 @@ this player, and it would leave the SDK execution untouched anyway.
 that survives a cleared `localStorage`, which needs a migration; (b) a proven-in-all-three-engines
 `credentialless` mount, which closes the storage half only; (c) removing the feature, which is the
 only thing that closes it, and the owner ruled the trade worth making under the consent gate
-([`security-ruling-embed-playback-2026-08-31.md`](security-ruling-embed-playback-2026-08-31.md) §5).
+([`archive/security-ruling-embed-playback-2026-08-31.md`](archive/security-ruling-embed-playback-2026-08-31.md) §5).
 *Ruling:* conditional permit, §6 items 1–4 and 10 being the conditions. *GDPR/ePrivacy note:* the
 cookie is non-essential and cross-site-trackable, set by a third party through our page, so Art.
 5(3) consent is the frame this was built to — **ASSUMED**, not VERIFIED, and the same status §2 of
@@ -1477,7 +1477,7 @@ since `.claude/settings.json` is a §4.15 guarded file.
   for a guess.
 - **`last_name` is collected and read by nothing.** No surface renders it, no function returns it.
   That is a data-minimisation tension and it is the owner's call, taken deliberately
-  ([`db-ruling-profile-names-2026-08-31.md`](db-ruling-profile-names-2026-08-31.md) R1). Recorded as
+  ([`archive/db-ruling-profile-names-2026-08-31.md`](archive/db-ruling-profile-names-2026-08-31.md) R1). Recorded as
   a decision so it is not later mistaken for an oversight.
 - **The label prompt is reachable from one screen only.** `updateDisplayName`
   (`app/actions/collections.ts:526`) is `display_name`'s only writer in `src/`, and its only caller
@@ -1535,7 +1535,7 @@ Two follow-ups that are not checks but are owed, and belong to other agents:
 | 3 | SSRF for user-supplied URLs | **CLOSED except one residue.** Allow-list, redirect re-validation, hop budget, timeouts, userinfo/port/IP-literal rejection — all built and tested (§7.1). Residue: **no response-size cap**, risk R-5 |
 | 4 | The remaining questions in `04-tiktok-feasibility.md` §8 | **PARTIALLY CLOSED.** Q1 SSRF → §7.1 (allow-list on a closed six-host set judged sufficient; we never fetch a user-controlled body). Q5 prompt injection → §8, confirmed: no tools, no side effects, schema-validated output. Q6 thumbnails → hot-link with `no-referrer`, §7.2 / R-8. Q7 rate limiting → **OPEN**, R-1. Q8 log hygiene → §7.2, codes and counts only, no captions. **Still open: Q2 (may we use a scraping provider), Q3 (disclosure of the undocumented endpoint — my position: yes, and `04` §8 row 1 is the disclosure), Q4 (lawful basis for the caption) → R-2** |
 | 5 | The 7 licensing/privacy questions in `06` §11 | **SPLIT, and mostly moot.** Q1 Apache-2.0 NOTICE **ANSWERED**, `NOTICE` shipped. Q2 ODbL share-alike is **superseded, not owed** — Google Places is canonical, Nominatim was never built, no adapter exists in `src/`, and no row is ODbL-derived; it re-opens only on the first PR adding an OSM alias or a Nominatim write path. Q3–Q7 map onto R-2 (retention), §10 (location privacy), R-1 (rate limits) and R-10 (keys) |
-| 6 | Caption-retention posture | **PARTIALLY CLOSED, and the open half is the honest one.** `security-ruling-e1-caption-retention.md` ruled retention for the *extraction* — life of the account, enforced by an FK cascade rather than a job. Whether we may hold `sources.content_text` at all is **OPEN**: risk R-2 |
+| 6 | Caption-retention posture | **PARTIALLY CLOSED, and the open half is the honest one.** `archive/security-ruling-e1-caption-retention.md` ruled retention for the *extraction* — life of the account, enforced by an FK cascade rather than a job. Whether we may hold `sources.content_text` at all is **OPEN**: risk R-2 |
 | 7 | Whether cached `sources` rows must be GC'd after user deletion | **CLOSED — no**, and §4.2 / the E1 ruling §11 give the reasoning: the row is keyed on the post, carries nothing about the user, and deleting it would delete another importer's cache |
 | 8 | Whether `places.created_at` predating a save is an acceptable inference channel | **CLOSED** 2026-08-19. Acceptable; the grant was narrowed anyway, for `provider_payload`. A§2.6, R-11 |
 | 9 | Whether the user-writable `imports.candidates` grant should be revoked | **CLOSED.** The row was stale: `authenticated` never held it. `grant update (status, completed_at)` only, `0003:135`, asserted by `P9c-i` |

@@ -29,7 +29,7 @@
  * ## The headline metric: the auto-match rate
  *
  * **The share of adjudicated candidates that land in the `preselect` band AND are the right
- * venue.** That is the number the owner asked to move (`docs/handoff-2026-08-27-place-recognition.md`
+ * venue.** That is the number the owner asked to move (`docs/archive/handoff-2026-08-27-place-recognition.md`
  * §1: "ideally we should rarely need [the picker]"). Everything else printed here exists to explain
  * that one number, or to keep it honest.
  *

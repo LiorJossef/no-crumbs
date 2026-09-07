@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 /**
  * The guard on the gate viewports themselves.
  *
- * `docs/overnight-run-plan.md` §8a Q1 and six package exit criteria are written against **390×844
+ * `docs/archive/overnight-run-plan.md` §8a Q1 and six package exit criteria are written against **390×844
  * and 1440×900**. Until 2026-08-31 nothing in this repository could produce either number:
  * `devices['Pixel 7']` is 412×839 and `devices['Desktop Chrome']` is 1280×720. That is the kind of
  * mismatch that is invisible in a report — a screenshot labelled "390×844" that was taken at 412 px

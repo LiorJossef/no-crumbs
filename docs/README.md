@@ -1,18 +1,20 @@
 # The documents — what to read, and what to trust
 
-> Written 2026-08-30, because `docs/` had grown to 60 files and roughly 23,000 lines and nothing
-> said which of them was still true. This file is the map. It is short on purpose.
+> Written 2026-08-30, because `docs/` had grown to 60 files and nothing said which of them was
+> still true. Revised 2026-09-07, when it had reached 135 and the same thing was true again: 89 of
+> them moved to [`archive/`](archive/), which is the record of how this was built, and 45 stayed
+> here, which is what is true now. This file is the map. It is short on purpose.
 
 ## If you are starting cold, read these four, in this order
 
 | # | File | What it tells you |
 |---|---|---|
-| 1 | [`current-state.md`](current-state.md) | What is built, what is measured, what is open. ~100 lines, all of it current. The session narrative it used to carry is in [`history-2026-08.md`](history-2026-08.md). |
+| 1 | [`current-state.md`](current-state.md) | What is built, what is measured, what is open. ~100 lines, all of it current. The session narrative it used to carry is in [`archive/history-2026-08.md`](archive/history-2026-08.md). |
 | 2 | [`mvp-plan.md`](mvp-plan.md) | The strategy: the MVP boundary, the four levels L0–L3, what is deliberately absent and where it went. |
 | 3 | [`execution-plan.md`](execution-plan.md) | The ladder and the running status: Level → Feature → Task, with an exit criterion per task. |
 | 4 | [`working-agreement.md`](working-agreement.md) | How this project is built, and which decisions are the owner's. |
 | 5 | [`facelift-plan.md`](facelift-plan.md) | The five-stage visual rebuild, locked 2026-08-30: twelve audited findings, the map capability matrix, the decisions and the landing strategy while CI is down. |
-| 6 | [`overnight-run-plan.md`](overnight-run-plan.md) | **The run sheet.** Six waves, 24 work packages with path scopes and exit criteria, the measured baseline, the KPIs, and the verification protocol. Written for a session driving multiple agents. |
+| 6 | [`submission.html`](submission.html) | **The front door of the graded set** — the six documents below it, the live link and the demo account. Open it in a browser. |
 | 7 | [`growth-plan.md`](growth-plan.md) | From demo to product: the first-session arithmetic, four verified defects, what bursts break, and what we already query but never render. |
 | 8 | [`voice-and-vocabulary.md`](voice-and-vocabulary.md) | Binding on every user-facing string: the tone rule, where the name may appear, the vocabulary table and the banned words. |
 | 9 | [`no-crumbs-design-system.html`](no-crumbs-design-system.html) | The same material rendered — audit, name, brand, mascot and voice — with live mockups and the running motion set. Open it in a browser. |
@@ -53,20 +55,34 @@ These carry the VERIFIED / ASSUMED / UNAVAILABLE labels the house rules require.
 depend on VERIFIED.
 
 **Runbooks — CURRENT, because they are operational.** `db-migration-runbook.md` ·
-`vercel-env-restore.md`
+`deployment.md` · `db-local-catchup-plan.md`
 
-**Session history — DATED, all of it, always.** [`history-2026-08.md`](history-2026-08.md) and the
-`handoff-*.md` / `ms*.md` files. One per working session. They are the archaeology: what was tried, what was measured, what the owner ruled. Read one
-when you want to know *why*, never to find out *what is true now*. `current-state.md` is the only
-document that answers that.
+**The submission set — the graded deliverable, and the only documents written for an outside
+reader.** [`submission.html`](submission.html) is the index; under it sit
+`product-requirements.html` · `technical-design-document.html` · `testing-specification.html` ·
+`scalability.html` · `security.html` · `presentation.html`. They carry no version suffix on purpose:
+there is one of each, and it is the current one. Earlier revisions are on disk in `docs/.drafts/`,
+which is gitignored, and in git history.
+
+**Session history and everything else dated — in [`archive/`](archive/), all of it, always.** The
+handoffs, the overnight run logs, the per-round product and UI reviews, the dated `*-ruling-*` notes,
+the shipped one-shot build specs, the finished iteration plans, and
+[`archive/history-2026-08.md`](archive/history-2026-08.md). They are the archaeology: what was tried,
+what was measured, what the owner ruled. Read one when you want to know *why*, never to find out
+*what is true now*. `current-state.md` is the only document that answers that.
+
+Nothing in `archive/` is maintained, and moving a file there is not a judgement that it was wrong —
+only that it has stopped describing the present. Code comments and specs that cite one still point
+at it; the paths were rewritten when it moved.
 
 ## Two things that were wrong here on 2026-08-30, as a warning
 
 Both were found by reading the repo instead of the documents.
 
-1. Several documents said **production was down and blocked on the owner**. It is live, healthy, and
-   serving current `main` — `https://p-002-zeta.vercel.app/healthz` answers
-   `{"ok":true,"stage":"production","commit":"99324dd"}`.
+1. Several documents said **production was down and blocked on the owner**. It was live and serving
+   current `main` the whole time. (The host named here that day, `p-002-zeta.vercel.app`, is itself
+   now dead — production is `https://no-crumbss.vercel.app`. The warning keeps proving its own
+   point.)
 2. `current-state.md` opened with a warning that two commits were **unpushed** and a file was
    uncommitted. They had landed, and the tree was clean.
 

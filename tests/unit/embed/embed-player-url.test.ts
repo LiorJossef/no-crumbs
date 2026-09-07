@@ -1,6 +1,6 @@
 /**
  * **The player URL and the iframe's attributes**, which between them are five of the ten acceptance
- * lines in `docs/security-ruling-embed-playback-2026-08-31.md` §6.
+ * lines in `docs/archive/security-ruling-embed-playback-2026-08-31.md` §6.
  *
  * The ones this file carries: item 5 (the Embed Player, not the oEmbed blockquote), item 6
  * (`referrerpolicy`, asserted at the call site in `panel-source.test.ts` and as a value here), item

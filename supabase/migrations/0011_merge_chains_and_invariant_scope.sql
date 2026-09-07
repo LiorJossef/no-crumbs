@@ -198,7 +198,7 @@ grant execute on function public.merge_places(uuid, uuid) to service_role;
 -- ---------------------------------------------------------------------------------------------
 -- resolve_place: same algorithm, same three steps, same 75 m + name_key + country guard, same
 -- ON CONFLICT DO UPDATE and aliasless-orphan cleanup in step 3 (the MS4 fix recorded in
--- docs/ms4-database.md §2.1 — DO NOTHING would return no row under READ COMMITTED). Four changes:
+-- docs/archive/ms4-database.md §2.1 — DO NOTHING would return no row under READ COMMITTED). Four changes:
 --
 --   a. every path that returns a place id now returns the TERMINAL survivor, via
 --      place_survivor_id(), not the first hop. That includes step 2's ON CONFLICT return, which

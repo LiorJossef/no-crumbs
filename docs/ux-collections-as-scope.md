@@ -9,9 +9,9 @@
 > (b) Places → Collections → Tel Aviv → Fugazi stacks back buttons and "back" has no stable meaning;
 > (c) the same place must not feel like a different object depending on the route used to reach it.
 >
-> **This supersedes** `ux-nav-collections-routes-2026-08-29.md` §1's "the back arrow stays" and the
+> **This supersedes** `archive/ux-nav-collections-routes-2026-08-29.md` §1's "the back arrow stays" and the
 > composition of `collections-index-client.tsx` as a standalone document. It does **not** touch
-> R2 (the three-tab bar), R4 (the global `＋`), R32 (no second overlay) or `ux-collections.md`'s
+> R2 (the three-tab bar), R4 (the global `＋`), R32 (no second overlay) or `archive/ux-collections.md`'s
 > data model, sharing model or privacy boundary.
 
 ---
@@ -49,7 +49,7 @@ So the change is subtraction, not invention:
 | `/map` — the shell, scope = everywhere | unchanged |
 
 **Why not a filter chip on `/map` with no route at all:** a share link has to land somewhere, and
-`ux-collections.md` is right that a collection you can see spatially is the whole reason it is not a
+`archive/ux-collections.md` is right that a collection you can see spatially is the whole reason it is not a
 note in a chat app. A URL is cheap; a *layout* is not. Keep the URL, delete the layout.
 
 **Why the index is not a ninth surface:** it renders in the sheet, at `full`, with the same rows,
@@ -167,7 +167,7 @@ back at all: Map tab, Collections tab.
 Scope is **route state, not remembered state**. It is set by opening `/collections/[id]` and cleared
 by leaving it. It does not persist across a reload of `/map`, it is not written to `localStorage`,
 and there is no "you were last in a collection" restore. This keeps
-`ux-navigation-structure-2026-08-29.md` §4.7 intact.
+`archive/ux-navigation-structure-2026-08-29.md` §4.7 intact.
 
 ---
 
@@ -216,7 +216,7 @@ one thumb-reachable tap. Nothing is trapped.
 **The tab-lighting fix that makes this honest:** on `/collections/[id]` the Collections tab is an
 ancestor-section match, not the current document. It renders `aria-current="true"`, not `"page"`
 (`bottom-nav.tsx:184`; the defect is already recorded in
-`ux-nav-collections-routes-2026-08-29.md` §5.3). On `/collections` it stays `"page"`.
+`archive/ux-nav-collections-routes-2026-08-29.md` §5.3). On `/collections` it stays `"page"`.
 
 ---
 
@@ -301,7 +301,7 @@ Reduction is the point. Each line is a removal, in the order I would land it.
 5. **`aria-current="page"` on `/collections/[id]`** → `"true"`.
 6. **The `＋`'s `/import` fallback on the collection routes.** R4: one global create menu on every
    tab. Today the circle on a collection route is a one-way door that loses the collection
-   (`ux-nav-collections-routes-2026-08-29.md` §5.2).
+   (`archive/ux-nav-collections-routes-2026-08-29.md` §5.2).
 7. **The bottom-padding workaround on `Drawer.Content`** in `/collections/[id]`, once the shell is
    shared — it exists only because that route has its own sheet.
 
@@ -318,7 +318,7 @@ Reduction is the point. Each line is a removal, in the order I would land it.
     the shell already has one and the reason it must stay single is documented in both files.
 11. **The below-the-fold defect on `/collections/[id]`** dies with the duplicate: the shell's
     `STOP_TO_CONTENT_HEIGHT` applies, so `Add places` stops being tappable only at `full`
-    (`ux-nav-collections-routes-2026-08-29.md` §5.4).
+    (`archive/ux-nav-collections-routes-2026-08-29.md` §5.4).
 
 **Not deleted, and named so nobody generalises:** the pane stack in `CollectionContent`; the
 `⋯` menu; `SharePanel`; `AddPlacesPanel`; the "already in" inert row treatment; the privacy
@@ -384,4 +384,4 @@ is untouched by this ruling and neither easier nor harder after it.
 | Date | Change |
 |---|---|
 | 2026-09-02 | **Amended §5 item 3, and §2.2 and §3 with it: the `Collections` up-link and its whole kicker row are deleted, and the `⋯` options button moves onto the collection heading's row.** Written before the code, which is the sequence this document's own §5 item 3 note demanded after the control was deleted at `cea513c` and restored at `1db0294`. The argument is the measurement already recorded in §2.2 — the row costs 44 px and takes the collection's only fully-visible list row at 390×844 at `half` — plus the fact that made the control redundant after it was specified: since 2026-08-31 the drawer's `Places / Collections` switch renders directly above this header and its `Collections` segment resolves to the same `/map?view=collections`. Exits after the amendment: that segment at `half`/`full`, and the Map tab at every stop. §2.2's one-back-control invariant is strengthened, not relaxed |
-| 2026-08-30 | Created for `NAV-2`. Ruled: one shell, a collection is a **scope** on it and the collections index is the sheet's list, not a page; **two layers maximum** (shell → one pushed pane) with **exactly one back-shaped control on screen at any moment**; every route-level back arrow deleted in favour of the Map tab (clear scope), the Collections tab (the index) and a **labelled `Collections` up-link** in the sheet's kicker row; scope displayed in the sheet header, never as a floating chip over the map, with `FLOATING_TOP_CHROME_PX` held at 0; `aria-current="true"` on `/collections/[id]`; the canonical `PlaceDetail` may only be **added to** by a collection, through its two existing slots, and `Already in your places` becomes the explicit door `Open in your places →`; and an eleven-item deletion list split into cheap chrome work and costly plumbing work. Superseded `ux-nav-collections-routes-2026-08-29.md` §1's "the back arrow stays" |
+| 2026-08-30 | Created for `NAV-2`. Ruled: one shell, a collection is a **scope** on it and the collections index is the sheet's list, not a page; **two layers maximum** (shell → one pushed pane) with **exactly one back-shaped control on screen at any moment**; every route-level back arrow deleted in favour of the Map tab (clear scope), the Collections tab (the index) and a **labelled `Collections` up-link** in the sheet's kicker row; scope displayed in the sheet header, never as a floating chip over the map, with `FLOATING_TOP_CHROME_PX` held at 0; `aria-current="true"` on `/collections/[id]`; the canonical `PlaceDetail` may only be **added to** by a collection, through its two existing slots, and `Already in your places` becomes the explicit door `Open in your places →`; and an eleven-item deletion list split into cheap chrome work and costly plumbing work. Superseded `archive/ux-nav-collections-routes-2026-08-29.md` §1's "the back arrow stays" |

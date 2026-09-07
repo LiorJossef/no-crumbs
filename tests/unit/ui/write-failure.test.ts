@@ -1,5 +1,5 @@
 /**
- * **The rule `docs/product-review-2026-09-01-r5.md` §2 finding 1 asked to have put in the code: a
+ * **The rule `docs/archive/product-review-2026-09-01-r5.md` §2 finding 1 asked to have put in the code: a
  * `Result` covers what the server can say, not the server not answering.**
  *
  * `attemptWrite` is the whole of that rule, so this file pins the three things a caller depends on

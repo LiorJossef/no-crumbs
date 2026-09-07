@@ -1,6 +1,6 @@
 /**
  * The card's three bands and the two hairlines between them — task **H-3** of
- * `docs/ux-place-card-unification-2026-09-02.md` §2.
+ * `docs/archive/ux-place-card-unification-2026-09-02.md` §2.
  *
  * The rule the spec cares about is not "there is a divider"; it is that **a band that renders
  * nothing takes its hairline with it**. A rule with no content under it is the floating fragment

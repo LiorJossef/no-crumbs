@@ -42,7 +42,7 @@ set transaction read only;
 -- The consequence is permanent and must be designed around: **every table a future migration creates
 -- in `public` arrives with ALL granted to both browser roles**, and only an explicit REVOKE closes
 -- it. The local container carries the same defaults — they are present everywhere (an earlier draft
--- of docs/ms4-database.md claimed local was clean; that was wrong, see §2.3). A local
+-- of docs/archive/ms4-database.md claimed local was clean; that was wrong, see §2.3). A local
 -- `supabase db reset` therefore proves nothing about the revoke, because RLS passes with or without
 -- it and nothing in the policy tests inspects a grant. That is why the guarantee lives in
 -- `scripts/check-migration-grants.sh` (a static check over the migrations, run in CI) rather than

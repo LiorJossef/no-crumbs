@@ -8,7 +8,7 @@ import { blockingCollections, type BlockingCollection } from './blocking-collect
  *
  * ## The rule, and it is not mine
  *
- * `docs/overnight-deletion-review.md` §2, a binding ruling from `security-privacy` written before
+ * `docs/archive/overnight-deletion-review.md` §2, a binding ruling from `security-privacy` written before
  * this was built:
  *
  * > **Refuse deletion while the user is the live owner of a collection that has at least one other

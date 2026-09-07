@@ -136,7 +136,7 @@ export type BulkDeleteResult =
  * **This is the irreversible removal**, the same one `deleteSavedPlace` performs: it removes
  * `saved_places` rows and the notes, tags and Been marks on them, cascades `saved_place_sources`,
  * and never touches `places`. It is deliberately not the same action as taking places out of a
- * collection (`removeCollectionItems`) — see `docs/ux-two-removals-one-screen.md`; one control
+ * collection (`removeCollectionItems`) — see `docs/archive/ux-two-removals-one-screen.md`; one control
  * must never do both.
  */
 export async function deleteSavedPlaces(
@@ -323,7 +323,7 @@ export async function updateSavedPlaceCategory(
  *
  * `visited_at` exists to make "been" a fact with a time attached rather than a bare flag, and the
  * time is *when it was recorded here*, never a date the user typed — an editable visit date is
- * explicitly out of scope (`docs/product-ruling-after-the-save.md` §6.5), and taking one from the
+ * explicitly out of scope (`docs/archive/product-ruling-after-the-save.md` §6.5), and taking one from the
  * browser would let a client write any timestamp it liked into a column nothing validates. Nothing
  * renders it today; it is written because the schema asked for it and because a mark with no time
  * is the thing that has to be re-derived later.

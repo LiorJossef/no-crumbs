@@ -21,7 +21,7 @@
  *     Signed TikTok URLs live ~47 hours, so this is the majority state of any library older than
  *     two days, not an error path.
  *  4. **The play affordance is a button and a slot, and must stay that.**
- *     `docs/security-ruling-embed-playback-2026-08-31.md` §6 permits the embed only behind a
+ *     `docs/archive/security-ruling-embed-playback-2026-08-31.md` §6 permits the embed only behind a
  *     first-press disclosure that another lane owns. The last `describe` below is the line that
  *     says this file has not quietly grown a player.
  *
@@ -282,7 +282,7 @@ describe('the play affordance — a button and a slot, and nothing behind them',
   });
 
   it('mounts no player of its own, in any state this file can produce', () => {
-    // `docs/security-ruling-embed-playback-2026-08-31.md` §0: the embed is a conditional permit,
+    // `docs/archive/security-ruling-embed-playback-2026-08-31.md` §0: the embed is a conditional permit,
     // and §6.1–6.4 are the gate. The press must reach a host that owns the first-press disclosure.
     // This is the assertion that says the seam has not been closed from the wrong side — an
     // iframe, a script tag or a TikTok host appearing anywhere under this component fails here,

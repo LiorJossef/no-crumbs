@@ -1,5 +1,5 @@
 /**
- * `docs/ux-collection-actions-2026-09-03.md`, held in markup and in source.
+ * `docs/archive/ux-collection-actions-2026-09-03.md`, held in markup and in source.
  *
  * The screen was speaking a control language the rest of the product retired: an unlabelled `⋯`
  * hiding a mode switch beside two destructions inside a bespoke container (`rounded-lg border

@@ -81,7 +81,7 @@ throwaway Postgres, or get an explicit go-ahead first.
 
 ### 3. Collections as a scope on the map shell (`refactor/collections-as-map-scope`)
 
-R4, spec in [`ux-collections-as-scope.md`](ux-collections-as-scope.md). Keep both URLs, delete both
+R4, spec in [`ux-collections-as-scope.md`](../ux-collections-as-scope.md). Keep both URLs, delete both
 layouts. Layer 0 is the shell with no back control; layer 1 is one pushed pane with one back arrow;
 a pane may not push a pane. Scope stated in the sheet header, not a floating chip —
 `FLOATING_TOP_CHROME_PX = 0` is load-bearing. R46: the shell unification is **not** deferred.

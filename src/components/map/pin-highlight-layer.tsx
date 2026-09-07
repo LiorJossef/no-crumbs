@@ -2,7 +2,7 @@
 
 /**
  * The one pin the user is pointing at in the list, drawn lifted and named — the canvas half of the
- * row↔pin coupling (`W3-2`, `docs/ux-overnight-specs.md` §2.2, `facelift-plan.md` §3a).
+ * row↔pin coupling (`W3-2`, `docs/archive/ux-overnight-specs.md` §2.2, `facelift-plan.md` §3a).
  *
  * The idea it carries is *"these are the same object"*: pointing at a row lifts its pin and quietens
  * the others, so the library and the map stop being two lists of the same places and start being one

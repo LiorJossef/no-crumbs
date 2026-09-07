@@ -1,6 +1,6 @@
 # Presentation outline — No Crumbs
 
-> **SUPERSEDED 2026-09-02 by [`presentation-deck.md`](presentation-deck.md), which is the graded
+> **SUPERSEDED 2026-09-02 by [`presentation-deck.md`](../presentation-deck.md), which is the graded
 > artefact (M11, M12 item 10) and the file to build the slides from and speak.** This outline is kept
 > as the record of how the story was first shaped, and it is **not maintained**. Several of its
 > numbers are now stale — the unit-test counts, the migration count, the policy-assertion count, and
@@ -11,7 +11,7 @@
 > The document warns: *"it is not enough that the app works — you must know how and why it works."*
 >
 > This is the slide plan and the speaker's notes. The study guide for the questions afterwards is
-> [`how-the-system-works.md`](how-the-system-works.md); read that the night before, not this.
+> [`how-the-system-works.md`](../how-the-system-works.md); read that the night before, not this.
 >
 > **Rule for the whole deck: every number said out loud is one we measured.** Where we did not
 > measure, say so. The rubric rewards quality of thinking, and admitting a gap is thinking.
@@ -196,7 +196,7 @@ Four, in order, and be able to justify the order:
 
 ## The questions to prepare, in likelihood order
 
-Rehearse these out loud. Full answers are in [`how-the-system-works.md`](how-the-system-works.md).
+Rehearse these out loud. Full answers are in [`how-the-system-works.md`](../how-the-system-works.md).
 
 1. **"Walk me through what happens when you paste a link."** → slide 6, and name files.
 2. **"Why does it only work on a quarter of posts?"** → slide 13. Answer as measurement, never as apology.

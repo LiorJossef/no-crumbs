@@ -139,7 +139,7 @@ never implements — a two-line fix is reported as a two-line fix, and the orche
 
 It is bound by the standing product rulings rather than free to relitigate them. Anything that
 asserts what the user did not confirm — ratings, "open now", trending, a social feed — is refused in
-advance by `product-edge-2026-08-31.md`, because the refusal *is* the differentiator. A reviewer
+advance by `archive/product-edge-2026-08-31.md`, because the refusal *is* the differentiator. A reviewer
 proposing one is contradicting a ruling, not improving the product. It may challenge a ruling
 explicitly, with the evidence that would overturn it, **outside the five**.
 

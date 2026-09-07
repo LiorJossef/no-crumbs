@@ -29,7 +29,7 @@ evidence.
 
 ## 2. What landed, and the measurement behind it
 
-Full evidence: [`docs/evidence/places/resolution-confidence-2026-08-28.md`](evidence/places/resolution-confidence-2026-08-28.md).
+Full evidence: [`docs/evidence/places/resolution-confidence-2026-08-28.md`](../evidence/places/resolution-confidence-2026-08-28.md).
 
 ### 2.1 The score is now the name score
 
@@ -240,7 +240,7 @@ in the evidence files.
 
 ## 5. The product half of the ruling — specified, not built
 
-[`docs/ux-when-we-ask.md`](ux-when-we-ask.md), by `ux-interaction`. Built on one rule: **ask only when
+[`docs/ux-when-we-ask.md`](../ux-when-we-ask.md), by `ux-interaction`. Built on one rule: **ask only when
 the answer changes what we save.** Three consequences, each deleting something currently on screen —
 an auto-accepted candidate renders no list at all (a list *is* a question); two rows describing one
 place are one row; and when we do ask, the rows must differ in the thing being asked about, which for
@@ -297,7 +297,7 @@ case where a false positive is worst. A cheap pre-check was refuted too: `emptyI
 
 ### 6.1 The number worth carrying forward
 
-Full measurement: [`docs/evidence/extraction/determinism-2026-08-28.md`](evidence/extraction/determinism-2026-08-28.md).
+Full measurement: [`docs/evidence/extraction/determinism-2026-08-28.md`](../evidence/extraction/determinism-2026-08-28.md).
 79 samples, 90 Gemini calls, now replayable from disk at zero cost.
 
 **The model's coordinate for the same venue from the same caption moves a median 327 m between calls**

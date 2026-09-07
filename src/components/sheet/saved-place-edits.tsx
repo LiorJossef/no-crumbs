@@ -37,7 +37,7 @@
  * an offline press produced a rejection rather than a result; React escalated it to
  * `app/error.tsx`, and the whole segment went with it — map, seven pins, the open place, and on the
  * note path the sentence the user had just typed. Measured offline at both breakpoints
- * (`docs/product-review-2026-09-01-r5.md` §2 finding 1). Every action here already returned a
+ * (`docs/archive/product-review-2026-09-01-r5.md` §2 finding 1). Every action here already returned a
  * `Result`; a `Result` simply cannot express *the server never answered*.
  *
  * `ui/place/write-failure.ts` holds that rule and the reasoning. What each control does with it is
@@ -93,7 +93,7 @@ const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
  * different components until 2026-09-02: a boxed full-width row, an inline mint `Change` link, a
  * dashed `+ Add a note` pill and a bordered panel. Four shapes for one job, on one card, is the
  * whole of the owner's "inconsistent action components" complaint
- * (`docs/ux-place-card-unification-2026-09-02.md` §4.2, which is the ruling this implements).
+ * (`docs/archive/ux-place-card-unification-2026-09-02.md` §4.2, which is the ruling this implements).
  *
  * The row is **label, value, glyph**: `SECTION_LABEL` at 11 px where the value needs naming, the
  * value at 14 px, and one 12 px trailing chevron. **Every row opens the same way** — the row stays
@@ -620,7 +620,7 @@ export function CategoryEditor({
  * still reaches the card, and putting the control back is a component rather than a migration.
  *
  * One thing the pencil was carrying that the card still needs: it was the *fixed chrome* the RTL
- * audit measured `<bdi>` against on the name heading (`docs/rtl-audit-2026-08-31.md` findings 2
+ * audit measured `<bdi>` against on the name heading (`docs/archive/rtl-audit-2026-08-31.md` findings 2
  * and 4). The heading keeps its `<bdi>` and its comment — the close × is chrome beside the same
  * name, and a Hebrew name with no isolation would still drag the identity block's alignment.
  */
@@ -715,7 +715,7 @@ export function NoteEditor({
         <span className="flex min-w-0 flex-1 items-baseline gap-2">
           {note && <span className={cn(SECTION_LABEL, 'shrink-0')}>Your note</span>}
           {/* `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
-              routinely Hebrew (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 1). */}
+              routinely Hebrew (rtl audit, `docs/archive/rtl-audit-2026-08-31.md` finding 1). */}
           <span
             dir="auto"
             className={cn(

@@ -1,8 +1,8 @@
 -- 0037_model_prose_is_labelled_and_removable.sql — the last two columns `0019` left the user unable
 -- to change, remove, or tell apart from their own words.
 --
--- Task `r5-whygo`, finding 3 of `docs/product-review-2026-09-01-r4.md` (§2.2, §3 row 3). The ruling
--- that governs this file is `docs/db-ruling-model-prose-2026-09-01.md`; where the two differ, the
+-- Task `r5-whygo`, finding 3 of `docs/archive/product-review-2026-09-01-r4.md` (§2.2, §3 row 3). The ruling
+-- that governs this file is `docs/archive/db-ruling-model-prose-2026-09-01.md`; where the two differ, the
 -- ruling wins. `0036` did this for `tags`; this finishes the class `0019` opened in one migration.
 --
 -- ═══ THE DEFECT, MEASURED ON THE RUNNING CONTAINER AT BASE COMMIT a468fb1 ═════════════════════
@@ -24,7 +24,7 @@
 -- north." and "The sourdough is worth the queue.": superlatives, on a private map, about places the
 -- user has never been, written by a language model out of a stranger's caption, and unremovable.
 --
--- `docs/product-edge-2026-08-31.md` §0 rules that this product's differentiator is refusing to
+-- `docs/archive/product-edge-2026-08-31.md` §0 rules that this product's differentiator is refusing to
 -- assert what the user did not confirm. `brand-and-product-foundation.md` §7 promises nothing
 -- reaches the map without confirmation. Eight rows are currently such an assertion.
 --
@@ -47,7 +47,7 @@
 --   (b) IT IS OUTSIDE THE STATED MVP BOUNDARY AND ON AN OPEN OWNER QUESTION. `CLAUDE.md` fixes
 --       stored info at name · category · coordinates · source link · USER NOTE — one user-authored
 --       prose field. Whether that boundary governs place facts only or every stored field is
---       **OD-1** (`docs/product-ruling-after-the-save.md` §5), still unanswered, and the r4 review
+--       **OD-1** (`docs/archive/product-ruling-after-the-save.md` §5), still unanswered, and the r4 review
 --       names OD-1 itself as the thing that would change its mind. A migration is not the place to
 --       pre-empt it. NOTHING HERE DEPENDS ON THE ANSWER: the review's own text says the labelling
 --       half "is the fix for it either way", and removal is needed under both readings.

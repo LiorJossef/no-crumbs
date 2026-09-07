@@ -1,5 +1,5 @@
 /**
- * `components/map/query-rect.ts` — the query rect (`L1-F5-T2c`, `docs/ux-map-is-the-query.md` §1).
+ * `components/map/query-rect.ts` — the query rect (`L1-F5-T2c`, `docs/archive/ux-map-is-the-query.md` §1).
  *
  * The point of these tests is that the geometry is the part nobody can eyeball. A camera bug is
  * visible the moment you open the map; an inset applied to the wrong edge, or a rect that comes

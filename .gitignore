@@ -38,3 +38,7 @@ tests/manual/.shots/
 # of the sites' robots.txt asks agents not to fetch it — so it stays on the machine that gathered
 # it. The FINDINGS that survived review live in docs/current-state.md; only the raw material is here.
 docs/evidence/.local/
+
+# Superseded drafts of the submission documents. The graded set lives at docs/*.html;
+# every earlier revision stays on disk here and in git history, but off the tree.
+docs/.drafts/

@@ -11,7 +11,7 @@
  * is where that is made true rather than promised.
  *
  * `docs/evidence/tiktok/10-embed-playback-2026-08-31.md` §4 has the measurements;
- * `docs/security-ruling-embed-playback-2026-08-31.md` is the conditional permit, and its §6 is a
+ * `docs/archive/security-ruling-embed-playback-2026-08-31.md` is the conditional permit, and its §6 is a
  * ten-item gate. `docs/security.md` R-18 is the same fact in the risk register, which is where it
  * belongs for anyone reading the product's privacy posture rather than this file.
  *
