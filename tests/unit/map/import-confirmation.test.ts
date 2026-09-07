@@ -49,7 +49,7 @@ describe('importConfirmationText', () => {
  *
  * `mood="found"`, `.crumb-anim-land` and the spark pair were drawn, styled, tested and reachable
  * from nowhere until 2026-08-31 — the one moment this product exists for was marked with a lucide
- * check mark (`docs/product-review-2026-08-31-r2.md` finding 5). Wiring it is a component swap; the
+ * check mark (`docs/archive/product-review-2026-08-31-r2.md` finding 5). Wiring it is a component swap; the
  * two things worth asserting are the ones a swap does not fix by itself.
  *
  * `environment: 'node'`, so the markup block is `react-dom/server` output: evidence about which
@@ -203,7 +203,7 @@ describe('the landing beat is one-shot', () => {
  * measured, found to be 0.91 CSS px at a 44px mark, photographed as indistinguishable at the two
  * extremes, and replaced. The comment kept them beside the rule that justified replacing them, so
  * the next person to tune the eyes would have read the rejected pair as current and reverted the
- * fix (`docs/product-review-2026-08-31-r2.md`, delight §3.2).
+ * fix (`docs/archive/product-review-2026-08-31-r2.md`, delight §3.2).
  */
 describe('the awareness comment describes what ships', () => {
   const GLOBALS = readFileSync('src/app/globals.css', 'utf8');

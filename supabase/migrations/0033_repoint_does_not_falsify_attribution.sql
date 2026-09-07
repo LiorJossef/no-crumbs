@@ -1,6 +1,6 @@
 -- 0033_repoint_does_not_falsify_attribution.sql — the quote does not outlive the place.
 --
--- Condition **C3** of `docs/security-ruling-repoint-place-2026-08-31.md` §3.1, the one blocking
+-- Condition **C3** of `docs/archive/security-ruling-repoint-place-2026-08-31.md` §3.1, the one blocking
 -- condition on `0032`'s permit-under-conditions verdict. Condition **C4** is also discharged here,
 -- in the header, because it is a correction to `0032`'s header and `0032` is frozen.
 --

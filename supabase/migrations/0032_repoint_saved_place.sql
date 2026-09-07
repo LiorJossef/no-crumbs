@@ -1,8 +1,8 @@
 -- 0032_repoint_saved_place.sql — let a user move their own save onto the right venue.
 --
--- Task `r1-pin`. Round 1 finding 2 of `docs/product-review-2026-08-31-r1.md`, which is a product
+-- Task `r1-pin`. Round 1 finding 2 of `docs/archive/product-review-2026-08-31-r1.md`, which is a product
 -- finding with a database cause. The ruling that governs this file is
--- `docs/db-ruling-repoint-place-2026-08-31.md`; where the two differ, the ruling wins.
+-- `docs/archive/db-ruling-repoint-place-2026-08-31.md`; where the two differ, the ruling wins.
 --
 -- ═══ THE PROBLEM, STATED AS A GRANT ═══════════════════════════════════════════════════════════
 --

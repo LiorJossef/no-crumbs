@@ -260,7 +260,7 @@ export interface MapSurfaceProps {
    *
    * Camera-only, deliberately: it widens the `fitBounds` padding and never the query rect. A place
    * hidden behind a raised sheet is still "in view" for listing purposes
-   * (`docs/ux-map-is-the-query.md` §1) — that is the forgiving direction, and `mapOcclusionInsets`
+   * (`docs/archive/ux-map-is-the-query.md` §1) — that is the forgiving direction, and `mapOcclusionInsets`
    * spells out why the two consumers part company here.
    */
   readonly restingSheetFraction?: number;
@@ -302,12 +302,12 @@ export interface MapSurfaceProps {
    * Camera-only, exactly like the default it replaces: `mapOcclusionInsets` never insets the query
    * rect by top chrome, because deleting a whole viewport-wide band of pins from the list to clear
    * a chip a few hundred pixels wide is the unforgiving direction
-   * (`docs/ux-map-is-the-query.md` §1).
+   * (`docs/archive/ux-map-is-the-query.md` §1).
    */
   readonly floatingTopChromePx?: number;
   /**
    * "This is what is on screen now" — the surface reporting its **query rect** so the caller can
-   * make the map the query (`docs/ux-map-is-the-query.md` §1). Optional: a surface with no handler
+   * make the map the query (`docs/archive/ux-map-is-the-query.md` §1). Optional: a surface with no handler
    * simply never calls it, and a surface that cannot compute one (the mock) never implements it.
    *
    * What is reported is the *query rect*, not the raw canvas bounds: the visible map inset by the

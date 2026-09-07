@@ -1,7 +1,7 @@
 # NAV2 plumbing — one map shell, parameterised by scope
 
 > Task `NAV2-DESIGN`, branch `refactor/collections-as-map-scope`. **A plan, not code.** Nothing
-> under `src/` was edited. Spec: [`ux-collections-as-scope.md`](ux-collections-as-scope.md) §5
+> under `src/` was edited. Spec: [`ux-collections-as-scope.md`](../ux-collections-as-scope.md) §5
 > items 8–11. Every line/number below is read off the file cited, at the state of `main` (72d3f43);
 > the branch carries no commits yet.
 >

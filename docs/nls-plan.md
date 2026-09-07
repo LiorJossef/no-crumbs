@@ -213,7 +213,7 @@ own certainty.
   `Restaurant, Italian, not been yet, Tel Aviv. 12 places.`
 - `Show these` carries the whole interpretation as its accessible name, so label-in-name holds.
 - On apply, the **existing** results live region reports the new count — unchanged and untouched.
-  `ux-map-is-the-query.md` §7.1 is explicit that a second live region destroys the page.
+  `archive/ux-map-is-the-query.md` §7.1 is explicit that a second live region destroys the page.
 - The input takes `dir="auto"` and logical properties from the start, so it inherits none of the
   existing field's RTL debt (see §6).
 
@@ -553,7 +553,7 @@ nothing changes until it is tapped.
   `dizengoff cafe` or `רמת אביב` are ordinary searches that look exactly like sentences. A short
   query earns a call only once the literal search has demonstrably failed.
 - It must also sit **inside the scroll area, not in the fixed header** —
-  `ux-overwhelm-audit-2026-09-02.md` measured 46% of an 812 px viewport spent on controls before the
+  `archive/ux-overwhelm-audit-2026-09-02.md` measured 46% of an 812 px viewport spent on controls before the
   first place, and a new band between the field and the filter bar re-opens that wound.
 
 ### 7.3 A mode toggle on the field — rejected

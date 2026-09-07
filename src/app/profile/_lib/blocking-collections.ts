@@ -10,7 +10,7 @@
  * column grants do not constrain it. So this function is the whole of what stands between "delete
  * my account" and a cascade that takes a shared collection away from every member of it. The query
  * that feeds it is in `./deletion-block.ts`; the ruling it implements is
- * `docs/overnight-deletion-review.md` §2.
+ * `docs/archive/overnight-deletion-review.md` §2.
  */
 
 export interface BlockingCollection {

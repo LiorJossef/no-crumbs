@@ -17,7 +17,7 @@ delegated away.
 - `docs/execution-plan.md` — your feature rows: `L0-F5`, `L1-F7`.
 - `docs/git-workflow.md` — how your change will be committed.
 - **`docs/agent-guardrails.md` — binding, and §5 is written for you specifically.**
-- Your domain: `docs/ms4-database.md`, `docs/08-place-identity.md`, `docs/10-poi-index.md`,
+- Your domain: `docs/archive/ms4-database.md`, `docs/08-place-identity.md`, `docs/10-poi-index.md`,
   `docs/security.md`, `docs/db-migration-runbook.md`.
 
 ## You own

@@ -55,7 +55,7 @@ is otherwise sound; these are the parts that are not, so the record is right rat
 8. **§4's promotion analysis is unaffected** — it reasons from constraints and triggers, not from a
    migration number.
 
-`docs/vercel-env-restore.md` §4 said "production is still on migration `0009`" all along, and was
+`docs/archive/vercel-env-restore.md` §4 said "production is still on migration `0009`" all along, and was
 right. `docs/current-state.md` contradicts itself: line 16 says both hosted projects are at `0018`;
 line 768 says "local `0019`, **staging `0018`**, production `0009`". Line 16 is the wrong one.
 
@@ -138,7 +138,7 @@ HTML and every one of its ten `_next/static/immutable/chunks/*.js` files and gre
 `<20-letter-ref>.supabase.co` host. **Zero matches.** One chunk (`2-p_1flt_xmkt.js`) contains the
 bare `.supabase.co` / `.supabase.in` strings that `supabase-js` ships, so the client library *is*
 in the bundle — the project URL simply was not defined at build time. Same signature as
-`docs/vercel-env-restore.md` §1, two months on.
+`docs/archive/vercel-env-restore.md` §1, two months on.
 
 **The deployment is four minutes old.** `vercel inspect`: target `production`, status `Ready`,
 created *2026-08-28 14:18 IDT*, region `fra1`, aliased to `p-002-zeta.vercel.app`. So this is not a
@@ -413,7 +413,7 @@ Marked **[OWNER]**, **[ORCH]** (orchestrator only per `docs/agent-guardrails.md`
 
 | # | Step | Who | Why / proof |
 |---|---|---|---|
-| 1 | Restore the Vercel env store for **Production**, per `docs/vercel-env-restore.md` §2's table, scoping the **prod** Supabase project to Production only | **[OWNER]** | Credential entry into a third party. Nothing else can start until this is done |
+| 1 | Restore the Vercel env store for **Production**, per `docs/archive/vercel-env-restore.md` §2's table, scoping the **prod** Supabase project to Production only | **[OWNER]** | Credential entry into a third party. Nothing else can start until this is done |
 | 1b | Also restore **Preview** + **Development** against the *staging* project — same doc, same table | **[OWNER]** | Otherwise preview deploys stay broken and `L0-F6` cannot be proven from a preview |
 | 2 | **Redeploy**, then prove: `/healthz` 200, `/map` **307 → /sign-in** (not 500), `/import` **307** | **[ANY]** | `NEXT_PUBLIC_*` are inlined at build; existing deployments keep the absent values. A 307 on `/map` is the pass |
 | 2b | Confirm the production bundle now inlines the **prod** ref and the preview bundle the **staging** ref: `grep -oE '[a-z]{20}\.supabase\.co'` over each | **[ANY]** | Catches a mis-scoped variable before it writes to the wrong project |

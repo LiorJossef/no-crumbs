@@ -3,7 +3,7 @@
 > **The deliverable for M11 and M12 item 10.** 10–15 minutes, followed by short interview-style
 > questions. Submission: **6 September 2026**.
 >
-> This file replaces [`presentation-outline.md`](presentation-outline.md) as the thing you build the
+> This file replaces [`archive/presentation-outline.md`](archive/presentation-outline.md) as the thing you build the
 > slides from and speak. The outline stays as the record of how the story was first shaped; it is
 > now a pointer to this file. The study guide for the questions afterwards is
 > [`how-the-system-works.md`](how-the-system-works.md) — read that the night before, not this.
@@ -658,7 +658,7 @@ Full answers are in [`how-the-system-works.md`](how-the-system-works.md). Rehear
 
 ---
 
-## What changed from `presentation-outline.md`, and why
+## What changed from `archive/presentation-outline.md`, and why
 
 The outline's shape was good and most of it survives. Five substantive changes:
 

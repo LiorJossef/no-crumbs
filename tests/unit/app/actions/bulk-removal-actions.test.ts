@@ -3,7 +3,7 @@
  *
  * `deleteSavedPlaces` removes `saved_places` rows — irreversible, and it takes the note, the tags
  * and the Been mark with it. `removeCollectionItems` removes `collection_items` rows — reversible,
- * and it touches nothing the viewer owns. `docs/ux-two-removals-one-screen.md` requires them to
+ * and it touches nothing the viewer owns. `docs/archive/ux-two-removals-one-screen.md` requires them to
  * stay distinct all the way down, so the load-bearing assertions here are about **which table each
  * one names** and, just as much, which table neither of them names.
  *

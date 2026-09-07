@@ -14,7 +14,7 @@
 
 The product is **No Crumbs**: paste a TikTok link, the place it names lands on your own private map.
 It works end to end and it feels like an empty demo. Two locked plans say why and what to do:
-[`facelift-plan.md`](facelift-plan.md) (how it looks) and [`growth-plan.md`](growth-plan.md) (what the
+[`facelift-plan.md`](../facelift-plan.md) (how it looks) and [`growth-plan.md`](../growth-plan.md) (what the
 client gets).
 
 This run executes **the parts of both that can be built and verified without CI**, because CI cannot
@@ -39,19 +39,19 @@ several of them record decisions that look like bugs until you read why.
 
 | # | Document | What you need from it |
 |---|---|---|
-| 1 | [`../CLAUDE.md`](../CLAUDE.md) | The house rules. Wins where anything disagrees |
-| 2 | [`working-agreement.md`](working-agreement.md) | How work is done here, and which decisions are the owner's (§7) |
-| 3 | [`git-workflow.md`](git-workflow.md) | Branch → PR → CI → merge. **§9.3 is the destructive-action list** |
-| 4 | [`agent-guardrails.md`](agent-guardrails.md) | What a specialist may never do |
-| 5 | [`current-state.md`](current-state.md) | What is actually true today. Item **0a** is this run's first target |
-| 6 | [`facelift-plan.md`](facelift-plan.md) | The five stages, the interaction spec (§3a), the locked decisions (§4) |
-| 7 | [`growth-plan.md`](growth-plan.md) | The five defects, what bursts break, the Now list |
-| 8 | [`voice-and-vocabulary.md`](voice-and-vocabulary.md) | **Binding on every user-facing string you write** |
-| 9 | [`brand-and-product-foundation.md`](brand-and-product-foundation.md) | §3 the name, §3.1 the mascot ruling, §5 the visual direction |
-| 10 | [`no-crumbs-design-system.html`](no-crumbs-design-system.html) | The same material rendered, with the state matrix and mockups. Open it in a browser |
+| 1 | [`../CLAUDE.md`](../../CLAUDE.md) | The house rules. Wins where anything disagrees |
+| 2 | [`working-agreement.md`](../working-agreement.md) | How work is done here, and which decisions are the owner's (§7) |
+| 3 | [`git-workflow.md`](../git-workflow.md) | Branch → PR → CI → merge. **§9.3 is the destructive-action list** |
+| 4 | [`agent-guardrails.md`](../agent-guardrails.md) | What a specialist may never do |
+| 5 | [`current-state.md`](../current-state.md) | What is actually true today. Item **0a** is this run's first target |
+| 6 | [`facelift-plan.md`](../facelift-plan.md) | The five stages, the interaction spec (§3a), the locked decisions (§4) |
+| 7 | [`growth-plan.md`](../growth-plan.md) | The five defects, what bursts break, the Now list |
+| 8 | [`voice-and-vocabulary.md`](../voice-and-vocabulary.md) | **Binding on every user-facing string you write** |
+| 9 | [`brand-and-product-foundation.md`](../brand-and-product-foundation.md) | §3 the name, §3.1 the mascot ruling, §5 the visual direction |
+| 10 | [`no-crumbs-design-system.html`](../no-crumbs-design-system.html) | The same material rendered, with the state matrix and mockups. Open it in a browser |
 | 11 | [`ux-map-is-the-query.md`](ux-map-is-the-query.md) §5 | The zero-state screen, specified and unbuilt — package **W1-1** |
-| 12 | [`spec-no-places-found.md`](spec-no-places-found.md) | The modal outcome's screen. Its strings do not change |
-| 13 | [`06-map-and-places-decision.md`](06-map-and-places-decision.md) §3.1 | The Google ToS gate. Read before touching anything map-adjacent |
+| 12 | [`spec-no-places-found.md`](../spec-no-places-found.md) | The modal outcome's screen. Its strings do not change |
+| 13 | [`06-map-and-places-decision.md`](../06-map-and-places-decision.md) §3.1 | The Google ToS gate. Read before touching anything map-adjacent |
 
 ---
 
@@ -66,7 +66,7 @@ several of them record decisions that look like bugs until you read why.
    codebase. The rail claims no stage the server did not send; no screen presents inferred content in
    the same visual register as verbatim content; an uncertain result beats a confidently wrong one. A
    beautiful lie is a failed package.
-4. **Every user-facing string obeys [`voice-and-vocabulary.md`](voice-and-vocabulary.md).** The name
+4. **Every user-facing string obeys [`voice-and-vocabulary.md`](../voice-and-vocabulary.md).** The name
    appears on six surfaces and nowhere else. Sentence case. No exclamation marks, ever.
 5. **The agent that built a thing is never the sole source of evidence that it works.** Every package
    is verified by an agent that did not write it (§7).
@@ -82,7 +82,7 @@ several of them record decisions that look like bugs until you read why.
 7. **Never delete or rewrite a comment explaining *why*.** This codebase's comments are its design
    record. If a comment becomes wrong, update it in the same commit.
 8. **Do not touch:** `supabase/migrations/*` (no new migrations this run), `.claude/settings.json`,
-   `CLAUDE.md`, or anything in [`git-workflow.md`](git-workflow.md) §9.3. If a package seems to need
+   `CLAUDE.md`, or anything in [`git-workflow.md`](../git-workflow.md) §9.3. If a package seems to need
    a migration, it is out of scope — record it and move on.
 9. **Uncommitted changes in the tree at start-up are owner-owned.** Never reset, clean, stash or sweep
    them into a commit.
@@ -378,7 +378,7 @@ Path scope is listed so agents do not collide. **Two agents must never hold the 
 
 ### Wave 3 — interaction
 
-Specified in [`facelift-plan.md`](facelift-plan.md) §3a. **Build from the state matrix; do not invent states.**
+Specified in [`facelift-plan.md`](../facelift-plan.md) §3a. **Build from the state matrix; do not invent states.**
 
 | ID | Package | Paths | Exit criterion |
 |---|---|---|---|
@@ -504,7 +504,7 @@ is not finished.** The counts exist to make the work checkable; they were never 
 - **A package's exit criterion cannot be met.** Say so, record why in the ledger, move to the next
   package. Do not weaken the criterion.
 - **Two packages want the same file.** Serialise them. Never let two agents hold one file.
-- **A decision looks like the owner's.** [`working-agreement.md`](working-agreement.md) §7 lists them.
+- **A decision looks like the owner's.** [`working-agreement.md`](../working-agreement.md) §7 lists them.
   Record the question in the ledger and proceed on the rest.
 - **Something in a document contradicts the code.** The code is the truth; fix the document in the
   same commit and note it in the ledger.

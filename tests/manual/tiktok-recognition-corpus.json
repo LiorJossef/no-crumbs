@@ -69,7 +69,7 @@
     {
       "url": "https://www.tiktok.com/@joelleuzyel/video/7259010845558983978",
       "category": "talked_about_restaurants",
-      "notes": "The only real Tel Aviv TikTok with cached evidence in the repo as of 2026-08-27. Caption recorded in docs/handoff-2026-08-27-place-recognition.md §2.2 as 'Resturants in Tel Aviv 📍Ha Kosem' — note the misspelled 'Resturants' and the space in 'Ha Kosem', both of which are exactly the kind of thing the synthetic benchmark never contains. Imported by hand in a browser at 1280x720 and 375x812; the saved row was read back in psql and sat 11 m from the venue against 555 m and 483 m for the two model guesses.",
+      "notes": "The only real Tel Aviv TikTok with cached evidence in the repo as of 2026-08-27. Caption recorded in docs/archive/handoff-2026-08-27-place-recognition.md §2.2 as 'Resturants in Tel Aviv 📍Ha Kosem' — note the misspelled 'Resturants' and the space in 'Ha Kosem', both of which are exactly the kind of thing the synthetic benchmark never contains. Imported by hand in a browser at 1280x720 and 375x812; the saved row was read back in psql and sat 11 m from the venue against 555 m and 483 m for the two model guesses.",
       "expected": [
         {
           "name": "HaKosem",

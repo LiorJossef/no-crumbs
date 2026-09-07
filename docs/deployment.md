@@ -48,7 +48,7 @@ $ for p in / /sign-in /map /import; do curl -s -o /dev/null -w "$p %{http_code}\
 ```
 
 `x-vercel-id: fra1::fra1::…` on the same response is the evidence that the functions run in
-Frankfurt, co-located with the Supabase projects (`docs/ms2-cloud-setup.md` §1).
+Frankfurt, co-located with the Supabase projects (`docs/archive/ms2-cloud-setup.md` §1).
 
 ---
 
@@ -206,7 +206,7 @@ With an entirely empty `.env.local`, the landing page and `/healthz` render, bec
 `src/domain/build-info.ts` falls back to the literals `local` and `dev`. **Nothing else does.** Both
 `/map` and `/import` construct a server-side Supabase client, and `createServerClient(undefined,
 undefined)` throws immediately — which is exactly the failure production suffered from 2026-08-26 to
-2026-08-29 when the Vercel env store was empty (`docs/vercel-env-restore.md`). If those two pages
+2026-08-29 when the Vercel env store was empty (`docs/archive/vercel-env-restore.md`). If those two pages
 500 rather than redirecting to `/sign-in`, the Supabase variables are not reaching the build.
 
 ### 3.6 Running the checks
@@ -397,7 +397,7 @@ readable from a client component. Preview and production therefore label themsel
 no hand-scoped values that can drift apart, an explicit value still wins if you want one, and a
 non-Vercel host still works.
 
-`docs/ms2-cloud-setup.md` §2 shows `NEXT_PUBLIC_COMMIT_SHA` being set to the literal string
+`docs/archive/ms2-cloud-setup.md` §2 shows `NEXT_PUBLIC_COMMIT_SHA` being set to the literal string
 `$VERCEL_GIT_COMMIT_SHA` in the dashboard. That also works — Vercel expands system variables
 referenced that way — but it is redundant given the config above.
 
@@ -673,7 +673,7 @@ its contents were not read, per §4.6). Anyone reading that item should re-check
 ## 9. Reproducing the cloud setup from nothing
 
 If both cloud projects had to be recreated, this is the order. It is the procedure that was actually
-followed on 2026-08-18 (`docs/ms2-cloud-setup.md`), not a plan.
+followed on 2026-08-18 (`docs/archive/ms2-cloud-setup.md`), not a plan.
 
 1. **Two Supabase projects**, not one: `p-002-staging` and `p-002-prod`, both in **`eu-central-1`
    (Frankfurt)**. Two projects because preview must never reach production data; one region because

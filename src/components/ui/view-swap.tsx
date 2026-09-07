@@ -25,7 +25,7 @@
  *
  * ## What came from SmoothUI, and what did not
  *
- * The owner asked for SmoothUI (`docs/overnight-run-plan.md` §7c) and this is where its
+ * The owner asked for SmoothUI (`docs/archive/overnight-run-plan.md` §7c) and this is where its
  * **`shared-axis-x`** landed. What transferred is the whole of that component's design:
  *
  *  - one axis, **signed by direction** — the outgoing slides one way, the incoming comes from the

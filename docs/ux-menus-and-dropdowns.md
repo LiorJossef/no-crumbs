@@ -8,16 +8,16 @@
 >
 > **Why this file exists.** On 2026-09-02 the library filter row burned a day, absorbed ten owner
 > corrections and three build breaks, and shipped nothing. The diagnosis in
-> [`handoff-2026-09-02-ui-density.md`](handoff-2026-09-02-ui-density.md) is not the builder: *this
+> [`archive/handoff-2026-09-02-ui-density.md`](archive/handoff-2026-09-02-ui-density.md) is not the builder: *this
 > product has no menu or dropdown specification.* `facelift-plan.md` mentions a menu once, in a
 > feature list; `no-crumbs-design-system.html` has no menu section. Every round invented a fresh
 > answer with nothing to anchor it, and each was fairly rejected. **This is the anchor.**
 >
-> **Binding input:** [`feedback-round-3-work-plan.md`](feedback-round-3-work-plan.md) **§5.1** — ten
+> **Binding input:** [`archive/feedback-round-3-work-plan.md`](archive/feedback-round-3-work-plan.md) **§5.1** — ten
 > owner rulings. Nothing in this document may re-litigate one of them. Where §5.1 rules, this file
 > says **RULED** and cites it. Where I am choosing, it says **RECOMMENDED** in the sentence.
 >
-> **Dead:** `ux-visit-filter-and-chip-density-2026-09-02.md` §5–§7 — Options A and B were both
+> **Dead:** `archive/ux-visit-filter-and-chip-density-2026-09-02.md` §5–§7 — Options A and B were both
 > rejected in favour of a third shape. Its §2 measurements and its defect list D1–D4 survive and are
 > quoted here; its recommendation does not.
 
@@ -32,7 +32,7 @@ inside it"**. A menu row has no fill, no border and no elevation at rest. The on
 distinguish one row from another are an indicator, a weight, and — for a category — a coloured dot.
 
 Everything below is one system. Four axes, one trigger family, one row, one popup, one hover.
-`ux-overwhelm-audit-2026-09-02.md` §6 is the reason: this product already draws **eight near-identical
+`archive/ux-overwhelm-audit-2026-09-02.md` §6 is the reason: this product already draws **eight near-identical
 pill vocabularies** for unrelated meanings, and *that* is the overwhelm. The answer is not a fifth
 mechanism.
 
@@ -189,7 +189,7 @@ Rules that fall out of that table:
   `aria-hidden` (the button's own name carries it). See §8 for why.
 - **One tag names itself; several are counted.** Three tag names is the whole row back again.
 - **The count** appears on `Category` (the facet count) and on `Tags` (how many are chosen). It never
-  appears on an inactive trigger: `ux-overwhelm-audit-2026-09-02.md` §1b — *"the unpressed ones answer
+  appears on an inactive trigger: `archive/ux-overwhelm-audit-2026-09-02.md` §1b — *"the unpressed ones answer
   a question nobody asked yet."*
 - **`All places` never appears on a trigger.** `voice-and-vocabulary.md:60`: a filter button labelled
   `All` names the absence of itself. It is a row inside the menu and nowhere else.
@@ -403,7 +403,7 @@ a second panel closes the first; two inline panels open at once would push the l
   disable the library's.
 - The mobile inline panel is **not** a modal, has **no** scrim, and traps nothing. Escape still
   closes it, and the trigger is still the way back.
-- `product-review-2026-09-01-r5.md` G1 found the profile popover shipped **without** a focus trap and
+- `archive/product-review-2026-09-01-r5.md` G1 found the profile popover shipped **without** a focus trap and
   without Escape returning focus. Do not commit that defect on a second surface: **Escape and focus
   return are not optional on either host.**
 
@@ -517,7 +517,7 @@ how it *feels* on a phone, not only about the gesture conflict.
   RECOMMENDED, and the sheet already reasons in `100dvh` (`map-shell.tsx:481`).
 - Safe areas: the panel is inside the sheet's column and inherits the sheet's bottom padding
   contract. It must not add its own `env(safe-area-inset-bottom)` — the sheet already carries it,
-  and the peek row's missing inset (`feedback-round-3-work-plan.md` §5.2) is what double-counting
+  and the peek row's missing inset (`archive/feedback-round-3-work-plan.md` §5.2) is what double-counting
   looks like from the other side.
 
 ---
@@ -554,7 +554,7 @@ feature."* Anyone specifying a control here reads the module that defines its do
 | `Nearest` when there is no fix | **absent, not disabled, not greyed** | `place-order.ts:52-62`. A greyed-out `Nearest` is a promise the screen cannot keep and invites the question the product has no answer to: nearest to what? |
 | Below 8 places | the whole control is absent | `SORT_MIN_PLACES = 8`, `place-sheet.tsx:874-877`. Sorting five rows you can see at once costs a permanent 44 px to answer a question nobody has |
 | Below 2 orders | absent | one option is not a choice |
-| Option strings | `overnight-copy-deck.md` §4.2 via `SORT_OPTION_LABEL`. Do not write them inline | |
+| Option strings | `archive/overnight-copy-deck.md` §4.2 via `SORT_OPTION_LABEL`. Do not write them inline | |
 
 ### 8.3 The state that has no name
 

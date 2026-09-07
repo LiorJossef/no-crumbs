@@ -9,9 +9,9 @@
 # This is a compensating control, not a style rule. The hosted projects carry
 # ALTER DEFAULT PRIVILEGES, owned by `supabase_admin`, granting ALL on new tables in `public` to
 # `anon` and `authenticated`. The migration role cannot remove those defaults (measured on
-# p-002-staging 2026-08-18, see docs/ms4-database.md §2.3), so **every new table arrives wide open**
+# p-002-staging 2026-08-18, see docs/archive/ms4-database.md §2.3), so **every new table arrives wide open**
 # and the revoke is the only thing that closes it. The local container carries the same defaults (an
-# earlier draft of docs/ms4-database.md claimed the local database was clean; that was wrong, see
+# earlier draft of docs/archive/ms4-database.md claimed the local database was clean; that was wrong, see
 # §2.3 of that file), so the defaults are present everywhere. That is why this cannot be left to a
 # test: RLS passes with or without the revoke, so a local `supabase db reset` looks correct either
 # way and proves nothing about the revoke.

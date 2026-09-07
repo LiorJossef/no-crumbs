@@ -112,7 +112,7 @@ AGENT_REF_PATTERNS = [
     r"[Oo]wners?:\s*`([a-z][a-z-]+)`",                 # "Owner: `security-privacy`"
     # NOTE: the `·`-separated form is scoped to execution-plan.md, where it was written for the
     # feature rows. Applied repo-wide it reads any `·`-separated list of code identifiers as agent
-    # names: measured 2026-08-30, docs/plan-nav2-map-shell.md lists React state variables that way
+    # names: measured 2026-08-30, docs/archive/plan-nav2-map-shell.md lists React state variables that way
     # and the check failed on `query`, `clusters`, `countries` and `facets`. That failure was live
     # on main and took `npm run verify` red with it.
     (r"·\s*`([a-z][a-z-]+)`\s*(?:·|$)", "docs/execution-plan.md"),
@@ -129,7 +129,11 @@ SQL_ROLES = {"postgres", "authenticated", "anon", "service_role"}
 
 KNOWN = set(agents)
 matched = set()
-for doc in ["CLAUDE.md"] + sorted(glob.glob("docs/*.md")):
+# docs/archive/ is scanned too. Its files are frozen, so they are a stable floor for the count
+# below rather than a moving target — and when 89 documents moved there on 2026-09-07 the
+# distinct-agent count fell from 8 to 7 and took this check red, which is the drift it is
+# meant to catch happening for the wrong reason.
+for doc in ["CLAUDE.md"] + sorted(glob.glob("docs/*.md") + glob.glob("docs/archive/*.md")):
     text = open(doc, encoding="utf-8").read()
     for entry in AGENT_REF_PATTERNS:
         pattern, only_in = entry if isinstance(entry, tuple) else (entry, None)

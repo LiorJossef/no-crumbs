@@ -23,7 +23,7 @@
 -- the first `save_place()` below aborts with `not authenticated`, that is the image, not a policy —
 -- the replacement `auth.uid()` is written out in 0008_policy_tests.sql's header.
 --
--- WHAT THIS FILE IS FOR. `docs/security-ruling-e1-caption-retention.md` §4 makes acceptance
+-- WHAT THIS FILE IS FOR. `docs/archive/security-ruling-e1-caption-retention.md` §4 makes acceptance
 -- criterion 7 into **condition Q**, and states the standard in terms: *"I do not accept 'the policy
 -- says so' as evidence for criterion 7, including from myself."* So every authorisation claim below
 -- is executed as two real roles rather than read from `pg_policies`, and condition **D1** — the

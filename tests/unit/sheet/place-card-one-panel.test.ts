@@ -5,7 +5,7 @@
  * radiogroup of grey filled chips, the note committed with a button pair inside the only bordered
  * box on the card, and the collections row did not commit at all — it replaced the whole detail
  * pane. That is the "patches" in the owner's round-4 feedback, and it is what
- * `docs/ux-place-card-design-2026-09-03.md` §1.2 diagnoses.
+ * `docs/archive/ux-place-card-design-2026-09-03.md` §1.2 diagnoses.
  *
  * The rule now: **every field row keeps its place, rotates its chevron, and opens the house
  * `InlinePanel` underneath it.** These assertions are about *sameness and absence* rather than

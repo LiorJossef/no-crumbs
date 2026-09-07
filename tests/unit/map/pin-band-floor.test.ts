@@ -1,6 +1,6 @@
 /**
  * The pin band's floor is conditional on something replacing the pins — the fix for the blank
- * collection map (`docs/handoff-2026-08-29-navigation-pages.md` §5.1).
+ * collection map (`docs/archive/handoff-2026-08-29-navigation-pages.md` §5.1).
  *
  * The defect: `place-marker-layer.tsx` set `minzoom: PIN_BAND_MIN` on *every* `MapSurface`, but
  * only `/map` passes `summaries` and therefore only `/map` mounts the country/area bands that are

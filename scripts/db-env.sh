@@ -28,7 +28,7 @@ resolve_db_env() {
   env_name="${1:-}"
 
   # Project refs are NOT secrets - the ref is the host of the public
-  # NEXT_PUBLIC_SUPABASE_URL - and both are recorded in docs/ms4-database.md §5,
+  # NEXT_PUBLIC_SUPABASE_URL - and both are recorded in docs/archive/ms4-database.md §5,
   # so they are defaulted here to keep a clean clone runnable. Override per
   # environment if a project is ever recreated:
   #   SUPABASE_PROJECT_REF_STAGING / SUPABASE_PROJECT_REF_PROD

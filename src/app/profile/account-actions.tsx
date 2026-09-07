@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
  * it.
  *
  * This is the copy most likely to be got wrong in a hurry, because it is the copy that tells
- * somebody their data is gone. It came from `docs/overnight-copy-deck.md` §5 verbatim until
+ * somebody their data is gone. It came from `docs/archive/overnight-copy-deck.md` §5 verbatim until
  * 2026-09-03, when the owner ruled it too long — see the copy section below. The deck was updated
  * in the same commit, which `voice-and-vocabulary.md` §6 requires: a deck that disagrees with the
  * screen is how a third version gets written.
@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
  *
  * ## Branch B is a refusal, and the shape of it is the point
  *
- * `docs/overnight-deletion-review.md` §2 rules that deletion is refused while the user is the live
+ * `docs/archive/overnight-deletion-review.md` §2 rules that deletion is refused while the user is the live
  * owner of a collection somebody else is in, because `collections.owner_id` is
  * `on delete cascade` and a cascade would take that collection away from every member. The refusal
  * has to be an instruction rather than a wall, so it **names the collections and links to them** —

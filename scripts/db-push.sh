@@ -52,7 +52,7 @@ say "target: $env_name -> $project_name ($project_ref)"
 # --- 1b. the static grant guard, before anything leaves this machine --------
 # Every table created in public arrives with ALL granted to anon and authenticated
 # on the hosted projects, and the migration role cannot change that default
-# (docs/ms4-database.md §2.3). check-migration-grants.sh is the only control that
+# (docs/archive/ms4-database.md §2.3). check-migration-grants.sh is the only control that
 # catches a missing REVOKE before it is live, so it runs on the way out too, not
 # only in CI.
 say "pre-check: static grant guard over supabase/migrations"

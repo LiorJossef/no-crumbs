@@ -2,7 +2,7 @@
 -- their owner can read them.
 --
 -- Task `r2-names-db`. The ruling that governs this file is
--- `docs/db-ruling-profile-names-2026-08-31.md`; where the two differ, the ruling wins.
+-- `docs/archive/db-ruling-profile-names-2026-08-31.md`; where the two differ, the ruling wins.
 --
 -- ═══ WHAT THE OWNER ASKED FOR ═════════════════════════════════════════════════════════════════
 --

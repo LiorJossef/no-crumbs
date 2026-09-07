@@ -1111,9 +1111,9 @@ words to it — two copies of one list is how a third gets written.
 [`voice-and-vocabulary.md`](voice-and-vocabulary.md) §5, for the same reason.
 
 > **Reconciled 2026-08-31**, in one edit, from three stacks that all landed on this section at once:
-> the eight drift rows in [`overnight-copy-deck.md`](overnight-copy-deck.md) §8, that document's own
+> the eight drift rows in [`archive/overnight-copy-deck.md`](archive/overnight-copy-deck.md) §8, that document's own
 > new ids, and the **TikTok noun→adjective pass**
-> ([`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md), 17 ids). They overlapped on
+> ([`archive/tiktok-copy-pass-2026-08-31.md`](archive/tiktok-copy-pass-2026-08-31.md), 17 ids). They overlapped on
 > C62, C70 and C71, which is why this is one edit and not three.
 >
 > **The standing rule that makes another reconciliation unnecessary**
@@ -1139,7 +1139,7 @@ words to it — two copies of one list is how a third gets written.
 | C12 | F4 active | `Finding the places…` | |
 | C13 | F4 settled, N≥2 | `{n} places found` | Held ~700ms as the payoff beat. |
 | C14 | F4 settled, N=1 | `1 place found` | |
-| C15 | F4 settled, N=0 | `No places named` | Rail fact only; screen becomes F10. **Takes the same ~700ms hold as C13** — the count beat does not run at N=0, so the modal outcome arrives on the same beat as a success (`overnight-copy-deck.md` §9.2). |
+| C15 | F4 settled, N=0 | `No places named` | Rail fact only; screen becomes F10. **Takes the same ~700ms hold as C13** — the count beat does not run at N=0, so the modal outcome arrives on the same beat as a success (`archive/overnight-copy-deck.md` §9.2). |
 | C16 | F4 reassurance (5s) | `Almost there.` | |
 | C17 | F5 active | `Matching locations…` | |
 | C18 | F5 active, streamed | `Matching locations… {i} of {n}` | Only if per-candidate progress is real. |
@@ -1202,7 +1202,7 @@ words to it — two copies of one list is how a third gets written.
 | C74 | Location notices | `Location is off for this site. Pick an area from your list instead.` · `This browser can't share your location. Pick an area from your list instead.` · `Your location is only rough here, so distances are hidden.` | The shipped family (`near-me.ts`). **`How to turn it on` is deleted** — it never existed, and a deck row naming an unbuilt action is how it gets built by accident. |
 | C75 | Location timeout | `Couldn't find your location. Try again, or pick an area from your list.` | Shipped wording; the deck's shorter version offered no next move. |
 | C76 | Signed out mid-flow | `Sign in again to finish adding this.` | |
-| C170 | Can't find places today, headline | `We can’t find places right now.` | The state C67/C68 were being shown for, said honestly. `find places`, not `read`: the read succeeded, and stage B — `Finding the places…` (C12) — is what failed. `right now`, not `today`: a provider ceiling can be per-minute as well as per-day and nothing reads which, so `right now` is true under either. Ruled in [`product-ruling-quota-copy-2026-08-31.md`](product-ruling-quota-copy-2026-08-31.md) §3; **fixed, not paraphrasable**. |
+| C170 | Can't find places today, headline | `We can’t find places right now.` | The state C67/C68 were being shown for, said honestly. `find places`, not `read`: the read succeeded, and stage B — `Finding the places…` (C12) — is what failed. `right now`, not `today`: a provider ceiling can be per-minute as well as per-day and nothing reads which, so `right now` is true under either. Ruled in [`archive/product-ruling-quota-copy-2026-08-31.md`](archive/product-ruling-quota-copy-2026-08-31.md) §3; **fixed, not paraphrasable**. |
 | C171 | Can't find places today, body | `We read it fine. Try it again tomorrow.` | The load-bearing sentence: every other screen in this family is about the link, so the trained response is to fetch a different one — which fails identically. It is measured, not reassurance: the extractor is stage B and the source fetch is stage A, so the caption is already in hand by the time this can be raised. `tomorrow` is the only duration that cannot over-promise under either ceiling. |
 | C172 | Can't find places today, actions | `Back to the map` | No retry and no second link — both spend the same empty allowance. **No `Open on TikTok`**, and that is a repo rule rather than a preference: across the shipped table it appears on exactly the codes where *the read failed* and on none of the three where it succeeded. Leaving is the recovery here, which is true on no other screen in this family. |
 

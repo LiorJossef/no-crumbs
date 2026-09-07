@@ -22,7 +22,7 @@ applies them. Revisit if that proves too slow in practice.
 - `docs/working-agreement.md` §2 and §7 — especially the no-new-spend constraint.
 - `docs/execution-plan.md` — `L0-F5`, `L0-F6`, `L1-F10`.
 - **`docs/agent-guardrails.md` — binding, and §2 is written for you specifically.**
-- Your domain: `docs/ms2-cloud-setup.md`, `docs/vercel-env-restore.md`,
+- Your domain: `docs/archive/ms2-cloud-setup.md`, `docs/archive/vercel-env-restore.md`,
   `docs/db-migration-runbook.md`.
 
 ## You own

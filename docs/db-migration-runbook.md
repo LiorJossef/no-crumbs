@@ -14,7 +14,7 @@
 ## 1. The commands
 
 Migrations are applied **only** through these scripts, never through the Supabase dashboard SQL editor
-and never with a bare `supabase db push` (charter engineering principles; `docs/ms4-database.md` §1).
+and never with a bare `supabase db push` (charter engineering principles; `docs/archive/ms4-database.md` §1).
 
 | Command | Does |
 |---|---|
@@ -29,7 +29,7 @@ and never with a bare `supabase db push` (charter engineering principles; `docs/
 1. resolves `env → project ref` from the one table in `scripts/db-env.sh`; a ref that is not 20
    lowercase letters is rejected before anything connects;
 2. runs `npm run check:migrations` — the static grant guard — so a table without an explicit
-   `REVOKE` from `anon` and `authenticated` never leaves the machine (`ms4-database.md` §2.3);
+   `REVOKE` from `anon` and `authenticated` never leaves the machine (`archive/ms4-database.md` §2.3);
 3. **asserts the linked project equals the named target** and, if not, prints the `supabase link`
    command and stops. It never re-links for you: a command that silently repoints itself at
    production is the defect this script exists to prevent;
@@ -55,7 +55,7 @@ must never be one. Production's proof is structural; the behavioural proof is CI
 ## 2. Values the operator must supply
 
 Project refs are **not secrets** — the ref is the hostname of the public `NEXT_PUBLIC_SUPABASE_URL` —
-so both are defaulted in `scripts/db-env.sh` from `docs/ms4-database.md` §5 and a clean clone works
+so both are defaulted in `scripts/db-env.sh` from `docs/archive/ms4-database.md` §5 and a clean clone works
 without them. The connection strings **are** secrets and are defaulted to nothing.
 
 | Variable | Secret | Source | Needed for |
@@ -115,7 +115,7 @@ It does **not** cover data loss. Be precise about which is which:
 
 ### The named recovery path for the destructive class
 
-The projects are free-tier: there is **no point-in-time recovery** (`ms4-database.md` §2.3 relies on
+The projects are free-tier: there is **no point-in-time recovery** (`archive/ms4-database.md` §2.3 relies on
 that fact for its severity assessment). So the recovery path has to be created *before* the push, by
 the operator, and it is a rule rather than a tool:
 
@@ -166,7 +166,7 @@ rule holds, the app rollback is always available, which is what makes forward-fi
 ## 5. Preview deployments and production data
 
 Preview and local share `p-002-staging`; only production uses `p-002-prod` (README env matrix, rule 1;
-`ms2-cloud-setup.md` §1). `db:push:prod` is a deliberate, interactive, human act — no CI workflow has
+`archive/ms2-cloud-setup.md` §1). `db:push:prod` is a deliberate, interactive, human act — no CI workflow has
 credentials for either project, and CI proves the migration set against a throwaway local container
 instead. That is the reason a preview deploy cannot touch production data, and it is why the mis-target
 guard in §1 step 3 matters: the *only* thing standing between staging and production is which command
@@ -185,7 +185,7 @@ the operator types.
   `0001`–`0011` applied: `NOTE 0` + `PASS 1`–`PASS 8` and exit 0 on a good schema, and the
   `inventory FAILED` banner with exit 1 against an empty database. Both directions.
 
-**Superseded in part on 2026-08-19 by audit task 13** ([`ms1-ms4-audit-handoff.md`](ms1-ms4-audit-handoff.md)
+**Superseded in part on 2026-08-19 by audit task 13** ([`archive/ms1-ms4-audit-handoff.md`](archive/ms1-ms4-audit-handoff.md)
 §"Staging push"): `0011`–`0013` were pushed to `p-002-staging` and proven there, ledger local ==
 remote, `inventory.sql` 15/15 PASS. The paragraph below therefore describes the state *before* that
 push, and the container range `0001`–`0011` above is simply the range that existed when it was run.

@@ -361,7 +361,7 @@ moot in the delivered schema.
 ## Deferred to `ms5-design` — apply when MS5 resumes
 
 **Consumed 2026-08-19.** MS5 resumed; every row below is now assigned in the **MS5 task ledger**
-([`implementation-plan.md`](implementation-plan.md) §11, under MS5). Row 1 became ledger task 1; the
+([`implementation-plan.md`](../implementation-plan.md) §11, under MS5). Row 1 became ledger task 1; the
 `PlaceResolver` and `normalise()` rows became ledger task 2; the rest are listed there as deferred,
 each with the milestone that takes it. This table is kept as the record of where they came from.
 
@@ -371,7 +371,7 @@ each with the milestone that takes it. This table is kept as the record of where
 | Check 1's 11-table count needs the conditional check 8 already has | `inventory.sql` | `qa-reliability` |
 | `pg_trgm`-in-`extensions` rationale is factually wrong (extension functions get EXECUTE to PUBLIC wherever they live; both roles hold USAGE on `extensions`). No exposure — check 6 simply does not *see* them — but its PASS overstates its scope | `0010:22`, `inventory.sql:214` | `security-privacy` |
 | ✅ **closed 2026-08-19 (ledger task 2).** `normalise()` has no legal home: `10` puts it in `integrations/`, the scorer that needs it is in `domain/`, and that import is an ESLint error — confirmed by measurement in both import forms; it now lives in `src/domain/places/normalise.ts` and `10` §4.1 is corrected (`11` §3) | `10-poi-index.md:155` | `nextjs-architect` |
-| ✅ **closed 2026-08-19 (ledger task 2).** `PlaceResolver` is three incompatible interfaces; `RankedPlace` / `ResolveResult` exist in no type vocabulary — ten conflicts found, not three; ruled in [`11-resolver-vocabulary.md`](11-resolver-vocabulary.md) and shipped in `src/domain/{types,ports}.ts` | `06`/`07`/`technical-design` | `nextjs-architect` |
+| ✅ **closed 2026-08-19 (ledger task 2).** `PlaceResolver` is three incompatible interfaces; `RankedPlace` / `ResolveResult` exist in no type vocabulary — ten conflicts found, not three; ruled in [`11-resolver-vocabulary.md`](../11-resolver-vocabulary.md) and shipped in `src/domain/{types,ports}.ts` | `06`/`07`/`technical-design` | `nextjs-architect` |
 | `06` §8's `MapSurface` seam vanished with no reconciliation, and its "nothing outside `integrations/maps` may import `maplibre-gl`" rule is unenforced | `06:292`, `technical-design:135` | `nextjs-architect` |
 | Plan arithmetic: §6 says 42 hd / 4 hd deficit, §15 says 44; and the reserve double-counts MS5's re-size. Corrected: 44 − 7 cuttable = **37 against 38**, i.e. it fits with 1 hd margin rather than being ~1 hd over | `implementation-plan.md:131,492` | `product-lead` |
 | "The ledger has no open row" contradicted by D9 PARTIALLY CLOSED and D11 HALF-CLOSED in the same table | `implementation-plan.md:65` | `product-lead` |

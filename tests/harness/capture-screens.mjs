@@ -5,7 +5,7 @@
  *
  * ## What it is for
  *
- * `docs/overnight-run-plan.md` §8a Q1 asks for every reachable screen at 390×844 and 1440×900,
+ * `docs/archive/overnight-run-plan.md` §8a Q1 asks for every reachable screen at 390×844 and 1440×900,
  * signed out and signed in, at 0, 3 and 30 places. Six package exit criteria say "verified in a
  * browser". None of that was checkable in this repository, because there is no `.env.local` and no
  * Docker, so four of the eight surfaces returned 500 (measured at commit 55698ae). This makes it

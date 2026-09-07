@@ -13,7 +13,7 @@ wave 2"*, written before the closing evidence landed. Both of wave 1's incomplet
   browser** by `qa-reliability`. Two-source cards render at both breakpoints and in Hebrew; real
   bulk deletes were run and the rows read back out of Postgres; the safety invariant holds (Places
   deletes, Collections unlinks, and no control does both). Evidence:
-  [`evidence/w1-close-4bc04d0-verification.md`](evidence/w1-close-4bc04d0-verification.md).
+  [`evidence/w1-close-4bc04d0-verification.md`](../evidence/w1-close-4bc04d0-verification.md).
 - **Lane C (filter row)** — seven commits, and **all nine inherited test failures are green by
   construction, not by edit.**
 
@@ -107,7 +107,7 @@ it is **not in the header**. It is now a composed empty state — mascot, line, 
    Options to rule on — draw the losers count-only; floor the home camera so the capsules cannot
    collide; or accept the overlap and fix only the tap.
 2. **The local database catch-up.** Rehearsed **twice** on a throwaway clone,
-   [`db-local-catchup-plan.md`](db-local-catchup-plan.md). **Apply in place, do not reset.** The
+   [`db-local-catchup-plan.md`](../db-local-catchup-plan.md). **Apply in place, do not reset.** The
    owner's constraint was *"i just doesnt want the places to be removed... and the users"*, and both
    survive. Needs a quiet minute with no lane writing — two migrations take `ACCESS EXCLUSIVE`.
    Blocks the geography backfill (`0038`).

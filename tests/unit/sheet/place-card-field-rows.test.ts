@@ -1,6 +1,6 @@
 /**
  * The place card's one label and its one field row — tasks **H-1** and **H-2** of
- * `docs/ux-place-card-unification-2026-09-02.md`.
+ * `docs/archive/ux-place-card-unification-2026-09-02.md`.
  *
  * The audit that produced that spec counted nine actions on one card drawn from **eight** different
  * components, and three spellings of an 11 px label at two letterspacings. The defect is not any

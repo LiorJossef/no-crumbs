@@ -1,7 +1,7 @@
 /**
  * **The selection band has exactly one loud element, and it is the action.**
  *
- * `docs/ux-select-control-2026-09-03.md` §2. The band shipped with its hierarchy inverted: `Done`
+ * `docs/archive/ux-select-control-2026-09-03.md` §2. The band shipped with its hierarchy inverted: `Done`
  * and `Select all` were `font-semibold` near-black while the one irreversible control on the
  * screen was grey text at `disabled:opacity-50`, so the two lowest-stakes controls present were
  * the loudest things on it and the delete read as a permanently dead control. The owner filed it

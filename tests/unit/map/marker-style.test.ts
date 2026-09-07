@@ -223,7 +223,7 @@ describe('labels', () => {
 
 /**
  * A place you have been to is the *same pin*, quieter. Criterion 9 of
- * `docs/product-ruling-after-the-save.md` §6.2 makes that a rule rather than a preference: seven
+ * `docs/archive/product-ruling-after-the-save.md` §6.2 makes that a rule rather than a preference: seven
  * category colours already carry meaning on this map, so "been" may not be an eighth hue.
  */
 describe('the been state on a pin', () => {

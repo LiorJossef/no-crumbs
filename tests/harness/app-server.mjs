@@ -58,7 +58,7 @@ export function buildApp(appDir, env = {}) {
  * `next start` on `port`, resolved once the server answers.
  *
  * The env vars are passed inline on the command, never written to a file: `.env` of any kind is
- * off limits to agents (`docs/overnight-run-plan.md` §7b rule 8, and the harness deny list makes
+ * off limits to agents (`docs/archive/overnight-run-plan.md` §7b rule 8, and the harness deny list makes
  * even *reading* one impossible), and there is no reason a throwaway pointer at a loopback stub
  * needs to be persisted anywhere.
  */

@@ -2,7 +2,7 @@
  * The bulk take-out's words (round 3 §8.2).
  *
  * These tests are about a **safety** property, not about strings for their own sake.
- * `docs/ux-two-removals-one-screen.md` defines two removals that must stay distinguishable:
+ * `docs/archive/ux-two-removals-one-screen.md` defines two removals that must stay distinguishable:
  * `Delete from your places` is irreversible, `Take out of this collection` is not. The verbs
  * diverge at the first character on purpose, and the reassurance *it stays in your places* is the
  * whole of the distinction — so it must never be printed when it is false.

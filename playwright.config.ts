@@ -48,7 +48,7 @@ export default defineConfig({
     { name: 'desktop-chrome', testIgnore: '**/gates/**', use: { ...devices['Desktop Chrome'] } },
     // The two viewports the quality gates are written against, and they are not the two above.
     //
-    // `docs/overnight-run-plan.md` §8a Q1 names 390×844 and 1440×900, and six package exit criteria
+    // `docs/archive/overnight-run-plan.md` §8a Q1 names 390×844 and 1440×900, and six package exit criteria
     // repeat those numbers. Measured at commit 55698ae: **`devices['Pixel 7']` is 412×839 and
     // `devices['Desktop Chrome']` is 1280×720** — neither project can produce either gate size. A
     // screenshot taken at 412 px and filed against a 390 px criterion is 22 px off, which is

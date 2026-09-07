@@ -2,7 +2,7 @@
  * The two viewports the quality gates are written against, and the reason they are declared here
  * rather than taken from Playwright's device registry.
  *
- * `docs/overnight-run-plan.md` §8a Q1 names **390×844 and 1440×900**, and six package exit criteria
+ * `docs/archive/overnight-run-plan.md` §8a Q1 names **390×844 and 1440×900**, and six package exit criteria
  * repeat those numbers (W1-1's zero state, W3-2's row↔pin coupling, and so on). Playwright's
  * built-in profiles do not produce either: measured at commit 55698ae with
  * `require('@playwright/test').devices`, **`Pixel 7` is 412×839** and **`Desktop Chrome` is

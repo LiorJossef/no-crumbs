@@ -11,7 +11,7 @@
  *
  * ## The one hard constraint
  *
- * `docs/ux-two-removals-one-screen.md`: the library's bulk removal is the **irreversible delete**
+ * `docs/archive/ux-two-removals-one-screen.md`: the library's bulk removal is the **irreversible delete**
  * and the collection's is the **reversible unlink**, and one control may never be both. Every
  * divergence from `components/collections/collection-content.tsx`'s selection mode is deliberate
  * and is tabulated in `bulk-delete.ts`'s header. The structural ones live here:

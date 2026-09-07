@@ -2,17 +2,17 @@
 
 > **CURRENT to 2026-09-02.** The UI-density session ran that day and added **21 commits** to
 > `no-crumbs-implementation`; its record is
-> [`handoff-2026-09-02-ui-density.md`](handoff-2026-09-02-ui-density.md) and the decisions behind it
-> are [`feedback-round-3-work-plan.md`](feedback-round-3-work-plan.md) §5.1. **Read the handoff
+> [`archive/handoff-2026-09-02-ui-density.md`](archive/handoff-2026-09-02-ui-density.md) and the decisions behind it
+> are [`archive/feedback-round-3-work-plan.md`](archive/feedback-round-3-work-plan.md) §5.1. **Read the handoff
 > before acting on anything below** — it carries the nine inherited test failures, the two features
 > committed but not verified in a browser, and what must not be restarted from scratch.
 >
 > The layer beneath was verified on **2026-08-31**, after the overnight facelift-and-growth run
-> ([`overnight-run-report.md`](overnight-run-report.md), ledger
-> [`overnight-run-ledger.md`](overnight-run-ledger.md)). The branch is `no-crumbs-implementation` and
+> ([`archive/overnight-run-report.md`](archive/overnight-run-report.md), ledger
+> [`archive/overnight-run-ledger.md`](archive/overnight-run-ledger.md)). The branch is `no-crumbs-implementation` and
 > is **still not merged** — but no longer for the reason this file used to give: **item 0's "the
 > runner cannot start" is STALE.** Runners work; CI was red for two small, real reasons, both since
-> fixed, and the owner has since taken CI out of scope entirely (`feedback-round-3-work-plan.md`
+> fixed, and the owner has since taken CI out of scope entirely (`archive/feedback-round-3-work-plan.md`
 > Lane 0). What blocks the merge now is simply that PR #109 has not been landed.
 >
 > Earlier state was verified on **2026-08-30**. If it is wrong, that is a defect — fix it in the same branch as the change that
@@ -20,11 +20,11 @@
 >
 > This file used to be 1,241 lines of stacked session notes, and its first section warned about
 > unpushed commits that had landed and a production outage that was over. That history is now
-> [`history-2026-08.md`](history-2026-08.md); it is dated and is not maintained. Read
+> [`archive/history-2026-08.md`](archive/history-2026-08.md); it is dated and is not maintained. Read
 > [`README.md`](README.md) for what else in `docs/` can be trusted.
 >
 > **Other documents cite section numbers this file no longer has** (`§0.1b`, `§5.1`, `§9.1`, `§9.3`
-> and so on). Those all resolve in `history-2026-08.md`, which kept the old numbering.
+> and so on). Those all resolve in `archive/history-2026-08.md`, which kept the old numbering.
 
 ## Where the product is
 
@@ -156,7 +156,7 @@ registering it fails a test rather than quietly resizing something months later.
   triggers, mobile should not use a floating popup at all, tags is not on the shadcn Combobox
   (`2386f46`), the active trigger has no hover, sort hit-tests 32 px against a 44 px floor, and
   close-on-select was never built. **Ten owner rulings now exist for it** in
-  `feedback-round-3-work-plan.md` §5.1 — the lane churned because this product has **no menu or
+  `archive/feedback-round-3-work-plan.md` §5.1 — the lane churned because this product has **no menu or
   dropdown specification**, so give the next attempt those rulings and write
   `docs/ux-menus-and-dropdowns.md` before restarting.
 - **`4bc04d0` — wave 1's two orphaned features**, every TikTok source on a place card and
@@ -168,7 +168,7 @@ registering it fails a test rather than quietly resizing something months later.
 
 0z. **The three items with no slack, and none of them is a UI problem.** Submission is **6 September
    2026**. (a) The **10–15 minute presentation deck** does not exist —
-   `presentation-outline.md` is 207 lines of outline, it is graded, it competes with no other lane
+   `archive/presentation-outline.md` is 207 lines of outline, it is graded, it competes with no other lane
    for files, and it cannot be rescued in an hour on the day. (b) **PR #109 has not landed**, so 21
    commits of 2026-09-02's work and everything before it reach no user. (c) The **local database is
    13 migrations behind disk**, which blocks the geography backfill and invalidates local
@@ -196,7 +196,7 @@ registering it fails a test rather than quietly resizing something months later.
    that never began. `#101` and `#102` merged regardless, which means the `merge:pr` gate was
    **bypassed rather than passed**; do not assume anything on `main` is verified by CI.
 1. ~~**`L1-F8-T1`**~~ — **BUILT on `no-crumbs-implementation`, 2026-08-31** (`642cab0`), to a ruling
-   written before the code existed ([`overnight-deletion-review.md`](overnight-deletion-review.md)).
+   written before the code existed ([`archive/overnight-deletion-review.md`](archive/overnight-deletion-review.md)).
    The trap was real and is worse than recorded: **no role reachable from this application can write
    `collections.owner_id` at all** — `0024` grants `authenticated` update on `(name, description)`
    only, revokes everything on those tables from `service_role` and never grants it back, and adds a
@@ -275,7 +275,7 @@ transcript.
    works when two TikToks land on one row, so what is left is a visible but survivable duplication.
    **This is a deferral, not a cancellation** — it is the largest known data defect in the library.
 3. **The share panel keeps its `What people can see` disclosure**, against
-   `ux-card-and-share-2026-09-03.md` §S4, which wanted all three privacy sentences unconditional.
+   `archive/ux-card-and-share-2026-09-03.md` §S4, which wanted all three privacy sentences unconditional.
    3.1 took the panel from 551 to 436 px and 66 to 29 words and that was the point. §S4 is amended
    by this ruling, not violated. The sentence governing whether you share at all still renders
    unconditionally.

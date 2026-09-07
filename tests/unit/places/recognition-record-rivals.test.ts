@@ -1,7 +1,7 @@
 /**
  * HARNESS-RIVAL-1 — the measurement capability guard.
  *
- * `docs/handoff-2026-08-28-resolution-confidence.md` §4.3 records a defect that is not a bug in any
+ * `docs/archive/handoff-2026-08-28-resolution-confidence.md` §4.3 records a defect that is not a bug in any
  * shipped function: the branch guard was measured entirely on the 44-case Overture golden file
  * because the **Google** run record stored coordinates for the top-1 row and a formatted string
  * (`"むぎとオリーブ (0.926)"`) for its runner-ups. The guard's whole question is how far apart the

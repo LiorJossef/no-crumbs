@@ -3,7 +3,7 @@
  *
  * The interesting assertion here is a negative one and it is the reason this file exists: the
  * column is `visit_state`, its values are `want_to_go` and `visited`, and none of those may ever
- * reach a user (`docs/product-ruling-after-the-save.md` §6, `brand-and-product-foundation.md` §4
+ * reach a user (`docs/archive/product-ruling-after-the-save.md` §6, `brand-and-product-foundation.md` §4
  * rule 2). Every string the feature can render is produced by one module, so that rule is checkable
  * by machine rather than by remembering to look.
  */

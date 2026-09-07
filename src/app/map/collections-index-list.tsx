@@ -10,7 +10,7 @@
  * why the index and a collection are one route segment with a search param between them.
  *
  * Rows with hairline dividers rather than a card each — a bordered box per collection is card soup
- * at four collections, and `docs/ux-collections.md` §1.1 rules it out for that reason. The create
+ * at four collections, and `docs/archive/ux-collections.md` §1.1 rules it out for that reason. The create
  * control is a full-width row in the list rather than a button under it, and it opens a one-field
  * composer in place rather than navigating or opening a dialog: a dialog for a single text input
  * costs a focus trap, an escape handler and a backdrop in exchange for nothing.

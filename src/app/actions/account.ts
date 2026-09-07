@@ -10,7 +10,7 @@ import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 /**
  * Delete this account and everything the schema says belongs to it (`L1-F8-T1`).
  *
- * Built to `docs/overnight-deletion-review.md`, a binding ruling from `security-privacy` written
+ * Built to `docs/archive/overnight-deletion-review.md`, a binding ruling from `security-privacy` written
  * before this file existed. Read §2 and §3 before changing anything here; the design is theirs and
  * the parts that look like belt-and-braces are not.
  *

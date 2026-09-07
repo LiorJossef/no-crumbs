@@ -1,6 +1,6 @@
 /**
  * The **query rect** — what "in the viewport" means, as pure geometry
- * (`docs/ux-map-is-the-query.md` §1, `L1-F5-T2c`).
+ * (`docs/archive/ux-map-is-the-query.md` §1, `L1-F5-T2c`).
  *
  * Extracted out of `map-surface.mapcn.tsx` so it can be tested without a canvas or a browser: that
  * file transitively imports `server-only` (through `PlaceDetail` → the saved-place server actions),
@@ -74,7 +74,7 @@ export function safeAreaInsetBottomPx(): number {
 }
 
 /**
- * **The one constant with two consumers** (`docs/ux-map-is-the-query.md` §1 rule 3): the chrome that
+ * **The one constant with two consumers** (`docs/archive/ux-map-is-the-query.md` §1 rule 3): the chrome that
  * permanently covers the map at rest, in canvas pixels. `fitBoundsPadding` frames *around* it and
  * the query rect is inset *by* it; if those two ever disagree, a camera move lands places on screen
  * that the list does not contain, or lists places the camera pushed under the sheet.

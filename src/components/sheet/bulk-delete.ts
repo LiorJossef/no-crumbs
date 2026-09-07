@@ -1,7 +1,7 @@
 /**
  * The words the library's bulk delete uses, and the one rule they exist to hold.
  *
- * `docs/ux-two-removals-one-screen.md` defines **two distinct removals** and they must never be
+ * `docs/archive/ux-two-removals-one-screen.md` defines **two distinct removals** and they must never be
  * reachable from one control:
  *
  * | control | writes | reversible |

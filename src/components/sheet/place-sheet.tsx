@@ -2379,7 +2379,7 @@ export function PlaceDetail({
    *
    * Omitted, no glyph is drawn at all: an affordance that expresses an intent nothing acts on is
    * worse than none. Supplied, a small button appears on the source still and this is what a press
-   * calls. It mounts nothing. `docs/security-ruling-embed-playback-2026-08-31.md` §6 permits the
+   * calls. It mounts nothing. `docs/archive/security-ruling-embed-playback-2026-08-31.md` §6 permits the
    * TikTok embed only behind a first-press gate offering *play here* and *open on TikTok instead*
    * as two co-equal actions persisted per browser, and that gate belongs to whoever supplies this
    * handler — not to the button that calls it. See `SourceMediaThumbnail`'s header.
@@ -2732,7 +2732,7 @@ export function PlaceDetail({
 
                 **Still load-bearing with the rename pencil gone** (removed 2026-09-02,
                 `saved-place-edits.tsx` carries the reasoning). The RTL audit
-                (`docs/rtl-audit-2026-08-31.md` findings 2 and 4) measured this rule against the
+                (`docs/archive/rtl-audit-2026-08-31.md` findings 2 and 4) measured this rule against the
                 pencil as the fixed chrome beside the name; the close × in the same row is that
                 chrome now, and `קפה קיוסק Rothschild` still has to reorder inside the heading
                 without dragging the identity block's alignment with it. */}
@@ -2807,7 +2807,7 @@ export function PlaceDetail({
               previously resolved the whole flex row's direction from the address, which for a
               Hebrew address flipped the row to `rtl` and dragged the pin icon — fixed chrome — from
               the left edge to the right. Same failure the heading's own comment above already names;
-              same fix (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 2). */}
+              same fix (rtl audit, `docs/archive/rtl-audit-2026-08-31.md` finding 2). */}
           {/* **The approximate mark is a label beside the address, not a sentence under the card.**
               It used to be `Approximate location — Worked out from the video rather than matched to a
               map listing, so it can be a street or two off.`, two lines of our own machinery filed
@@ -2869,7 +2869,7 @@ export function PlaceDetail({
               the reason being unreachable behind the controls was a bigger one.
 
               **One primary and two quieter links, not three pills** (2026-09-03,
-              `docs/ux-card-and-share-2026-09-03.md` and its owner ruling). All three used to share
+              `docs/archive/ux-card-and-share-2026-09-03.md` and its owner ruling). All three used to share
               `DETAIL_ACTION_PILL`: same height, border, radius and `font-bold`, so two controls
               that *leave* the product carried the weight of the one write the product wants a
               returning user to make. Three co-equal primaries is none, and that is the mechanism
@@ -3006,7 +3006,7 @@ export function PlaceDetail({
                 here reasons about direction on purpose; it falls out of picking mirrored glyphs over
                 straight ones. Swap either entity for a plain `"` (not mirrored) and this silently goes
                 back to wrong with no visual signal in an LTR-only review (rtl audit,
-                `docs/rtl-audit-2026-08-31.md` finding 3). */}
+                `docs/archive/rtl-audit-2026-08-31.md` finding 3). */}
             {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
                 weight, and only when it says something the quote and the tags do not.
 
@@ -3347,7 +3347,7 @@ export function PlaceDetail({
  *
  * ## The seam for playback — a callback and a slot, and deliberately nothing else
  *
- * `docs/security-ruling-embed-playback-2026-08-31.md` §6 permits the TikTok embed **only** behind a
+ * `docs/archive/security-ruling-embed-playback-2026-08-31.md` §6 permits the TikTok embed **only** behind a
  * first-press gate that offers *play here* and *open on TikTok instead* as two co-equal actions,
  * persisted per browser. That gate, and the iframe behind it, are another lane's. This component
  * owns the affordance and the space the player will occupy, and nothing further: **no iframe, no

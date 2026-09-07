@@ -1,7 +1,7 @@
 -- 0034_note_first_writer_wins.sql — the sentence the user wrote survives the second import.
 --
 -- Task `r2-note-loss`. A live data-loss defect, armed this afternoon by `80c5bc1`. The ruling that
--- governs this file is `docs/db-ruling-note-precedence-2026-08-31.md`; where the two differ, the
+-- governs this file is `docs/archive/db-ruling-note-precedence-2026-08-31.md`; where the two differ, the
 -- ruling wins.
 --
 -- ═══ THE DEFECT, IN ONE LINE ══════════════════════════════════════════════════════════════════

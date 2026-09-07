@@ -1,15 +1,15 @@
 /**
  * The review card shows the tags the save is about to write — task `r3-tags-ui`, finding 2 of
- * `docs/product-review-2026-08-31-r3.md`.
+ * `docs/archive/product-review-2026-08-31-r3.md`.
  *
  * **The ruling these guards protect is "show them, do not ask."** Every other fact on this card is
  * *stated* — the category, the address, the resolved name, where the pin came from — and pressing
  * Save is what confirms them. Tags were the one fact that was neither stated nor confirmable: they
  * were written on every import and rendered on no screen until the place was already on the map,
- * which is precisely the unconfirmed assertion `docs/product-edge-2026-08-31.md` says this product
+ * which is precisely the unconfirmed assertion `docs/archive/product-edge-2026-08-31.md` says this product
  * exists not to make. Showing them raises tags to the screen's existing standard rather than
  * inventing a second, higher one for a single field on the surface
- * `docs/ui-review-2026-08-31.md` finding 11 already measures as the least responsive in the product.
+ * `docs/archive/ui-review-2026-08-31.md` finding 11 already measures as the least responsive in the product.
  *
  * **That ruling is what licenses the database write**, and this is why these are not cosmetic
  * guards. `api/imports/confirm/route.ts` stamps `saved_places.tags_confirmed_at` — a record that

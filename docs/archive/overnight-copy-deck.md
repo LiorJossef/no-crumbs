@@ -9,13 +9,13 @@
 > that have no final copy. Without this, a build agent invents copy at 3am and the product acquires
 > its second voice. Nobody else writes to this file.
 >
-> **What it is not.** It is not a replacement for [`ux-architecture.md`](ux-architecture.md) §12,
+> **What it is not.** It is not a replacement for [`ux-architecture.md`](../ux-architecture.md) §12,
 > which is still the copy deck of record. This is the **pre-written batch** for tonight's packages,
 > plus the correction list §12 is owed. When the run lands, these rows are merged into §12 and this
 > document is retired.
 >
-> **Precedence.** [`voice-and-vocabulary.md`](voice-and-vocabulary.md) governs every string here and
-> wins over anything below. [`spec-no-places-found.md`](spec-no-places-found.md) is authoritative for
+> **Precedence.** [`voice-and-vocabulary.md`](../voice-and-vocabulary.md) governs every string here and
+> wins over anything below. [`spec-no-places-found.md`](../spec-no-places-found.md) is authoritative for
 > its own screen and this document does not touch its strings. Where a string already ships and is
 > right, I say so and change nothing — most of §7 and all of §8 are that.
 >
@@ -58,7 +58,7 @@ mine to assign; they are how the deck and the code stay pinned to each other aft
 from `voice-and-vocabulary.md` §3, exactly"*. **There are no three strings in that §3** — §3 is the
 vocabulary table (*place* / *your map* / *a TikTok* …) and contains no title, no template and no
 description. §2 is the six permitted surfaces, also not strings.
-[`brand-and-product-foundation.md`](brand-and-product-foundation.md) §3 is the name decision and
+[`brand-and-product-foundation.md`](../brand-and-product-foundation.md) §3 is the name decision and
 carries no metadata strings either. So the three strings did not exist and could not be quoted.
 **They are written here, and this section is now what W4-1 builds against.**
 

@@ -226,7 +226,7 @@ notifications, activity log, import history. A finished import has no artifact o
 output is pins.
 
 **Corrected 2026-08-30:** three names left that list by owner ruling and are now shipped —
-**collections** and **sharing a collection by invite** (`ux-collections.md`, migrations `0024`–`0026`)
+**collections** and **sharing a collection by invite** (`archive/ux-collections.md`, migrations `0024`–`0026`)
 and **`/profile`**, which also holds sign-out. The refusals that still bind are the rest of the list,
 plus Charter §1's: no public profiles, no follower graph, no discovery feed.
 

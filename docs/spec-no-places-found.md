@@ -16,7 +16,7 @@
 > Binding inputs, in precedence order where they conflict: `00-project-charter.md` §4 (scope), §6
 > (quality bar and the banned aesthetic) · `working-agreement.md` §2 (done) ·
 > `brand-and-product-foundation.md` §4 (tone), §5 (visual) · `ux-architecture.md` §5.3 (F10), §8
-> (S8), §11 (a11y), §12.4 (copy deck) · `ux-import-review-screen.md` (the sibling surface, whose
+> (S8), §11 (a11y), §12.4 (copy deck) · `archive/ux-import-review-screen.md` (the sibling surface, whose
 > language this one inherits) · owner rulings in `current-state.md` §0.2.4 and
 > `product-backlog-2026-08-29.md` §16.
 >
@@ -250,7 +250,7 @@ Three reasons, all mechanical:
 
 **[JUDGEMENT]** On the review screen the caption is *evidence on demand* and collapsing it was right:
 the candidates are the content, and 1,000 characters of promo copy pushed them below the fold
-(`ux-import-review-screen.md` §1.1). **On this screen there are no candidates, so the caption is the
+(`archive/ux-import-review-screen.md` §1.1). **On this screen there are no candidates, so the caption is the
 only content there is.** Collapsing it produces a screen that says "nothing here" twice — once in the
 headline and once in the empty space below it.
 
@@ -281,7 +281,7 @@ Fallback chain for the label: `@{authorHandle}'s TikTok video` → `{authorName}
 `This TikTok video`. All three are 44px, mint, with a trailing `↗`.
 
 > **Amended 2026-08-31** by the TikTok noun→adjective pass
-> ([`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md)). If the long form truncates at
+> ([`archive/tiktok-copy-pass-2026-08-31.md`](archive/tiktok-copy-pass-2026-08-31.md)). If the long form truncates at
 > 320px in this 48px row, the fallback is `@handle on TikTok` — **for all three arms together, never
 > a mix.** Two labels for one attribution is worse than either label. Attribution is unaffected
 > either way: the handle, the platform and the link back all survive both forms.
@@ -823,7 +823,7 @@ the result row that was tapped.
   region that is always mounted (a live region created in the same commit as its first message is not
   reliably announced — the pattern already used at line 768).
 - **Each result button has a distinct accessible name**: `{name}, {address}`. Five buttons all
-  reading "Add" is the exact defect `ux-import-review-screen.md` §1.7 found on the sibling surface.
+  reading "Add" is the exact defect `archive/ux-import-review-screen.md` §1.7 found on the sibling surface.
 - The scope chip's remove button: `aria-label="Search everywhere instead"`, never a bare "✕".
 
 ### 8.3 Targets, spacing and contrast
@@ -881,7 +881,7 @@ Three differences, all mechanical:
 
 1. **The footer must never scroll away.** The card is `flex flex-col`; the caption/results region is
    the only `overflow-y-auto` with `min-h-0`; the add-by-name block and the secondary action are
-   `shrink-0`. This is the exact defect `ux-import-review-screen.md` §1.8 found on the sibling card
+   `shrink-0`. This is the exact defect `archive/ux-import-review-screen.md` §1.8 found on the sibling card
    and it will recur here if the card keeps `lg:overflow-y-auto` on itself.
 2. **The caption panel may be taller** — cap at ~240px on `lg`, since there is no keyboard competing
    for the viewport.
@@ -1036,7 +1036,7 @@ pass/fail.
 | `ux-architecture` §12.4 C70 | One sentence | Split into two; the second is C70's disclosure verbatim | The disclosure is the load-bearing half and reads stronger standing alone |
 | Live copy (`import-page-client.tsx:1616`) | `That happens a lot.` | Deleted | Two normalising sentences is one too many, and this is the one that edges toward defending the hit rate, which the owner ruling in `current-state` §0.2.4 forbids |
 | `ux-architecture` §8 | Manual add is a route (S8 `/add-place`) reached from failure screens | The search is **embedded on this screen** | A route loses `sourceId`, and the product's "which TikTok made me save this?" question would get "none" for a place the user found in a TikTok. Embedding also makes it zero taps to reach instead of one |
-| `ux-import-review-screen.md` | Caption collapsed by default | **Expanded by default here** | On that screen the candidates are the content; here there are none, so the caption *is* the content. §4.2 |
+| `archive/ux-import-review-screen.md` | Caption collapsed by default | **Expanded by default here** | On that screen the candidates are the content; here there are none, so the caption *is* the content. §4.2 |
 | `ux-architecture` §5.3 / §12.4 C71 | Actions include `Add a place you know` unconditionally | Gated on the capability existing | `import-error-copy.ts`'s existing rule: a recovery only ever points somewhere that works |
 | `ux-architecture` §5.1 | *"Nowhere on this screen, or behind any disclosure on it, is there a field for post text."* | A one-line field, behind a disclosure, for **what the user remembers** | The ratified noun is *post text*, and the ban exists to stop the product asking the user to do the acquisition it promised to do — *"paste the caption instead"*. This field asks for the opposite: the thing the post does **not** contain, from the one person who has it. §4.5.4 lists the four mechanical properties that keep it there (one line, 500 characters, a personal-sentence placeholder, and no string inviting the post's own words), and `note-extractor-2026-09-01.md` is why it is worth arguing at all — it is the only mechanism in the design that reaches a post whose name is withheld in the caption *and* in the audio. **[JUDGEMENT] — flagged for overrule.** If it is overruled the field comes out; nothing else in this spec depends on it |
 | This spec §11.7 | *"No button, link, or gesture re-runs the same URL."* | No affordance re-runs a read whose **inputs have not changed** | The stated reason for the original — a retry returns the same nothing — is a claim about *identical inputs*, and it is enforced mechanically rather than relaxed (§6.9.1). Measured: 1 of 5 posts yielding a candidate became 3 of 5 with a sentence added |
@@ -1095,4 +1095,4 @@ Each of these was considered and is **not** in the spec above.
 |---|---|
 | 2026-08-30 | Created for L2-NOPLACES-1. Decided: four cases (A no caption / B nothing named / C area only / D routed away) with the B-vs-C distinction surfaced **as behaviour, not as a label** and only for the one drop reason that is reliable and changes what we can offer; the caption **expanded by default** because it is the only content on the screen and the evidence for our own claim; an **embedded** place-name search in the thumb zone as the primary action, never autofocused, **one lookup per submit**, linked to the source TikTok and carrying no caption-derived provenance; two variants so the screen ships today without S8 and gains it as a props change; `Try another TikTok` **clearing the link**, which today it does not; a single `Open the TikTok` affordance in the source row; and a full reduced-motion equivalent including a text pending state. Three product judgements flagged for overrule: the search as primary over `Try another TikTok`, the caption expanded by default, and the use of the word "caption" against `execution-plan` L1-F4-T1's exit criterion. *(The two labels in this row are quoted as they stood on 2026-08-30. Both moved in the 2026-08-31 pass below — a change log records what was decided, so it is not rewritten when a string later changes.)* |
 | 2026-09-01 | **The recall field** (§4.5, §5.5, §6.9, criteria 32–41). Decided: a **second** one-line field on this screen, for the sentence a person who watched the video can write and a search box cannot take, **revealed rather than open** so §4.4's "one field" becomes two only on a deliberate tap and never a form; **under** the name search, because a person who has the name outright is better served by an exact provider result with no model in the path; **full width with its button beneath it**, because a word fits beside a button and a sentence does not (measured: the shared row cut the example placeholder mid-word at 390px); **one read per submit**, sharing `inFlightProbe`; **no rail** and **no `setScreen` when nothing comes back**, so the screen never resets itself under someone who just typed into it; and copy that names the **act** and never the object, because `note` is already spent on the review screen's own field two steps down the same flow. §11.7 is **amended, not broken** — the rule becomes "no affordance may re-run a read whose inputs have not changed", enforced by a disabled submit rather than asserted. Two judgements flagged for overrule in §12: the field against `ux-architecture` §5.1's post-text ban, and the §11.7 amendment itself. **Recorded against the build: the field is inert against the live route** until `readNote` is hoisted off the cache-miss arm (§6.9.5, §14) |
-| 2026-08-31 | **TikTok noun→adjective pass** ([`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md)), landed here because this spec is authoritative for its screen and a spec that does not move disagrees with the code from the first commit. Changed: §5.1 cases A and B (`Some TikToks…` → `Some TikTok videos…`); §5.2's provenance line (`…to this TikTok.` → `…to this TikTok video.`); §5.3's forward action (`Try another TikTok` → `Try another TikTok link`) and every reference to it in §4, §6, §8 and §11; §4.3's whole fallback chain (`@{authorHandle}'s TikTok` → `@{authorHandle}'s TikTok video`, and the two arms below it), with `@handle on TikTok` recorded as the **all-three-or-none** width fallback; §8.1's caption `aria-label`; and §12's deviation row, where the label is now `Open on TikTok` because the pass collapsed the product's three names for that one action into one. **Nothing else moved** — the H1s, the kickers, case C, the search block and every acceptance criterion are untouched, so §7.3's "its strings do not change" still binds against everything except the noun. Engineering prose in §1, §2, §4.3, §6.8 and §13 that discusses TikTok without quoting a shipped string was **deliberately left alone**: sweeping it would be churn, and the drift this pass exists to prevent is between a quoted string and the code |
+| 2026-08-31 | **TikTok noun→adjective pass** ([`archive/tiktok-copy-pass-2026-08-31.md`](archive/tiktok-copy-pass-2026-08-31.md)), landed here because this spec is authoritative for its screen and a spec that does not move disagrees with the code from the first commit. Changed: §5.1 cases A and B (`Some TikToks…` → `Some TikTok videos…`); §5.2's provenance line (`…to this TikTok.` → `…to this TikTok video.`); §5.3's forward action (`Try another TikTok` → `Try another TikTok link`) and every reference to it in §4, §6, §8 and §11; §4.3's whole fallback chain (`@{authorHandle}'s TikTok` → `@{authorHandle}'s TikTok video`, and the two arms below it), with `@handle on TikTok` recorded as the **all-three-or-none** width fallback; §8.1's caption `aria-label`; and §12's deviation row, where the label is now `Open on TikTok` because the pass collapsed the product's three names for that one action into one. **Nothing else moved** — the H1s, the kickers, case C, the search block and every acceptance criterion are untouched, so §7.3's "its strings do not change" still binds against everything except the noun. Engineering prose in §1, §2, §4.3, §6.8 and §13 that discusses TikTok without quoting a shipped string was **deliberately left alone**: sweeping it would be churn, and the drift this pass exists to prevent is between a quoted string and the code |

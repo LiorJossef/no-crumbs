@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { blockingCollections } from '@/app/profile/_lib/blocking-collections';
 
 /**
- * `L1-F8-T1` — account deletion, built to `docs/overnight-deletion-review.md`.
+ * `L1-F8-T1` — account deletion, built to `docs/archive/overnight-deletion-review.md`.
  *
  * **What is asserted here and why it is source text.** The three things most likely to be undone by
  * a later edit are not behaviours a unit test can drive — they are properties of *how the code is
@@ -104,7 +104,7 @@ describe('the refusal', () => {
 
   it("carries the deck's strings and no others", () => {
     // The deck's §5, as the **owner shortened it on 2026-09-03** — *"too much text"* — and as
-    // `docs/overnight-copy-deck.md` was updated to say in the same commit. It is still the one
+    // `docs/archive/overnight-copy-deck.md` was updated to say in the same commit. It is still the one
     // source: what changed is which strings it holds, not that the code may write its own.
     const source = readFileSync(UI, 'utf8');
     for (const string of [

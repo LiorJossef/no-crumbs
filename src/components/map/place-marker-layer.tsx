@@ -35,7 +35,7 @@
  * ## The floor is conditional, because it is only ever paid for by a replacement
  *
  * `replacedBelowZoom` is required rather than defaulted, and it is the whole of the fix for the
- * blank collection map (`docs/handoff-2026-08-29-navigation-pages.md` §5.1). This layer used to
+ * blank collection map (`docs/archive/handoff-2026-08-29-navigation-pages.md` §5.1). This layer used to
  * apply `minzoom: PIN_BAND_MIN` unconditionally, to every `MapSurface`. On `/map` that is correct
  * — the bands take over. On `/collections/[id]`, which mounts the same surface and passes no
  * `summaries`, it deleted the pins at z<8.5 and put **nothing** in their place: the owner zoomed

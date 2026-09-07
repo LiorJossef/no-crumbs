@@ -1,7 +1,7 @@
 /**
  * `POST /api/imports/confirm` — the confirmation stamp, and the four ways it could become a lie.
  *
- * Task `r3-tags-ui`, finding 2 of `docs/product-review-2026-08-31-r3.md`. Migration `0036` split
+ * Task `r3-tags-ui`, finding 2 of `docs/archive/product-review-2026-08-31-r3.md`. Migration `0036` split
  * `saved_places.tags` into a proposal (`tags_extracted`), a vocabulary (`tags`) and a record of
  * consent (`tags_confirmed_at`), and shipped with **no caller anywhere** — which the r3 review
  * calls a worse state than an unapplied migration, because the ledger then says it is done. This

@@ -31,7 +31,7 @@ This is the cheapest item on the list and it unblocks the most.
 
 All three scopes returned `No Environment Variables found`, confirmed independently of the CLI (the
 production bundle contains no Supabase URL at all). `/map` and `/import` 500 as a direct result.
-The full checklist is `docs/vercel-env-restore.md`, **corrected this session** — it was missing four
+The full checklist is `docs/archive/vercel-env-restore.md`, **corrected this session** — it was missing four
 variables and recommended one that is obsolete:
 
 - **Add**: `PLACE_RESOLVER`, `PLACE_LOOKUP_CACHE`, `GOOGLE_PLACES_API_KEY`,

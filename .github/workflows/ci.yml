@@ -33,7 +33,7 @@ jobs:
       - run: npm run check:layers
       # Every table created in public must revoke from both browser roles: the hosted projects grant
       # ALL on new tables to anon and authenticated by default and the migration role cannot stop
-      # them, so a local `db reset` proves nothing here. See docs/ms4-database.md §2.3.
+      # them, so a local `db reset` proves nothing here. See docs/archive/ms4-database.md §2.3.
       - run: npm run check:migrations
       # These three ran only in local `npm run verify` until 2026-08-30, which meant the job named
       # "lint · typecheck · layer guard · unit" was a strict subset of the local filter it was

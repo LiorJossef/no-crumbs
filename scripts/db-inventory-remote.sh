@@ -8,7 +8,7 @@
 #
 # supabase/tests/inventory.sql opens a read-only transaction and rolls back; it is
 # the only check in this repo that may be pointed at production
-# (docs/ms4-database.md §1). The behavioural suite (0008_policy_tests.sql) must
+# (docs/archive/ms4-database.md §1). The behavioural suite (0008_policy_tests.sql) must
 # never be: it creates fixture auth.users rows (R12). There is deliberately no
 # db:test:prod script for that reason.
 #

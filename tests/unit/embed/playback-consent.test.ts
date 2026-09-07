@@ -1,6 +1,6 @@
 /**
  * **The consent gate's behaviour**, which is acceptance items 2 and 4 of
- * `docs/security-ruling-embed-playback-2026-08-31.md` §6 — the two that are about *when the
+ * `docs/archive/security-ruling-embed-playback-2026-08-31.md` §6 — the two that are about *when the
  * question is asked*, as opposed to what it says.
  *
  * The reason this is a module with a pure decision function rather than a `useState` inside the

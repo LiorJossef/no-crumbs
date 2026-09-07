@@ -1,6 +1,6 @@
 # Handoff — the parallel-streams session, integrated and landed
 
-Cold-start companion to [`current-state.md`](current-state.md), which was reconciled at the same
+Cold-start companion to [`current-state.md`](../current-state.md), which was reconciled at the same
 time and is the document to read first. This one records **what this session did**, so
 `current-state.md` does not have to.
 
@@ -198,7 +198,7 @@ Three real defects, all fixed (`1c5ea0d`, `1a5586b`):
 ## 4. Blocked on the owner
 
 Ordered, with what each unblocks, in
-[`evidence/deploy/owner-actions-before-the-batch.md`](evidence/deploy/owner-actions-before-the-batch.md).
+[`evidence/deploy/owner-actions-before-the-batch.md`](../evidence/deploy/owner-actions-before-the-batch.md).
 
 1. **`PROD_DATABASE_URL` is empty in `.env.local`** (line 50; `STAGING_DATABASE_URL` beside it is
    set). Blocks the production push — `db-push.sh` calls `require_db_url` before writing anything —

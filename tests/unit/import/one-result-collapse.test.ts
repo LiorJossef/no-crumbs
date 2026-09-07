@@ -19,7 +19,7 @@ import {
 } from './import-client-source';
 
 /**
- * The review screen's single-confident-result collapse (`docs/ux-import-flatten.md` §3), and the
+ * The review screen's single-confident-result collapse (`docs/archive/ux-import-flatten.md` §3), and the
  * one thing it must never become.
  *
  * The collapse deletes the tickbox, the chip and the card around a candidate. Everything it

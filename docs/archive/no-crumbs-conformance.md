@@ -1,7 +1,7 @@
 # No Crumbs — design-system conformance audit
 
 > **What this is.** A section-by-section audit of what ships in `src/` against
-> [`no-crumbs-design-system.html`](no-crumbs-design-system.html), the rendered specification —
+> [`no-crumbs-design-system.html`](../no-crumbs-design-system.html), the rendered specification —
 > 3,839 lines, six chapters, twenty-seven sections. It was written on 2026-08-30 and its own footer
 > says *"Nothing here is implemented."* Two iterations have been built beside it and nobody had read
 > it end to end until this pass.

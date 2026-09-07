@@ -21,7 +21,7 @@ Owner ruling, **2026-08-28** (overnight session):
    transcription, other product/UX improvements.
 
 The evidence the owner ruled on is
-[`evidence/places/google-places-and-transcription-probe-2026-08-28.md`](evidence/places/google-places-and-transcription-probe-2026-08-28.md).
+[`evidence/places/google-places-and-transcription-probe-2026-08-28.md`](../evidence/places/google-places-and-transcription-probe-2026-08-28.md).
 
 ---
 
@@ -46,8 +46,8 @@ All merged through `npm run merge:pr` with CI green; `main` verified after each.
 
 Same 13 real owner-supplied TikToks, same oEmbed → caption → extraction → resolve path, same
 scorer, one run per provider. Records:
-[`evidence/places/tiktok-recognition.md`](evidence/places/tiktok-recognition.md) (Overture) and
-[`evidence/places/tiktok-recognition.google.md`](evidence/places/tiktok-recognition.google.md).
+[`evidence/places/tiktok-recognition.md`](../evidence/places/tiktok-recognition.md) (Overture) and
+[`evidence/places/tiktok-recognition.google.md`](../evidence/places/tiktok-recognition.google.md).
 
 |                    | Overture `poi_index` | **Google Places** |
 |--------------------|----------------------|-------------------|
@@ -140,7 +140,7 @@ where one row means our cheap filter matched one thing. It is wrong for a global
 one result means the index holds one place under that name near that city.
 
 **Read this before touching bands again.**
-[`evidence/places/band-policy.md`](evidence/places/band-policy.md) records a band change that was
+[`evidence/places/band-policy.md`](../evidence/places/band-policy.md) records a band change that was
 **tried and refuted** — a second path into `preselect` at `score ≥ 0.85 && margin ≥ 0.05`, which
 produced a false auto-accept on golden case `TLV-14` (`Bar 51` → `Hostel 51`, score 0.9000, margin
 0.0952).

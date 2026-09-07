@@ -311,7 +311,7 @@ grant select, insert, update, delete on public.poi_index   to service_role;
 **[implementation] "`service_role` bypasses RLS" is not a substitute for a table privilege, and this
 nearly bit.** Measured: without those grants, `service_role` reaches both tables *only* through the
 `supabase_admin`-owned `ALTER DEFAULT PRIVILEGES` — the same legacy auto-grant `0008` exists to
-neutralise for the browser roles, and which `ms4-database.md` records as deprecated and removed on
+neutralise for the browser roles, and which `archive/ms4-database.md` records as deprecated and removed on
 2026-10-30. BYPASSRLS skips the *policy* check, not the *privilege* check. Every other table would
 merely lose a redundant privilege when that default disappears; these two have exactly one reader and
 one writer and would lose all access — in the import path, on a hosted project, at run time.

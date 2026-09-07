@@ -41,7 +41,7 @@ every state named, every transition described — not a component.
 - Avoid the banned aesthetic in Charter §6 (generic dashboards, giant gradients, glassmorphism,
   glow, card soup, template SaaS). Restraint, space and typography carry the premium feel.
 - Motion must communicate something (progress, origin, spatial relationship) or be deleted.
-- Write the spec to `docs/` as a durable artefact — `docs/ux-import-review-screen.md` is the
+- Write the spec to `docs/` as a durable artefact — `docs/archive/ux-import-review-screen.md` is the
   pattern. A spec that exists only in a chat reply cannot be built against twice.
 - Expect pushback from `design-system-frontend` on frame cost and from `product-lead` on scope.
   Revise rather than defend.
